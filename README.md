@@ -31,7 +31,7 @@ The `xattr` step is needed because Wisp isn't signed with an Apple Developer ID 
 ## Features
 
 - **⌥Space** to summon from anywhere (rebindable)
-- **Light / dark** theme toggle
+- **Light / dark / system** appearance — one-click cycle, follows macOS by default
 - **Six fonts** to pick from (Charter, Iowan Old Style, Hoefler Text, Palatino, Optima, Avenir Next)
 - **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
 - **Headings** — `#`, `##`, `###` render styled with click-to-jump navigation

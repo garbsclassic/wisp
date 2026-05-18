@@ -75,9 +75,20 @@ final class EditorModel: ObservableObject {
             UserDefaults.standard.set(fontFace.rawValue, forKey: "FontFace")
         }
     }
-    @Published var theme: Theme = .dark {
+    /// User-facing choice: light, dark, or follow-system. Persisted.
+    @Published var themePreference: ThemePreference = .system {
         didSet {
-            UserDefaults.standard.set(theme.rawValue, forKey: "Theme")
+            guard didLoad else { return }
+            UserDefaults.standard.set(themePreference.rawValue, forKey: "Theme")
+            theme = themePreference.resolve()
+        }
+    }
+
+    /// Resolved theme actually used for rendering. Driven by
+    /// themePreference, or — when preference is .system — by the OS
+    /// appearance via the KVO observer below.
+    @Published private(set) var theme: Theme = .dark {
+        didSet {
             onThemeChange?(theme)
         }
     }
@@ -86,6 +97,11 @@ final class EditorModel: ObservableObject {
     /// (visualEffect material, tint color, panel appearance) when the
     /// theme flips. SwiftUI handles its own re-render via @Published.
     var onThemeChange: (@MainActor (Theme) -> Void)?
+
+    /// KVO observer that re-resolves the theme when the OS switches
+    /// between Light and Dark while the user is on .system. Held strong
+    /// so the observation stays alive for the model's lifetime.
+    private var appearanceObservation: NSKeyValueObservation?
 
     private var didLoad = false
     private var saveTask: Task<Void, Never>?
@@ -101,8 +117,15 @@ final class EditorModel: ObservableObject {
 
     init() {
         if let saved = UserDefaults.standard.string(forKey: "Theme"),
-           let t = Theme(rawValue: saved) {
-            theme = t
+           let pref = ThemePreference(rawValue: saved) {
+            themePreference = pref
+        }
+        theme = themePreference.resolve()
+        appearanceObservation = NSApplication.shared.observe(
+            \.effectiveAppearance,
+            options: [.new]
+        ) { [weak self] _, _ in
+            Task { @MainActor in self?.systemAppearanceMaybeChanged() }
         }
         if let saved = UserDefaults.standard.string(forKey: "FontSize"),
            let f = FontSize(rawValue: saved) {
@@ -169,9 +192,15 @@ final class EditorModel: ObservableObject {
         requestFocus()
     }
 
-    func toggleTheme() {
-        theme = theme.toggled
+    func cycleTheme() {
+        themePreference = themePreference.next
         requestFocus()
+    }
+
+    private func systemAppearanceMaybeChanged() {
+        guard themePreference == .system else { return }
+        let resolved = themePreference.resolve()
+        if resolved != theme { theme = resolved }
     }
 
     func jumpTo(_ heading: Heading) {
@@ -256,8 +285,8 @@ struct EditorView: View {
                     wordCount: wordCount,
                     fontSize: model.fontSize,
                     onCycleFontSize: { model.cycleFontSize() },
-                    theme: model.theme,
-                    onToggleTheme: { model.toggleTheme() },
+                    themePreference: model.themePreference,
+                    onCycleTheme: { model.cycleTheme() },
                     updateState: updater.state,
                     onUpdateClick: { updater.handleClick() },
                     onHelpClick: {
