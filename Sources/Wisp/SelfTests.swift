@@ -197,10 +197,23 @@ enum SelfTests {
 
         // MARK: - Theme
 
-        check("Theme.dark toggles to light",  Theme.dark.toggled == .light)
-        check("Theme.light toggles to dark",  Theme.light.toggled == .dark)
         check("Theme.dark.rawValue",  Theme.dark.rawValue == "dark")
         check("Theme.light.rawValue", Theme.light.rawValue == "light")
+
+        check("ThemePreference.light.next is dark",
+              ThemePreference.light.next == .dark)
+        check("ThemePreference.dark.next is system",
+              ThemePreference.dark.next == .system)
+        check("ThemePreference.system.next is light",
+              ThemePreference.system.next == .light)
+        // Raw values stay compatible with the pre-system-mode storage
+        // format so existing "Theme" defaults still load.
+        check("ThemePreference.light.rawValue",
+              ThemePreference.light.rawValue == "light")
+        check("ThemePreference.dark.rawValue",
+              ThemePreference.dark.rawValue == "dark")
+        check("ThemePreference.system.rawValue",
+              ThemePreference.system.rawValue == "system")
 
         // MARK: - LaunchAtLogin
         // Smoke-only: SMAppService talks to a system daemon and `swift

@@ -3,9 +3,35 @@ import AppKit
 enum Theme: String, CaseIterable {
     case dark
     case light
+}
 
-    var toggled: Theme {
-        self == .dark ? .light : .dark
+/// User-facing appearance preference. Persisted in UserDefaults under
+/// the "Theme" key. Raw values "light"/"dark" are deliberately the same
+/// as Theme's so a stored value from the pre-system-mode era still
+/// loads correctly. `.system` resolves at runtime against
+/// NSApp.effectiveAppearance.
+enum ThemePreference: String, CaseIterable {
+    case light
+    case dark
+    case system
+
+    /// One-click cycle wired into the BottomBar button.
+    var next: ThemePreference {
+        switch self {
+        case .light: return .dark
+        case .dark: return .system
+        case .system: return .light
+        }
+    }
+
+    @MainActor func resolve() -> Theme {
+        switch self {
+        case .light: return .light
+        case .dark: return .dark
+        case .system:
+            let match = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])
+            return match == .darkAqua ? .dark : .light
+        }
     }
 }
 

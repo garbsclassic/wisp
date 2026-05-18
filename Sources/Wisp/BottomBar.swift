@@ -4,8 +4,8 @@ struct BottomBar: View {
     let wordCount: Int
     let fontSize: FontSize
     let onCycleFontSize: () -> Void
-    let theme: Theme
-    let onToggleTheme: () -> Void
+    let themePreference: ThemePreference
+    let onCycleTheme: () -> Void
     let updateState: UpdateState
     let onUpdateClick: () -> Void
     let onHelpClick: () -> Void
@@ -25,15 +25,15 @@ struct BottomBar: View {
             .buttonStyle(.plain)
             .pointerCursor()
             .help("Keyboard shortcuts and formatting")
-            Button(action: onToggleTheme) {
-                Image(systemName: theme == .dark ? "sun.max" : "moon")
+            Button(action: onCycleTheme) {
+                Image(systemName: themeIconName)
                     .font(.system(size: 11, weight: .regular))
                     .frame(width: 24, height: 20)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .pointerCursor()
-            .help("Switch to \(theme == .dark ? "light" : "dark") theme")
+            .help(themeButtonHelp)
             Button(action: onCycleFontSize) {
                 Text("Aa")
                     .font(.system(size: indicatorSize, weight: .medium, design: .serif))
@@ -72,6 +72,22 @@ struct BottomBar: View {
             .buttonStyle(.plain)
             .pointerCursor()
             .help("Restart Wisp to apply the update")
+        }
+    }
+
+    private var themeIconName: String {
+        switch themePreference {
+        case .light: return "sun.max"
+        case .dark: return "moon"
+        case .system: return "circle.lefthalf.filled"
+        }
+    }
+
+    private var themeButtonHelp: String {
+        switch themePreference.next {
+        case .light: return "Switch to light theme"
+        case .dark: return "Switch to dark theme"
+        case .system: return "Follow system appearance"
         }
     }
 
