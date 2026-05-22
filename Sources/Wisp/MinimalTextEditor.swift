@@ -418,7 +418,13 @@ struct MinimalTextEditor: NSViewRepresentable {
             textView.textStorage?.replaceCharacters(in: range, with: replacement)
             textView.didChangeText()
             let newCursor = range.location + (replacement as NSString).length
-            textView.setSelectedRange(NSRange(location: newCursor, length: 0))
+            let newRange = NSRange(location: newCursor, length: 0)
+            textView.setSelectedRange(newRange)
+            // Hand-rolled edits bypass NSTextView's keyDown path, so its
+            // built-in "scroll caret into view" doesn't fire. Without
+            // this, hitting Enter at the bottom edge leaves the new
+            // line off-screen until the user scrolls manually.
+            textView.scrollRangeToVisible(newRange)
         }
     }
 }
