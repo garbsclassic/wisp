@@ -13,6 +13,7 @@ final class PanelController {
     private let tint: NSView
     private let inner: NSView
     private let outer: NSView
+    private var frameObservers: [NSObjectProtocol] = []
 
     init(model: EditorModel, updater: Updater) {
         self.model = model
@@ -98,11 +99,36 @@ final class PanelController {
         ])
 
         panel.contentView = outer
-        panel.center()
+
+        // Restore the user's last frame if it's still reachable on the
+        // current screen layout; otherwise center at the default size.
+        let screens = NSScreen.screens.map { $0.visibleFrame }
+        if let saved = PanelFrameStore.load(), PanelFrameStore.isUsable(saved, onScreens: screens) {
+            panel.setFrame(saved, display: false)
+        } else {
+            panel.center()
+        }
 
         applyTheme(model.theme)
         model.onThemeChange = { [weak self] theme in
             self?.applyTheme(theme)
+        }
+
+        // Persist size + position whenever the user moves or finishes
+        // resizing the panel, so the next summon restores it. UserDefaults
+        // writes are cheap; didMove/didEndLiveResize don't fire per-pixel.
+        for name in [NSWindow.didMoveNotification, NSWindow.didEndLiveResizeNotification] {
+            let token = NotificationCenter.default.addObserver(
+                forName: name, object: panel, queue: .main
+            ) { [weak panel] _ in
+                // queue: .main guarantees this runs on the main actor;
+                // assumeIsolated lets us touch panel.frame without a hop.
+                MainActor.assumeIsolated {
+                    guard let panel else { return }
+                    PanelFrameStore.save(panel.frame)
+                }
+            }
+            frameObservers.append(token)
         }
 
         // Esc closes any modal overlay first; falls through to the
@@ -141,7 +167,9 @@ final class PanelController {
         if panel.isVisible {
             panel.orderOut(nil)
         } else {
-            panel.center()
+            // No re-centering — the panel keeps the size and position the
+            // user last left it (restored from PanelFrameStore on launch,
+            // kept fresh by the move/resize observers).
             panel.makeKeyAndOrderFront(nil)
             applyTheme(model.theme)
             // Pick up changes another Mac wrote to scratchpad.md while

@@ -318,6 +318,40 @@ enum SelfTests {
         check("backupFilename contains no colons",
               !backup.contains(":"))
 
+        // MARK: - PanelFrameStore.isUsable
+
+        let mainScreen = NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let extScreen = NSRect(x: 1440, y: 0, width: 1920, height: 1080)
+
+        check("frame fully on screen → usable",
+              PanelFrameStore.isUsable(
+                NSRect(x: 100, y: 100, width: 800, height: 640),
+                onScreens: [mainScreen]))
+        check("frame on second screen → usable",
+              PanelFrameStore.isUsable(
+                NSRect(x: 1600, y: 100, width: 800, height: 640),
+                onScreens: [mainScreen, extScreen]))
+        check("frame on now-missing screen → not usable",
+              !PanelFrameStore.isUsable(
+                NSRect(x: 1600, y: 100, width: 800, height: 640),
+                onScreens: [mainScreen]))
+        check("frame mostly off-screen but >minVisible showing → usable",
+              PanelFrameStore.isUsable(
+                NSRect(x: 1300, y: 100, width: 800, height: 640),
+                onScreens: [mainScreen]))
+        check("frame with only a sliver on-screen → not usable",
+              !PanelFrameStore.isUsable(
+                NSRect(x: 1380, y: 100, width: 800, height: 640),
+                onScreens: [mainScreen]))
+        check("degenerate tiny frame → not usable",
+              !PanelFrameStore.isUsable(
+                NSRect(x: 100, y: 100, width: 50, height: 50),
+                onScreens: [mainScreen]))
+        check("no screens at all → not usable",
+              !PanelFrameStore.isUsable(
+                NSRect(x: 100, y: 100, width: 800, height: 640),
+                onScreens: []))
+
         // MARK: - Summary
 
         let total = passed + failures.count
