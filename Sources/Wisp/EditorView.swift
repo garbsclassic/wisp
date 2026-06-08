@@ -42,6 +42,31 @@ final class EditorModel: ObservableObject {
     /// Reset to false on every panel-open so the overlay reappears on
     /// the next interaction if an update is still available.
     @Published var updateDismissed: Bool = false
+
+    // MARK: Find
+    @Published var showFind: Bool = false
+    @Published var findQuery: String = "" {
+        didSet {
+            // Only react while find is open. When the bar is torn down,
+            // the text field resigns focus and writes its value back
+            // through the binding; Swift's didSet fires even on an equal
+            // write, which would otherwise re-highlight the just-cleared
+            // match after closeFind().
+            guard didLoad, showFind else { return }
+            recomputeMatches(resetIndex: true)
+        }
+    }
+    /// Number of matches for the current query (0 when none / empty).
+    @Published private(set) var findMatchCount: Int = 0
+    /// 1-based index of the current match for display ("3 / 12").
+    /// 0 when there are no matches.
+    @Published private(set) var findCurrentDisplayIndex: Int = 0
+    /// Token + range driving the highlight in MinimalTextEditor — same
+    /// pattern as scrollToken/scrollTarget. A zero-length range clears.
+    @Published var findHighlightToken: Int = 0
+    private(set) var findHighlightRange = NSRange(location: 0, length: 0)
+    private var findMatches: [NSRange] = []
+    private var findIndex = 0
     @Published var hotKey: HotKey = .default {
         didSet {
             guard didLoad else { return }
@@ -208,6 +233,56 @@ final class EditorModel: ObservableObject {
         scrollToken &+= 1
     }
 
+    // MARK: Find
+
+    func openFind() {
+        showFind = true
+        recomputeMatches(resetIndex: true)
+    }
+
+    func closeFind() {
+        showFind = false
+        clearFindHighlight()
+        requestFocus()
+    }
+
+    func findNext() {
+        guard !findMatches.isEmpty else { return }
+        findIndex = (findIndex + 1) % findMatches.count
+        navigateToCurrentMatch()
+    }
+
+    func findPrevious() {
+        guard !findMatches.isEmpty else { return }
+        findIndex = (findIndex - 1 + findMatches.count) % findMatches.count
+        navigateToCurrentMatch()
+    }
+
+    private func recomputeMatches(resetIndex: Bool) {
+        findMatches = TextSearch.matches(in: text, query: findQuery)
+        findMatchCount = findMatches.count
+        if resetIndex { findIndex = 0 }
+        if findIndex >= findMatches.count { findIndex = max(0, findMatches.count - 1) }
+        if findMatches.isEmpty {
+            findCurrentDisplayIndex = 0
+            clearFindHighlight()
+        } else {
+            navigateToCurrentMatch()
+        }
+    }
+
+    private func navigateToCurrentMatch() {
+        guard findIndex < findMatches.count else { return }
+        findCurrentDisplayIndex = findIndex + 1
+        findHighlightRange = findMatches[findIndex]
+        findHighlightToken &+= 1
+    }
+
+    private func clearFindHighlight() {
+        findHighlightRange = NSRange(location: 0, length: 0)
+        findHighlightToken &+= 1
+    }
+
     func refreshPlaceholder() {
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
     }
@@ -265,6 +340,8 @@ struct EditorView: View {
                         focusToken: model.focusToken,
                         scrollToken: model.scrollToken,
                         scrollTarget: model.scrollTarget,
+                        findHighlightToken: model.findHighlightToken,
+                        findHighlightRange: model.findHighlightRange,
                         fontSize: model.fontSize,
                         fontFace: model.fontFace,
                         theme: model.theme
@@ -353,6 +430,25 @@ struct EditorView: View {
                     }
                 )
                 .transition(.opacity)
+            }
+            if model.showFind {
+                FindBar(
+                    theme: model.theme,
+                    query: $model.findQuery,
+                    matchCount: model.findMatchCount,
+                    currentIndex: model.findCurrentDisplayIndex,
+                    onNext: { model.findNext() },
+                    onPrev: { model.findPrevious() },
+                    onClose: {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            model.closeFind()
+                        }
+                    }
+                )
+                .padding(.top, 12)
+                .padding(.trailing, 14)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .overlay {

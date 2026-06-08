@@ -352,6 +352,32 @@ enum SelfTests {
                 NSRect(x: 100, y: 100, width: 800, height: 640),
                 onScreens: []))
 
+        // MARK: - TextSearch
+
+        check("search empty query → no matches",
+              TextSearch.matches(in: "hello world", query: "").isEmpty)
+        check("search no match → empty",
+              TextSearch.matches(in: "hello world", query: "zzz").isEmpty)
+
+        let oneHit = TextSearch.matches(in: "hello world", query: "world")
+        check("search single match count", oneHit.count == 1)
+        check("search single match location", oneHit.first?.location == 6)
+        check("search single match length", oneHit.first?.length == 5)
+
+        let manyHits = TextSearch.matches(in: "the cat sat on the mat", query: "at")
+        check("search 'at' → 3 matches", manyHits.count == 3)
+        check("search 'at' locations",
+              manyHits.map(\.location) == [5, 9, 20])
+
+        check("search is case-insensitive",
+              TextSearch.matches(in: "Hello HELLO hello", query: "hello").count == 3)
+
+        // Overlapping pattern advances correctly (no infinite loop, no
+        // double-count): "aa" in "aaaa" → matches at 0 and 2.
+        let overlap = TextSearch.matches(in: "aaaa", query: "aa")
+        check("search overlapping 'aa' in 'aaaa' → 2", overlap.count == 2)
+        check("search overlapping locations", overlap.map(\.location) == [0, 2])
+
         // MARK: - Summary
 
         let total = passed + failures.count

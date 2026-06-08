@@ -6,6 +6,8 @@ struct MinimalTextEditor: NSViewRepresentable {
     var focusToken: Int
     var scrollToken: Int
     var scrollTarget: Int
+    var findHighlightToken: Int
+    var findHighlightRange: NSRange
     var fontSize: FontSize
     var fontFace: FontFace
     var theme: Theme
@@ -91,6 +93,24 @@ struct MinimalTextEditor: NSViewRepresentable {
                 textView.scrollRangeToVisible(range)
                 textView.setSelectedRange(range)
                 textView.window?.makeFirstResponder(textView)
+            }
+        }
+        if context.coordinator.lastFindHighlightToken != findHighlightToken {
+            context.coordinator.lastFindHighlightToken = findHighlightToken
+            let range = findHighlightRange
+            let color = Palette.for(theme).findHighlight
+            if let storage = textView.textStorage {
+                let full = NSRange(location: 0, length: storage.length)
+                // Use a real storage background attribute (not a temporary
+                // layout attribute): storage mutations always trigger a
+                // redraw, so the highlight clears deterministically.
+                // Nothing else touches .backgroundColor during a find
+                // session, and it's never written to disk (we save .string).
+                storage.removeAttribute(.backgroundColor, range: full)
+                if range.length > 0, NSMaxRange(range) <= full.length {
+                    storage.addAttribute(.backgroundColor, value: color, range: range)
+                    textView.scrollRangeToVisible(range)
+                }
             }
         }
     }
@@ -272,6 +292,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         var text: Binding<String>
         var lastFocusToken: Int = 0
         var lastScrollToken: Int = 0
+        var lastFindHighlightToken: Int = 0
         var lastFontSize: FontSize = .medium
         var lastFontFace: FontFace = .charter
         var lastTheme: Theme = .dark

@@ -135,6 +135,10 @@ final class PanelController {
         // panel's normal dismiss behavior only when nothing is open.
         panel.onCancel = { [weak self] in
             guard let self else { return false }
+            if self.model.showFind {
+                self.model.closeFind()
+                return true
+            }
             if self.model.showHotKeyCapture {
                 self.model.showHotKeyCapture = false
                 return true

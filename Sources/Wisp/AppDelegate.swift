@@ -100,6 +100,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc func showFind(_ sender: Any?) {
+        panelController?.openIfNeeded()
+        model.openFind()
+    }
+
     @objc func setSmallFont(_ sender: Any?) { model.fontSize = .small }
     @objc func setMediumFont(_ sender: Any?) { model.fontSize = .medium }
     @objc func setLargeFont(_ sender: Any?) { model.fontSize = .large }

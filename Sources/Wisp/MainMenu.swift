@@ -51,6 +51,14 @@ enum MainMenuBuilder {
             action: #selector(NSText.selectAll(_:)),
             keyEquivalent: "a"
         )
+        editMenu.addItem(NSMenuItem.separator())
+        let findItem = NSMenuItem(
+            title: "Find",
+            action: #selector(AppDelegate.showFind(_:)),
+            keyEquivalent: "f"
+        )
+        findItem.target = target
+        editMenu.addItem(findItem)
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 

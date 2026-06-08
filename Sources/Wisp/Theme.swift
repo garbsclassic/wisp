@@ -42,6 +42,9 @@ struct Palette {
     /// Used for the horizontal-rule glyph run so it reads as a quieter
     /// hint than body text instead of competing with words.
     let divider: NSColor
+    /// Background drawn behind the current Find match (temporary layout
+    /// attribute). Warm amber so it reads in both themes.
+    let findHighlight: NSColor
 
     static func `for`(_ theme: Theme) -> Palette {
         switch theme {
@@ -52,7 +55,8 @@ struct Palette {
                 text: text,
                 cursor: NSColor(red: 0.98, green: 0.97, blue: 0.93, alpha: 1.0),
                 selection: NSColor(white: 1.0, alpha: 0.18),
-                divider: text.withAlphaComponent(0.35)
+                divider: text.withAlphaComponent(0.35),
+                findHighlight: NSColor(red: 0.98, green: 0.78, blue: 0.28, alpha: 0.42)
             )
         case .light:
             // Clean white slate with near-black ink and a soft accent selection.
@@ -61,7 +65,8 @@ struct Palette {
                 text: text,
                 cursor: NSColor(white: 0.0, alpha: 1.0),
                 selection: NSColor(red: 0.0, green: 0.40, blue: 1.0, alpha: 0.18),
-                divider: text.withAlphaComponent(0.30)
+                divider: text.withAlphaComponent(0.30),
+                findHighlight: NSColor(red: 1.0, green: 0.82, blue: 0.18, alpha: 0.55)
             )
         }
     }

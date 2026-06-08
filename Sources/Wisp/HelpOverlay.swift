@@ -20,6 +20,7 @@ struct HelpOverlay: View {
             VStack(alignment: .leading, spacing: 18) {
                 section("Open / dismiss", items: [
                     ("⌥Space", "summon or dismiss the panel"),
+                    ("⌘F", "find in your notes (↵ / ⇧↵ to step)"),
                     ("Esc", "dismiss"),
                     ("⌘Q", "quit Wisp"),
                 ])
