@@ -10,6 +10,7 @@ import Carbon.HIToolbox
 struct UpdateAvailableOverlay: View {
     let theme: Theme
     let state: UpdateState
+    let highlights: [String]
     let onUpdate: () -> Void
     let onLater: () -> Void
 
@@ -32,7 +33,7 @@ struct UpdateAvailableOverlay: View {
                 // wrapper. Keeping it separate from the button row
                 // means the buttons' pointerCursor doesn't compete
                 // with an outer arrowCursor on every mouse move.
-                VStack(spacing: 16) {
+                VStack(spacing: 14) {
                     Text(headline)
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(.primary)
@@ -42,6 +43,26 @@ struct UpdateAvailableOverlay: View {
                         ProgressView()
                             .controlSize(.small)
                             .padding(.vertical, 2)
+                    } else if !highlights.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("What's new")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                                .textCase(.uppercase)
+                                .tracking(0.6)
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(highlights, id: \.self) { line in
+                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                        Text("·").foregroundStyle(.tertiary)
+                                        Text(line)
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .arrowCursor()

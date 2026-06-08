@@ -14,6 +14,10 @@ enum UpdateState: Equatable {
 @MainActor
 final class Updater: ObservableObject {
     @Published private(set) var state: UpdateState = .idle
+    /// Short "what's new" bullets for the available release, shown in the
+    /// update card. Empty until a release is found (or for older releases
+    /// without the highlights convention).
+    @Published private(set) var highlights: [String] = []
 
     private let owner = "sulemaanhamza"
     private let repo = "wisp"
@@ -75,6 +79,7 @@ final class Updater: ObservableObject {
             let local = Self.currentVersion
             guard remote.compare(local, options: .numeric) == .orderedDescending else { return }
             guard let asset = release.assets.first(where: { $0.name.hasSuffix(".zip") }) else { return }
+            highlights = ReleaseNotes.highlights(from: release.body ?? "")
             state = .available(version: remote, zipURL: asset.browserDownloadUrl)
         } catch {
             // Silent — never bother the user with a network hiccup.
@@ -229,6 +234,7 @@ final class Updater: ObservableObject {
 
     private struct GitHubRelease: Decodable {
         let tagName: String
+        let body: String?
         let assets: [Asset]
         struct Asset: Decodable {
             let name: String

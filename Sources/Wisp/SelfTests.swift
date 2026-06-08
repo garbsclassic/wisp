@@ -378,6 +378,39 @@ enum SelfTests {
         check("search overlapping 'aa' in 'aaaa' → 2", overlap.count == 2)
         check("search overlapping locations", overlap.map(\.location) == [0, 2])
 
+        // MARK: - ReleaseNotes highlights
+
+        let body1 = """
+        - ⌘F to find in your notes
+        - Wisp remembers its window size and position
+
+        <!--wisp:more-->
+
+        Update via the in-app card, or `brew upgrade --cask wisp`.
+        - this bullet is below the marker and must be ignored
+        """
+        let h1 = ReleaseNotes.highlights(from: body1)
+        check("notes: two highlights above marker", h1.count == 2)
+        check("notes: first bullet stripped",
+              h1.first == "⌘F to find in your notes")
+        check("notes: second bullet stripped",
+              h1.last == "Wisp remembers its window size and position")
+
+        check("notes: intro prose (non-bullet) ignored",
+              ReleaseNotes.highlights(from: "Some intro line\n- only this\n").count == 1)
+
+        check("notes: old verbose body with no bullets → empty",
+              ReleaseNotes.highlights(from: "Just a paragraph of prose.\nMore prose.").isEmpty)
+
+        check("notes: empty body → empty", ReleaseNotes.highlights(from: "").isEmpty)
+
+        check("notes: '*' bullets supported",
+              ReleaseNotes.highlights(from: "* one\n* two").count == 2)
+
+        let capped = (1...10).map { "- item \($0)" }.joined(separator: "\n")
+        check("notes: capped at maxHighlights",
+              ReleaseNotes.highlights(from: capped).count == ReleaseNotes.maxHighlights)
+
         // MARK: - Summary
 
         let total = passed + failures.count

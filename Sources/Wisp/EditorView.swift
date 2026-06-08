@@ -421,6 +421,7 @@ struct EditorView: View {
                 UpdateAvailableOverlay(
                     theme: model.theme,
                     state: updater.state,
+                    highlights: updater.highlights,
                     onUpdate: { updater.startUpdateAndRestart() },
                     onLater: {
                         updater.cancelAutoApply()
