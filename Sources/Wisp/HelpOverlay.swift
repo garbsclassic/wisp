@@ -4,16 +4,16 @@ struct HelpOverlay: View {
     let theme: Theme
     let onDismiss: () -> Void
 
+    private var palette: Palette { Palette.for(theme) }
+
     var body: some View {
         ZStack {
-            // Tap-anywhere-to-dismiss surface. Near-opaque so the help
-            // text is clearly readable; the editor fades to barely
-            // visible behind, which signals "modal mode" without
+            // Tap-anywhere-to-dismiss surface. Near-opaque panel color so
+            // the help text is clearly readable; the editor fades to
+            // barely visible behind, which signals "modal mode" without
             // competing for attention.
             Rectangle()
-                .fill(theme == .dark
-                      ? Color(white: 0.08).opacity(0.96)
-                      : Color.white.opacity(0.98))
+                .fill(Color(palette.panel).opacity(0.97))
                 .contentShape(Rectangle())
                 .onTapGesture { onDismiss() }
 
@@ -64,7 +64,7 @@ struct HelpOverlay: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Color(palette.muted))
                 .textCase(.uppercase)
                 .tracking(0.6)
                 .padding(.bottom, 2)
@@ -72,11 +72,11 @@ struct HelpOverlay: View {
                 HStack(alignment: .firstTextBaseline, spacing: 16) {
                     Text(item.0)
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color(palette.muted))
                         .frame(width: 180, alignment: .leading)
                     Text(item.1)
                         .font(.system(size: 13))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Color(palette.text))
                 }
             }
         }

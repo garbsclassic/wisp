@@ -473,10 +473,7 @@ struct EditorView: View {
     }
 
     private var borderColor: Color {
-        switch model.theme {
-        case .light: return Color.black.opacity(0.12)
-        case .dark: return Color.clear
-        }
+        Color(Palette.for(model.theme).border)
     }
 
     private var wordCount: Int {

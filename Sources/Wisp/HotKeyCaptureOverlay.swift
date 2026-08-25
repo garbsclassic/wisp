@@ -17,26 +17,27 @@ struct HotKeyCaptureOverlay: View {
     @State private var monitor: Any?
     @State private var errorMessage: String?
 
+    private var palette: Palette { Palette.for(theme) }
+
     var body: some View {
         ZStack {
             // Solid background — no click-to-cancel here. Stray clicks
             // while the user is thinking about a combo shouldn't drop
             // them out of capture mode. Esc still cancels.
             Rectangle()
-                .fill(theme == .dark
-                      ? Color(white: 0.08).opacity(0.96)
-                      : Color.white.opacity(0.98))
+                .fill(Color(palette.panel).opacity(0.98))
 
             VStack(spacing: 14) {
                 Text("Press your shortcut")
                     .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color(palette.text))
                 Text("must include ⌘, ⌥, ⌃, or ⇧ — Esc to cancel")
                     .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Color(palette.muted))
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.system(size: 12))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color(palette.accent))
                         .multilineTextAlignment(.center)
                         .padding(.top, 6)
                         .padding(.horizontal, 24)

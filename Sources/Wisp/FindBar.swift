@@ -17,6 +17,8 @@ struct FindBar: View {
     @FocusState private var focused: Bool
     @State private var monitor: Any?
 
+    private var palette: Palette { Palette.for(theme) }
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
@@ -71,11 +73,11 @@ struct FindBar: View {
     }
 
     private var barFill: Color {
-        theme == .dark ? Color(white: 0.16) : Color(white: 0.99)
+        Color(palette.surface)
     }
 
     private var borderColor: Color {
-        theme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.10)
+        Color(palette.border)
     }
 
     @ViewBuilder

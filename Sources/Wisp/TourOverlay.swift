@@ -6,18 +6,19 @@ struct TourOverlay: View {
     let theme: Theme
     let onDismiss: () -> Void
 
+    private var palette: Palette { Palette.for(theme) }
+
     var body: some View {
         ZStack {
             Rectangle()
-                .fill(theme == .dark
-                      ? Color(white: 0.08).opacity(0.96)
-                      : Color.white.opacity(0.98))
+                .fill(Color(palette.panel).opacity(0.97))
                 .contentShape(Rectangle())
                 .onTapGesture { onDismiss() }
 
             VStack(alignment: .leading, spacing: 18) {
                 Text("Welcome to Wisp")
                     .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(Color(palette.text))
                     .padding(.bottom, 4)
 
                 tip("⌥Space", "summon Wisp from anywhere on macOS")
@@ -52,11 +53,11 @@ struct TourOverlay: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(key)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color(palette.muted))
                 .frame(minWidth: 160, alignment: .leading)
             Text(description)
                 .font(.system(size: 13))
-                .foregroundStyle(.primary)
+                .foregroundStyle(Color(palette.text))
         }
     }
 }

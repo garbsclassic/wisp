@@ -136,7 +136,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         paragraph: NSParagraphStyle
     ) {
         textView.textColor = palette.text
-        textView.insertionPointColor = palette.cursor
+        textView.insertionPointColor = palette.accent
         textView.selectedTextAttributes = [
             .backgroundColor: palette.selection
         ]
@@ -146,7 +146,7 @@ struct MinimalTextEditor: NSViewRepresentable {
             .paragraphStyle: paragraph,
         ]
         if let lm = textView.layoutManager as? HorizontalRuleLayoutManager {
-            lm.ruleColor = palette.divider
+            lm.ruleColor = palette.rule
         }
         if let storage = textView.textStorage {
             let range = NSRange(location: 0, length: storage.length)

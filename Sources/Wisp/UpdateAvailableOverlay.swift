@@ -16,14 +16,14 @@ struct UpdateAvailableOverlay: View {
 
     @State private var monitor: Any?
 
+    private var palette: Palette { Palette.for(theme) }
+
     var body: some View {
         ZStack {
             // Translucent backdrop — editor stays faintly visible so the
             // overlay reads as a notification, not a full-screen modal.
             Rectangle()
-                .fill(theme == .dark
-                      ? Color(white: 0.05).opacity(0.55)
-                      : Color(white: 1.0).opacity(0.55))
+                .fill(Color(palette.panel).opacity(0.55))
                 .contentShape(Rectangle())
                 .onTapGesture { onLater() }
                 .arrowCursor()
@@ -127,15 +127,11 @@ struct UpdateAvailableOverlay: View {
     }
 
     private var cardFill: Color {
-        theme == .dark
-            ? Color(white: 0.13)
-            : Color(white: 0.99)
+        Color(palette.surface)
     }
 
     private var borderColor: Color {
-        theme == .dark
-            ? Color(white: 1.0).opacity(0.10)
-            : Color.black.opacity(0.10)
+        Color(palette.border)
     }
 
     /// Esc — treat as "Later". The panel.onCancel cascade in
