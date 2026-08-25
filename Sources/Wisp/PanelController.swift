@@ -14,6 +14,9 @@ final class PanelController {
     private let inner: NSView
     private let outer: NSView
     private var frameObservers: [NSObjectProtocol] = []
+    /// Global mouse-up monitor backing click-outside-to-dismiss. Non-nil
+    /// only while the panel is visible.
+    private var outsideClickMonitor: Any?
 
     init(model: EditorModel, updater: Updater) {
         self.model = model
@@ -153,6 +156,12 @@ final class PanelController {
             }
             return false
         }
+
+        // The Esc fallback path orders out inside FloatingPanel; stop
+        // the click monitor there too so every hide path tears down.
+        panel.onWillHide = { [weak self] in
+            self?.stopOutsideClickMonitor()
+        }
     }
 
     func openIfNeeded() {
@@ -162,6 +171,7 @@ final class PanelController {
     }
 
     func dismiss() {
+        stopOutsideClickMonitor()
         if panel.isVisible {
             panel.orderOut(nil)
         }
@@ -169,12 +179,13 @@ final class PanelController {
 
     func toggle() {
         if panel.isVisible {
-            panel.orderOut(nil)
+            dismiss()
         } else {
             // No re-centering — the panel keeps the size and position the
             // user last left it (restored from PanelFrameStore on launch,
             // kept fresh by the move/resize observers).
             panel.makeKeyAndOrderFront(nil)
+            startOutsideClickMonitor()
             applyTheme(model.theme)
             // Pick up changes another Mac wrote to scratchpad.md while
             // we were dismissed — covers the iCloud/Dropbox sync case.
@@ -197,6 +208,35 @@ final class PanelController {
                 self.visualEffect.state = .active
                 self.panel.invalidateShadow()
             }
+        }
+    }
+
+    // MARK: Outside-click dismissal
+
+    /// Any click outside the panel dismisses it outright — "go away",
+    /// not "back out one level" (Esc keeps the layered-cancel chain).
+    /// A global monitor only sees *other* apps' events, so clicks inside
+    /// the panel and on Wisp's own status item can't false-trigger, and
+    /// panel drags (local events) are unaffected. The monitor is torn
+    /// down on every hide path; one left running while hidden would
+    /// fire on every click the user makes anywhere.
+    private func startOutsideClickMonitor() {
+        stopOutsideClickMonitor()
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseUp, .rightMouseUp, .otherMouseUp]
+        ) { [weak self] _ in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self?.dismiss()
+                }
+            }
+        }
+    }
+
+    private func stopOutsideClickMonitor() {
+        if let monitor = outsideClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            outsideClickMonitor = nil
         }
     }
 
