@@ -58,24 +58,26 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         menu.addItem(makeItem("Open Wisp", symbol: "square.and.pencil", action: #selector(openFromMenu)))
-        shortcutItem = makeItem(
-            "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
-        )
-        menu.addItem(shortcutItem!)
-        launchItem = makeItem(
-            "Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin)
-        )
-        menu.addItem(launchItem!)
+        // Items are held strongly by the menu the moment they're added;
+        // the weak back-references for menuWillOpen must be assigned
+        // after that, never before.
+        let shortcut = makeItem("Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey))
+        menu.addItem(shortcut)
+        shortcutItem = shortcut
+        let launch = makeItem("Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin))
+        menu.addItem(launch)
+        launchItem = launch
 
         menu.addItem(.separator())
 
         menu.addItem(makeItem("Storage Location…", symbol: "folder", action: #selector(handlePickStorageLocation)))
-        resetItem = makeItem(
+        let reset = makeItem(
             "Reset Storage Location",
             symbol: "arrow.uturn.backward",
             action: #selector(handleResetStorageLocation)
         )
-        menu.addItem(resetItem!)
+        menu.addItem(reset)
+        resetItem = reset
 
         menu.addItem(.separator())
 
