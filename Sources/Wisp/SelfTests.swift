@@ -259,8 +259,8 @@ enum SelfTests {
 
         // MARK: - Chrome
 
-        check("chrome light is flat Modernist panel fill",
-              sameColor(Chrome.for(.light).tintColor, rgb8(0xE8E6E6)))
+        check("chrome light is a paper wash over vibrancy",
+              sameColor(Chrome.for(.light).tintColor, rgb8(0xE8E6E6, 0.75)))
         check("chrome light appearance aqua",
               Chrome.for(.light).appearance == .aqua)
         check("chrome dark appearance darkAqua",

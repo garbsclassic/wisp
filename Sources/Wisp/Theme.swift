@@ -124,11 +124,12 @@ struct Chrome {
                 appearance: .darkAqua
             )
         case .light:
-            // Flat Modernist panel: no vibrancy, just the paper fill.
-            // The visual-effect view is hidden for light in applyTheme.
+            // Modernist paper over vibrancy: the tint is a translucent
+            // wash so the blur stays alive in both themes, while the
+            // #E8E6E6 fill keeps the panel reading as the palette.
             return Chrome(
                 material: .windowBackground,
-                tintColor: rgb(0xE8E6E6),
+                tintColor: rgb(0xE8E6E6, 0.75),
                 appearance: .aqua
             )
         }

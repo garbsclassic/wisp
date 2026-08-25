@@ -245,7 +245,6 @@ final class PanelController {
         panel.appearance = NSAppearance(named: chrome.appearance)
         visualEffect.material = chrome.material
         visualEffect.appearance = NSAppearance(named: chrome.appearance)
-        visualEffect.isHidden = (theme == .light)
         tint.layer?.backgroundColor = chrome.tintColor.cgColor
         // Border is rendered by SwiftUI in EditorView via .overlay.
     }
