@@ -17,19 +17,19 @@ struct TourOverlay: View {
 
             VStack(alignment: .leading, spacing: 18) {
                 Text("Welcome to Wisp")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(Typography.ui(20, weight: .medium))
                     .foregroundStyle(Color(palette.text))
                     .padding(.bottom, 4)
 
                 tip("⌥Space", "summon Wisp from anywhere on macOS")
-                tip("Right-click the menu bar icon", "for font, shortcut, and about")
+                tip("Menu bar menu", "for shortcut, storage, and about")
                 tip("Click the ? in the footer", "for shortcuts and formatting")
 
                 HStack {
                     Spacer()
                     Button(action: onDismiss) {
                         Text("Got it")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(Typography.ui(12, weight: .medium))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
                             .background(
@@ -52,11 +52,11 @@ struct TourOverlay: View {
     private func tip(_ key: String, _ description: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(key)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(Typography.ui(12, weight: .medium, monospaced: true))
                 .foregroundStyle(Color(palette.muted))
                 .frame(minWidth: 160, alignment: .leading)
             Text(description)
-                .font(.system(size: 13))
+                .font(Typography.ui(13))
                 .foregroundStyle(Color(palette.text))
         }
     }

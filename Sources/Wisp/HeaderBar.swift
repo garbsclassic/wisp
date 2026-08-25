@@ -30,7 +30,7 @@ struct HeaderBar: View {
                 .padding(.horizontal, 28)
                 .padding(.vertical, 14)
             }
-            .font(.system(size: 11, weight: .regular))
+            .font(Typography.ui(11))
             .foregroundStyle(.tertiary)
         }
     }

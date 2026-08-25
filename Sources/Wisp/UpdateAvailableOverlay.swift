@@ -35,7 +35,7 @@ struct UpdateAvailableOverlay: View {
                 // with an outer arrowCursor on every mouse move.
                 VStack(spacing: 14) {
                     Text(headline)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(Typography.ui(15, weight: .medium))
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
 
@@ -46,7 +46,7 @@ struct UpdateAvailableOverlay: View {
                     } else if !highlights.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("What's new")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(Typography.ui(10, weight: .semibold))
                                 .foregroundStyle(.tertiary)
                                 .textCase(.uppercase)
                                 .tracking(0.6)
@@ -55,7 +55,7 @@ struct UpdateAvailableOverlay: View {
                                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                                         Text("·").foregroundStyle(.tertiary)
                                         Text(line)
-                                            .font(.system(size: 12))
+                                            .font(Typography.ui(12))
                                             .foregroundStyle(.secondary)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }

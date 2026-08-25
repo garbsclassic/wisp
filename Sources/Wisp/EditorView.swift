@@ -94,12 +94,6 @@ final class EditorModel: ObservableObject {
             UserDefaults.standard.set(fontSize.rawValue, forKey: "FontSize")
         }
     }
-    @Published var fontFace: FontFace = .charter {
-        didSet {
-            guard didLoad else { return }
-            UserDefaults.standard.set(fontFace.rawValue, forKey: "FontFace")
-        }
-    }
     /// User-facing choice: light, dark, or follow-system. Persisted.
     @Published var themePreference: ThemePreference = .system {
         didSet {
@@ -155,10 +149,6 @@ final class EditorModel: ObservableObject {
         if let saved = UserDefaults.standard.string(forKey: "FontSize"),
            let f = FontSize(rawValue: saved) {
             fontSize = f
-        }
-        if let saved = UserDefaults.standard.string(forKey: "FontFace"),
-           let face = FontFace(rawValue: saved) {
-            fontFace = face
         }
         if let saved = HotKey.loadFromDefaults() {
             hotKey = saved
@@ -343,7 +333,6 @@ struct EditorView: View {
                         findHighlightToken: model.findHighlightToken,
                         findHighlightRange: model.findHighlightRange,
                         fontSize: model.fontSize,
-                        fontFace: model.fontFace,
                         theme: model.theme
                     )
                     .padding(.horizontal, 28)
@@ -351,7 +340,7 @@ struct EditorView: View {
                     .padding(.bottom, 4)
                     if model.text.isEmpty {
                         Text(model.placeholder)
-                            .font(.custom(model.fontFace.familyName, size: model.fontSize.pointSize))
+                            .font(Typography.notes(model.fontSize.pointSize))
                             .foregroundStyle(.tertiary)
                             .allowsHitTesting(false)
                             .padding(.horizontal, 28)

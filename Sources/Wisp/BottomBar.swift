@@ -18,7 +18,7 @@ struct BottomBar: View {
             updateIndicator
             Button(action: onHelpClick) {
                 Image(systemName: "questionmark")
-                    .font(.system(size: 11, weight: .regular))
+                    .font(Typography.ui(11))
                     .frame(width: 24, height: 20)
                     .contentShape(Rectangle())
             }
@@ -27,7 +27,7 @@ struct BottomBar: View {
             .help("Keyboard shortcuts and formatting")
             Button(action: onCycleTheme) {
                 Image(systemName: themeIconName)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(Typography.ui(11))
                     .frame(width: 24, height: 20)
                     .contentShape(Rectangle())
             }
@@ -36,7 +36,7 @@ struct BottomBar: View {
             .help(themeButtonHelp)
             Button(action: onCycleFontSize) {
                 Text("Aa")
-                    .font(.system(size: indicatorSize, weight: .medium, design: .serif))
+                    .font(Typography.ui(indicatorSize, weight: .medium))
                     .frame(width: 30, height: 20)
                     .contentShape(Rectangle())
             }
@@ -45,7 +45,7 @@ struct BottomBar: View {
             .help("Cycle text size (⌘1 / ⌘2 / ⌘3)")
             Text("esc to close")
         }
-        .font(.system(size: 11, weight: .regular))
+        .font(Typography.ui(11))
         .foregroundStyle(.tertiary)
         .padding(.horizontal, 28)
         .padding(.vertical, 14)

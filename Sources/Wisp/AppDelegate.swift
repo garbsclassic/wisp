@@ -15,8 +15,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController = panel
         menuBarController = MenuBarController(
             onClick: { [weak panel] in panel?.toggle() },
-            currentFontFace: { [weak self] in self?.model.fontFace ?? .charter },
-            onSelectFontFace: { [weak self] face in self?.model.fontFace = face },
             currentHotKey: { [weak self] in self?.model.hotKey ?? .default },
             onSetHotKey: { [weak self, weak panel] in
                 panel?.openIfNeeded()
@@ -200,7 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             MIT licensed. Source at github.com/sulemaanhamza/wisp.
 
-            Body type set in Charter (default), Iowan Old Style, Hoefler Text, Palatino, Optima, or Avenir Next — all preinstalled on macOS.
+            Set in Inter Nerd Font — fixed-width glyphs for notes, proportional for chrome. Falls back to the system sans when not installed.
             """,
             attributes: [
                 .font: NSFont.systemFont(ofSize: 11),

@@ -11,9 +11,10 @@ import Carbon.HIToolbox
 ///
 /// Coverage is limited to types that don't need a running NSApplication:
 /// SmartEditing, Headings parsing, HotKey display + Carbon-modifier
-/// conversion, and the Theme / FontFace / FontSize enums. Anything that
-/// touches NSTextView, Carbon hotkey registration, or the panel needs
-/// integration / UI testing — out of scope here.
+/// conversion, the Theme / FontSize enums, palette token values, and
+/// Typography font resolution. Anything that touches NSTextView, Carbon
+/// hotkey registration, or the panel needs integration / UI testing —
+/// out of scope here.
 enum SelfTests {
     static func run() -> Never {
         var passed = 0
@@ -178,22 +179,6 @@ enum SelfTests {
         check("FontSize.small.rawValue", FontSize.small.rawValue == "small")
         check("FontSize.medium.rawValue", FontSize.medium.rawValue == "medium")
         check("FontSize.large.rawValue", FontSize.large.rawValue == "large")
-
-        // MARK: - FontFace
-
-        for face in FontFace.allCases {
-            check("FontFace \(face.displayName) familyName == displayName",
-                  face.familyName == face.displayName)
-        }
-        check("FontFace count = 6", FontFace.allCases.count == 6)
-        check("FontFace.charter.rawValue", FontFace.charter.rawValue == "charter")
-        check("FontFace.iowanOldStyle.rawValue",
-              FontFace.iowanOldStyle.rawValue == "iowanOldStyle")
-        check("FontFace.hoeflerText.rawValue",
-              FontFace.hoeflerText.rawValue == "hoeflerText")
-        check("FontFace.palatino.rawValue", FontFace.palatino.rawValue == "palatino")
-        check("FontFace.optima.rawValue", FontFace.optima.rawValue == "optima")
-        check("FontFace.avenirNext.rawValue", FontFace.avenirNext.rawValue == "avenirNext")
 
         // MARK: - Theme
 

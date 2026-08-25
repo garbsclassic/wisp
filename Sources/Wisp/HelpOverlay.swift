@@ -40,8 +40,7 @@ struct HelpOverlay: View {
                     (":check:   :x:   :star:", "✅  ❌  ⭐"),
                     (":bulb:   :warning:", "💡  ⚠️"),
                 ])
-                section("Settings — right-click the menu bar icon", items: [
-                    ("Font", "pick from six preinstalled fonts"),
+                section("Settings — in the menu bar menu", items: [
                     ("Set Shortcut…", "rebind the global hotkey"),
                     ("Launch at Login", "start automatically at login"),
                     ("Storage Location…", "any folder — iCloud Drive, Dropbox for sync"),
@@ -49,7 +48,7 @@ struct HelpOverlay: View {
                 ])
 
                 Text("Click anywhere or press Esc to close.")
-                    .font(.system(size: 11))
+                    .font(Typography.ui(11))
                     .foregroundStyle(.tertiary)
                     .padding(.top, 8)
             }
@@ -63,7 +62,7 @@ struct HelpOverlay: View {
     private func section(_ title: String, items: [(String, String)]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 11, weight: .medium))
+                .font(Typography.ui(11, weight: .medium))
                 .foregroundStyle(Color(palette.muted))
                 .textCase(.uppercase)
                 .tracking(0.6)
@@ -71,11 +70,11 @@ struct HelpOverlay: View {
             ForEach(items, id: \.0) { item in
                 HStack(alignment: .firstTextBaseline, spacing: 16) {
                     Text(item.0)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .font(Typography.ui(12, weight: .medium, monospaced: true))
                         .foregroundStyle(Color(palette.muted))
                         .frame(width: 180, alignment: .leading)
                     Text(item.1)
-                        .font(.system(size: 13))
+                        .font(Typography.ui(13))
                         .foregroundStyle(Color(palette.text))
                 }
             }

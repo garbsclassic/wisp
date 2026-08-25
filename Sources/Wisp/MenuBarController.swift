@@ -4,8 +4,6 @@ import AppKit
 final class MenuBarController: NSObject {
     private let statusItem: NSStatusItem
     private let onClick: () -> Void
-    private let currentFontFace: () -> FontFace
-    private let onSelectFontFace: (FontFace) -> Void
     private let currentHotKey: () -> HotKey
     private let onSetHotKey: () -> Void
     private let onShowAbout: () -> Void
@@ -17,8 +15,6 @@ final class MenuBarController: NSObject {
 
     init(
         onClick: @escaping () -> Void,
-        currentFontFace: @escaping () -> FontFace,
-        onSelectFontFace: @escaping (FontFace) -> Void,
         currentHotKey: @escaping () -> HotKey,
         onSetHotKey: @escaping () -> Void,
         onShowAbout: @escaping () -> Void,
@@ -29,8 +25,6 @@ final class MenuBarController: NSObject {
         onResetStorageLocation: @escaping () -> Void
     ) {
         self.onClick = onClick
-        self.currentFontFace = currentFontFace
-        self.onSelectFontFace = onSelectFontFace
         self.currentHotKey = currentHotKey
         self.onSetHotKey = onSetHotKey
         self.onShowAbout = onShowAbout
@@ -68,13 +62,6 @@ final class MenuBarController: NSObject {
         onClick()
     }
 
-    @objc private func selectFontFace(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String,
-              let face = FontFace(rawValue: raw)
-        else { return }
-        onSelectFontFace(face)
-    }
-
     @objc private func handleSetHotKey() {
         onSetHotKey()
     }
@@ -107,24 +94,6 @@ final class MenuBarController: NSObject {
         menu.addItem(openItem)
 
         menu.addItem(NSMenuItem.separator())
-
-        // Font submenu — current face shown with a checkmark.
-        let fontMenuItem = NSMenuItem(title: "Font", action: nil, keyEquivalent: "")
-        let fontMenu = NSMenu(title: "Font")
-        let active = currentFontFace()
-        for face in FontFace.allCases {
-            let item = NSMenuItem(
-                title: face.displayName,
-                action: #selector(selectFontFace(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = face.rawValue
-            item.state = (face == active) ? .on : .off
-            fontMenu.addItem(item)
-        }
-        fontMenuItem.submenu = fontMenu
-        menu.addItem(fontMenuItem)
 
         let hotKeyItem = NSMenuItem(
             title: "Set Shortcut…  (\(currentHotKey().displayString))",
