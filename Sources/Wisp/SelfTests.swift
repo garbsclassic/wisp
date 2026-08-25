@@ -200,6 +200,95 @@ enum SelfTests {
         check("ThemePreference.system.rawValue",
               ThemePreference.system.rawValue == "system")
 
+        // MARK: - Palette tokens
+
+        // Values are constructed as device RGB, so components read back
+        // exactly and can be asserted without conversion.
+
+        func rgb8(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
+            NSColor(
+                deviceRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
+                green: CGFloat((hex >> 8) & 0xFF) / 255.0,
+                blue: CGFloat(hex & 0xFF) / 255.0,
+                alpha: alpha
+            )
+        }
+        func sameColor(_ a: NSColor, _ b: NSColor) -> Bool {
+            a.redComponent == b.redComponent
+                && a.greenComponent == b.greenComponent
+                && a.blueComponent == b.blueComponent
+                && a.alphaComponent == b.alphaComponent
+        }
+
+        let dark = Palette.for(.dark)
+        let light = Palette.for(.light)
+
+        check("dark text is Flexoki tx", sameColor(dark.text, rgb8(0xCECDC3)))
+        check("dark muted is Flexoki tx-2", sameColor(dark.muted, rgb8(0x7D7C78)))
+        check("dark panel is Flexoki bg-2", sameColor(dark.panel, rgb8(0x1C1B1A)))
+        check("dark surface is Flexoki ui", sameColor(dark.surface, rgb8(0x282726)))
+        check("dark accent is Flexoki cyan", sameColor(dark.accent, rgb8(0x4ECBDF)))
+        check("dark rule is Flexoki ui-3", sameColor(dark.rule, rgb8(0x403E3C)))
+        check("dark border is Flexoki ui-2", sameColor(dark.border, rgb8(0x343331)))
+
+        check("light text is Modernist ink", sameColor(light.text, rgb8(0x161413)))
+        check("light muted is Modernist muted", sameColor(light.muted, rgb8(0x4B4949)))
+        check("light panel is Modernist panel", sameColor(light.panel, rgb8(0xE8E6E6)))
+        check("light surface is Modernist surface", sameColor(light.surface, rgb8(0xEAE9E9)))
+        check("light accent is Modernist vermilion",
+              sameColor(light.accent, rgb8(0xEC3013)))
+        check("light rule is row-rule at 18%",
+              sameColor(light.rule, rgb8(0x201E1D, 0.18)))
+        check("light border is structural rule",
+              sameColor(light.border, rgb8(0x201E1D)))
+
+        // Accent stays sparing: caret/selection/find only, so selection
+        // and findHighlight must be washes of the accent, not full strength.
+        check("dark selection is an accent wash",
+              sameColor(dark.selection, rgb8(0x4ECBDF, 0.20)))
+        check("dark findHighlight is an accent wash",
+              sameColor(dark.findHighlight, rgb8(0x4ECBDF, 0.28)))
+        check("light selection is an accent wash",
+              sameColor(light.selection, rgb8(0xEC3013, 0.14)))
+        check("light findHighlight is an accent wash",
+              sameColor(light.findHighlight, rgb8(0xEC3013, 0.18)))
+
+        // Roles stay distinct within each theme.
+        check("dark panel ≠ surface", !sameColor(dark.panel, dark.surface))
+        check("light panel ≠ surface", !sameColor(light.panel, light.surface))
+
+        // MARK: - Chrome
+
+        check("chrome light is flat Modernist panel fill",
+              sameColor(Chrome.for(.light).tintColor, rgb8(0xE8E6E6)))
+        check("chrome light appearance aqua",
+              Chrome.for(.light).appearance == .aqua)
+        check("chrome dark appearance darkAqua",
+              Chrome.for(.dark).appearance == .darkAqua)
+
+        // MARK: - Typography
+
+        check("notes family name", Typography.notesFamily == "Inter Nerd Font")
+        check("ui family name", Typography.uiFamily == "Inter Nerd Font Propo")
+
+        let body = Typography.notesFont(20)
+        check("notesFont keeps requested size", body.pointSize == 20)
+        if Typography.notesInstalled {
+            check("notesFont resolves the Nerd Font",
+                  body.familyName == "Inter Nerd Font")
+        } else {
+            check("notesFont falls back off the Nerd Font",
+                  body.familyName != "Inter Nerd Font")
+        }
+
+        // Heading styling derives scaled bold from the base descriptor;
+        // verify the mechanism survives the face swap.
+        let derived = NSFont(
+            descriptor: body.fontDescriptor.withSymbolicTraits(.bold), size: 24
+        )
+        check("symbolic-trait derivation yields a 24pt face",
+              derived?.pointSize == 24)
+
         // MARK: - LaunchAtLogin
         // Smoke-only: SMAppService talks to a system daemon and `swift
         // run` can't actually register, so we verify the API contract
