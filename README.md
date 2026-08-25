@@ -1,6 +1,6 @@
 # Wisp
 
-A dead-simple macOS scratchpad. ⌥Space to summon, type, Esc to dismiss.
+A dead-simple macOS scratchpad. ⌥Space to summon, type, Esc or click away to dismiss.
 
 <p align="center">
   <img src="docs/screenshot.png" width="720" alt="Wisp">
@@ -32,15 +32,14 @@ The `xattr` step is needed because Wisp isn't signed with an Apple Developer ID 
 
 - **⌥Space** to summon from anywhere (rebindable)
 - **Light / dark / system** appearance — one-click cycle, follows macOS by default
-- **Six fonts** to pick from (Charter, Iowan Old Style, Hoefler Text, Palatino, Optima, Avenir Next)
 - **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
 - **Headings** — `#`, `##`, `###` render styled with click-to-jump navigation
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic** — ⌘B / ⌘I
 - **Auto-update** — downloads new versions in the background
-- **Launch at Login** — toggle in the right-click menu
+- **Launch at Login** — toggle in the menu bar menu
 - **Plain markdown on disk** at `~/Library/Application Support/Wisp/scratchpad.md`
-- **Sync across Macs** — point at any folder via the right-click menu (iCloud Drive, Dropbox, Syncthing all work)
+- **Sync across Macs** — point at any folder via the menu bar menu (iCloud Drive, Dropbox, Syncthing all work)
 
 Click the `?` in the footer for the full keyboard shortcut list.
 
