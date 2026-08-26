@@ -89,15 +89,25 @@ Keep `build-app.sh`. Correct the About string at
 Do this before the rewrites, so the new config and theme code lands in the right target with real
 tests rather than being moved afterward.
 
-Restructure `Package.swift` on Clef's shape: a `WispCore` target with no AppKit, a `Wisp`
-executable depending on it, and a `WispCoreTests` test target. Swift Testing ships with the Swift 6
-toolchain, so `swift test` works under Command Line Tools with no external dependency — Clef's
-`Tests/ClefCoreTests` is the working precedent.
+Restructure `Package.swift` on Clef's shape: a `WispCore` target, a `Wisp` executable depending on
+it, and a `WispCoreTests` target.
 
-Move into `WispCore`: `Headings.swift`, `SmartEditing.swift`, `EmojiReplace.swift`,
-`TextSearch.swift`, `HotKey.swift` (Carbon-only, like Clef's `KeyChord`), `StorageLocation.swift`,
-`PanelFrameStore.swift`, `LaunchSource.swift`, plus the new config and token types. `MarkdownWrap`
-and everything else that takes an `NSTextView` stays in the app target.
+**Corrected during implementation.** Command Line Tools ships neither XCTest nor a bundled
+`Testing` module — Clef's `Tests/ClefCoreTests` does not actually run here either. So `swift-testing`
+comes in as a source dependency, pinned to `6.2.4` (6.3+ link-directives a `_TestingInterop` that
+only a full toolchain provides), and the suites run from an **executable** target through the
+package's own SwiftPM entry point: `swift run WispCoreTests`, not `swift test`.
+
+`WispCore` also keeps AppKit where the type is a value type that needs it — `PanelFrameStore` needs
+`NSRect`, `Palette` needs `NSColor`. The line that matters is no views and no controllers.
+
+Move into `WispCore`: `Headings.swift`, `SmartEditing.swift`, `TextSearch.swift`, `HotKey.swift`,
+`StorageLocation.swift`, `PanelFrameStore.swift`, `LaunchSource.swift`, `LaunchAtLogin.swift`,
+`Theme.swift`, `Typography.swift`, and `FontSize` (extracted out of `EditorView.swift`), plus the
+new config and token types. `MarkdownWrap` and everything else that takes an `NSTextView` stays in
+the app target — which is why `EmojiReplace.swift`, an `NSTextView` mutator end to end, stays put
+despite being on the original move list. The horizontal-rule predicates move off
+`HorizontalRuleLayoutManager` onto `SmartEditing` so they are assertable without AppKit.
 
 Replace `Sources/Wisp/SelfTests.swift` and the `--test` flag in `main.swift` with `@Test` functions
 using `#expect` / `#require`, mirroring `Tests/ClefCoreTests/KeyChordTests.swift`. Add
@@ -310,7 +320,7 @@ convention.
 ## Verification
 
 ```bash
-swift test
+swift run WispCoreTests
 ```
 
 `WispCoreTests` must cover chord parsing round-trips, config decoding with a missing key, a

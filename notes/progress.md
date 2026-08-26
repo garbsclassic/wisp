@@ -28,3 +28,10 @@
 - 2026-08-26 — [personalize](plan-personalize.md): code review of the branch
   ([findings](review-personalize.md)) — 15 findings fixed across panel lifecycle, palette tokens,
   typography, and the self-test suite; 161/161 pass
+- 2026-08-26 — [personalize](plan-personalize.md): updater and first-run tour removed — Updater,
+  UpdateAvailableOverlay, ReleaseNotes, TourOverlay, FirstRunDot and the two upstream release
+  scripts deleted, wiring unpicked, About string re-credited (48f7743)
+- 2026-08-26 — [personalize](plan-personalize.md): WispCore split + Swift Testing — logic target
+  carved out of the app, SelfTests replaced by 53 `#expect` tests in 14 suites. Command Line Tools
+  ships no XCTest or Testing module, so swift-testing is a pinned source dependency and the suites
+  run as `swift run WispCoreTests` rather than `swift test` (f556925)
