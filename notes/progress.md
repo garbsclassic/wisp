@@ -42,3 +42,9 @@
   Also wires the settings that had none — vibrancy, dismissOnOutsideClick, `monitor: pointer` via a
   new relative-placement helper, fontScale — plus the coalesced footer warning (step 4) and the
   Settings… menu item. Frame now saves on hide, not on drag. 98 tests (4abdc69)
+- 2026-08-26 — [personalize](plan-personalize.md): chezmoi integration — `.chezmoitemplates/wisp/`,
+  `dot_config/wisp/modify_wisp.jsonc.tmpl`, the `.chezmoiignore.tmpl` entry, and a re-add hook
+  block, all mirroring clef's. Preserve list is fontScale/fontSize/monitor/panel/theme. Verified
+  end to end: `chezmoi apply` merges the live per-machine keys into the managed defaults, and a
+  targeted app write leaves the biome-formatted file byte-identical but for the changed value
+  (chezmoi 231a708)

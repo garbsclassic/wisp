@@ -68,6 +68,33 @@ struct JSONTextEditTests {
         #expect(JSONTextEdit.replacingValue(in: text, at: path, with: "1") == nil)
     }
 
+    /// The deployed file is biome-formatted by chezmoi, and the app writes
+    /// to it afterwards. If a UI-driven change reflowed it, `chezmoi diff`
+    /// would be permanently dirty — which is the whole reason this rewriter
+    /// exists rather than a plain re-encode.
+    @Test("A chezmoi-deployed file survives a UI-driven change byte for byte")
+    func chezmoiDeployedShape() throws {
+        let deployed = """
+            {
+              "dismissOnOutsideClick": true,
+              "fonts": {
+                "notes": "Inter Nerd Font",
+                "ui": "Inter Nerd Font Propo"
+              },
+              "keymap": {
+                "summon": "ctrl+opt+."
+              },
+              "scratchpadPath": "",
+              "vibrancy": true,
+              "theme": "system"
+            }
+
+            """
+        let after = try #require(
+            JSONTextEdit.replacingValue(in: deployed, at: ["theme"], with: "\"dark\""))
+        #expect(after == deployed.replacingOccurrences(of: "\"system\"", with: "\"dark\""))
+    }
+
     @Test("A rewritten document still parses")
     func stillParses() throws {
         let before = """
