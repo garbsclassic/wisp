@@ -22,3 +22,6 @@
 - 2026-08-25 — [personalize](plan-personalize.md): screenshot refreshed — light Modernist panel on
   a Flexoki-bg canvas, captured from the dev build with argument-domain overrides (demo scratchpad,
   forced theme) so no real notes leak into the repo (ec60520)
+- 2026-08-25 — [personalize](plan-personalize.md): vibrancy restored for light — tint is now a 75%
+  paper wash over `.windowBackground` instead of an opaque fill with the effect view hidden;
+  radius and vermilion accent confirmed as-is (99d5eb8, screenshot ed1241f)

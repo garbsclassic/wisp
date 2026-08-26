@@ -120,13 +120,14 @@ The `Font` submenu is removed with `FontFace`.
 
 ## Open questions
 
-- **Does an outside click cancel one layer or dismiss everything?** The ask says "same as esc",
-  which literally means running `panel.onCancel` — closing just the Find bar if it's open. The
-  recommendation above is to dismiss outright instead, on the reasoning that clicking into another
-  app is a "go away" gesture while Esc is a "back out" gesture. Worth confirming, since it's the one
-  place the spec knowingly departs from the wording.
-- **Should the light theme keep the 18pt corner radius and vibrancy blur?** Modernist calls for
-  flush corners and flat fills. Keeping the radius means the light theme borrows Modernist's colors
-  without its posture; going flush means light and dark panels have visibly different silhouettes.
-- **Is Modernist's vermilion right for a writing surface at all?** Flexoki's cyan `#4ecbdf` has a
-  light-mode-safe sibling if the accent turns out to shout.
+Resolved 2026-08-25:
+
+- **Does an outside click cancel one layer or dismiss everything?** — Dismiss everything, as
+  recommended. Confirmed good in use.
+- **Should the light theme keep the 18pt corner radius and vibrancy blur?** — Radius stays.
+  Vibrancy: initially dropped for light (flat Modernist fill), then restored — the blur stays
+  alive in both themes and the light tint became a 75% paper wash over `.windowBackground`
+  (99d5eb8).
+- **Is Modernist's vermilion right for a writing surface at all?** — Yes, at the planned
+  sparing dose (caret, selection, find match). Confirmed good; the Flexoki-cyan fallback wasn't
+  needed.
