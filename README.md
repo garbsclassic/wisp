@@ -36,7 +36,6 @@ The `xattr` step is needed because Wisp isn't signed with an Apple Developer ID 
 - **Headings** — `#`, `##`, `###` render styled with click-to-jump navigation
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic** — ⌘B / ⌘I
-- **Auto-update** — downloads new versions in the background
 - **Launch at Login** — toggle in the menu bar menu
 - **Plain markdown on disk** at `~/Library/Application Support/Wisp/scratchpad.md`
 - **Sync across Macs** — point at any folder via the menu bar menu (iCloud Drive, Dropbox, Syncthing all work)

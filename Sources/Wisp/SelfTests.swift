@@ -354,45 +354,6 @@ enum SelfTests {
         check("LaunchSource: unrelated key → falls back to user-initiated",
               LaunchSource.isUserInitiated(launchUserInfo: ["SomeOtherKey": false]))
 
-        // MARK: - Updater throttle
-
-        let now = Date()
-        check("Updater.shouldCheck nil lastChecked → true",
-              Updater.shouldCheck(now: now, lastCheckedAt: nil, throttle: 60))
-        check("Updater.shouldCheck just-now → false",
-              !Updater.shouldCheck(
-                now: now, lastCheckedAt: now, throttle: 60))
-        check("Updater.shouldCheck 30s ago, 60s throttle → false",
-              !Updater.shouldCheck(
-                now: now,
-                lastCheckedAt: now.addingTimeInterval(-30),
-                throttle: 60))
-        check("Updater.shouldCheck 60s ago, 60s throttle → true",
-              Updater.shouldCheck(
-                now: now,
-                lastCheckedAt: now.addingTimeInterval(-60),
-                throttle: 60))
-        check("Updater.shouldCheck 120s ago, 60s throttle → true",
-              Updater.shouldCheck(
-                now: now,
-                lastCheckedAt: now.addingTimeInterval(-120),
-                throttle: 60))
-
-        // MARK: - Updater.buttonAction
-
-        let stubURL = URL(string: "https://example.com/wisp.zip")!
-        check("buttonAction(.idle) = noop",
-              Updater.buttonAction(for: .idle) == .noop)
-        check("buttonAction(.available) = startDownload",
-              Updater.buttonAction(for: .available(version: "0.1.36", zipURL: stubURL))
-                == .startDownload)
-        check("buttonAction(.downloading) = noop",
-              Updater.buttonAction(for: .downloading(version: "0.1.36"))
-                == .noop)
-        check("buttonAction(.pending) = applyAndRestart",
-              Updater.buttonAction(for: .pending(version: "0.1.36"))
-                == .applyAndRestart)
-
         // MARK: - StorageLocation
 
         check("StorageLocation.scratchpadFilename = scratchpad.md",
@@ -482,39 +443,6 @@ enum SelfTests {
         let overlap = TextSearch.matches(in: "aaaa", query: "aa")
         check("search overlapping 'aa' in 'aaaa' → 2", overlap.count == 2)
         check("search overlapping locations", overlap.map(\.location) == [0, 2])
-
-        // MARK: - ReleaseNotes highlights
-
-        let body1 = """
-        - ⌘F to find in your notes
-        - Wisp remembers its window size and position
-
-        <!--wisp:more-->
-
-        Update via the in-app card, or `brew upgrade --cask wisp`.
-        - this bullet is below the marker and must be ignored
-        """
-        let h1 = ReleaseNotes.highlights(from: body1)
-        check("notes: two highlights above marker", h1.count == 2)
-        check("notes: first bullet stripped",
-              h1.first == "⌘F to find in your notes")
-        check("notes: second bullet stripped",
-              h1.last == "Wisp remembers its window size and position")
-
-        check("notes: intro prose (non-bullet) ignored",
-              ReleaseNotes.highlights(from: "Some intro line\n- only this\n").count == 1)
-
-        check("notes: old verbose body with no bullets → empty",
-              ReleaseNotes.highlights(from: "Just a paragraph of prose.\nMore prose.").isEmpty)
-
-        check("notes: empty body → empty", ReleaseNotes.highlights(from: "").isEmpty)
-
-        check("notes: '*' bullets supported",
-              ReleaseNotes.highlights(from: "* one\n* two").count == 2)
-
-        let capped = (1...10).map { "- item \($0)" }.joined(separator: "\n")
-        check("notes: capped at maxHighlights",
-              ReleaseNotes.highlights(from: capped).count == ReleaseNotes.maxHighlights)
 
         // MARK: - Summary
 

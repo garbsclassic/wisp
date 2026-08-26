@@ -8,7 +8,6 @@ private let cornerRadius: CGFloat = 18
 final class PanelController {
     private let panel: FloatingPanel
     private let model: EditorModel
-    private let updater: Updater
     private let visualEffect: NSVisualEffectView
     private let tint: NSView
     private let inner: NSView
@@ -18,9 +17,8 @@ final class PanelController {
     /// only while the panel is visible.
     private var outsideClickMonitor: Any?
 
-    init(model: EditorModel, updater: Updater) {
+    init(model: EditorModel) {
         self.model = model
-        self.updater = updater
         let contentRect = NSRect(origin: .zero, size: panelSize)
         panel = FloatingPanel(
             contentRect: contentRect,
@@ -71,7 +69,7 @@ final class PanelController {
         tint.layer?.masksToBounds = true
         tint.translatesAutoresizingMaskIntoConstraints = false
 
-        let host = NSHostingView(rootView: EditorView(model: model, updater: updater))
+        let host = NSHostingView(rootView: EditorView(model: model))
         host.translatesAutoresizingMaskIntoConstraints = false
 
         inner.addSubview(visualEffect)
@@ -144,10 +142,6 @@ final class PanelController {
             }
             if self.model.showHotKeyCapture {
                 self.model.showHotKeyCapture = false
-                return true
-            }
-            if self.model.showTour {
-                self.model.dismissTour()
                 return true
             }
             if self.model.showHelp {
@@ -227,11 +221,6 @@ final class PanelController {
             model.reloadFromDiskIfChanged()
             model.requestFocus()
             model.refreshPlaceholder()
-            // Reset the per-session dismissal so a previously "Later"d
-            // update reappears on the next interaction. The check
-            // itself is throttled inside Updater.
-            model.updateDismissed = false
-            Task { [weak self] in await self?.updater.check() }
             // Recompute shadow against current content alpha and force a
             // visual-effect re-render so the blur picks up the right
             // appearance on first show.

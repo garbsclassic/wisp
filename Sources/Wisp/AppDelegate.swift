@@ -4,14 +4,13 @@ import Carbon.HIToolbox
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = EditorModel()
-    let updater = Updater()
     private var menuBarController: MenuBarController?
     private var panelController: PanelController?
     private let hotKey = HotKeyMonitor()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenuBuilder.make(target: self)
-        let panel = PanelController(model: model, updater: updater)
+        let panel = PanelController(model: model)
         panelController = panel
         menuBarController = MenuBarController(
             // "Open Wisp" opens — the panel is still up while the status
@@ -68,8 +67,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             _ = self.registerHotKey(self.model.hotKey)
             return "\(hk.displayString) is already used by another app or macOS. Try another combo."
         }
-
-        Task { await updater.check() }
 
         // Open the panel for user-initiated launches (clicked from
         // Applications, Spotlight, Finder). When macOS auto-launches us
@@ -211,7 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             string: """
             A minimalist macOS scratchpad — open with one keypress, type, dismiss.
 
-            MIT licensed. Source at github.com/sulemaanhamza/wisp.
+            MIT licensed. Source at github.com/garbsclassic/wisp.
 
             Set in Inter Nerd Font — the Propo variant for chrome, plain for notes so icon glyphs column-align. Falls back to the system sans when not installed.
             """,

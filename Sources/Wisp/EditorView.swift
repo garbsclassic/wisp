@@ -36,12 +36,6 @@ final class EditorModel: ObservableObject {
     @Published private(set) var placeholder: String = ""
     @Published var showHelp: Bool = false
     @Published var showHotKeyCapture: Bool = false
-    @Published var showFirstRunHint: Bool = false
-    @Published var showTour: Bool = false
-    /// Set to true when the user clicks "Later" on the update overlay.
-    /// Reset to false on every panel-open so the overlay reappears on
-    /// the next interaction if an update is still available.
-    @Published var updateDismissed: Bool = false
 
     // MARK: Find
     @Published var showFind: Bool = false
@@ -153,7 +147,6 @@ final class EditorModel: ObservableObject {
         if let saved = HotKey.loadFromDefaults() {
             hotKey = saved
         }
-        showFirstRunHint = !UserDefaults.standard.bool(forKey: "HasSeenFirstRunTour")
         let url = StorageLocation.currentURL
         if let loaded = try? String(contentsOf: url, encoding: .utf8) {
             text = loaded
@@ -276,28 +269,15 @@ final class EditorModel: ObservableObject {
     /// Tear every modal overlay down. Called on every panel hide: the
     /// panel only orders out, so SwiftUI never unmounts the overlays and
     /// their local key monitors would otherwise stay installed app-wide
-    /// with the panel gone. Deliberately leaves `showFirstRunHint` and
-    /// the persisted "tour seen" flag alone — clicking away isn't the
-    /// same as having read the tour.
+    /// with the panel gone.
     func closeAllOverlays() {
         if showFind { closeFind() }
         showHotKeyCapture = false
-        showTour = false
         showHelp = false
     }
 
     func refreshPlaceholder() {
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
-    }
-
-    func openTour() {
-        showTour = true
-    }
-
-    func dismissTour() {
-        showTour = false
-        showFirstRunHint = false
-        UserDefaults.standard.set(true, forKey: "HasSeenFirstRunTour")
     }
 
     /// Force a synchronous flush — call from applicationWillTerminate so an
@@ -329,7 +309,6 @@ final class EditorModel: ObservableObject {
 
 struct EditorView: View {
     @ObservedObject var model: EditorModel
-    @ObservedObject var updater: Updater
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -366,33 +345,12 @@ struct EditorView: View {
                     onCycleFontSize: { model.cycleFontSize() },
                     themePreference: model.themePreference,
                     onCycleTheme: { model.cycleTheme() },
-                    updateState: updater.state,
-                    onUpdateClick: { updater.handleClick() },
                     onHelpClick: {
                         withAnimation(.easeInOut(duration: 0.18)) {
                             model.showHelp.toggle()
                         }
                     }
                 )
-            }
-            if model.showFirstRunHint && !model.showTour {
-                FirstRunDot {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        model.openTour()
-                    }
-                }
-                .padding(.top, 14)
-                .padding(.trailing, 14)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .transition(.opacity)
-            }
-            if model.showTour {
-                TourOverlay {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        model.dismissTour()
-                    }
-                }
-                .transition(.opacity)
             }
             if model.showHelp {
                 HelpOverlay {
@@ -413,20 +371,6 @@ struct EditorView: View {
                     onCancel: {
                         withAnimation(.easeInOut(duration: 0.18)) {
                             model.showHotKeyCapture = false
-                        }
-                    }
-                )
-                .transition(.opacity)
-            }
-            if shouldShowUpdateOverlay {
-                UpdateAvailableOverlay(
-                    state: updater.state,
-                    highlights: updater.highlights,
-                    onUpdate: { updater.startUpdateAndRestart() },
-                    onLater: {
-                        updater.cancelAutoApply()
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            model.updateDismissed = true
                         }
                     }
                 )
@@ -460,19 +404,6 @@ struct EditorView: View {
     }
 
     private var palette: Palette { Palette.for(model.theme) }
-
-    /// Show the update overlay whenever there's something installable
-    /// (.available or .pending) or actively downloading, and the user
-    /// hasn't dismissed it for this panel-open session. Yields to
-    /// help/tour/hotkey-capture so those keep their full attention.
-    private var shouldShowUpdateOverlay: Bool {
-        guard !model.updateDismissed else { return false }
-        guard !model.showHelp, !model.showTour, !model.showHotKeyCapture else { return false }
-        switch updater.state {
-        case .available, .downloading, .pending: return true
-        case .idle: return false
-        }
-    }
 
     private var wordCount: Int {
         var count = 0

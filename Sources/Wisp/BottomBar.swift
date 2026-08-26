@@ -6,8 +6,6 @@ struct BottomBar: View {
     let onCycleFontSize: () -> Void
     let themePreference: ThemePreference
     let onCycleTheme: () -> Void
-    let updateState: UpdateState
-    let onUpdateClick: () -> Void
     let onHelpClick: () -> Void
     @Environment(\.palette) private var palette
 
@@ -16,7 +14,6 @@ struct BottomBar: View {
             Text(wordsLabel)
                 .monospacedDigit()
             Spacer()
-            updateIndicator
             Button(action: onHelpClick) {
                 Image(systemName: "questionmark")
                     .font(Typography.ui(11))
@@ -50,30 +47,6 @@ struct BottomBar: View {
         .foregroundStyle(Color(palette.muted))
         .padding(.horizontal, 28)
         .padding(.vertical, 14)
-    }
-
-    @ViewBuilder
-    private var updateIndicator: some View {
-        switch updateState {
-        case .idle:
-            EmptyView()
-        case .available(let version, _):
-            Button(action: onUpdateClick) {
-                Text("↑ v\(version)")
-            }
-            .buttonStyle(.plain)
-            .pointerCursor()
-            .help("New version available")
-        case .downloading(let version):
-            Text("↓ downloading v\(version)…")
-        case .pending(let version):
-            Button(action: onUpdateClick) {
-                Text("↻ v\(version) ready — restart to apply")
-            }
-            .buttonStyle(.plain)
-            .pointerCursor()
-            .help("Restart Wisp to apply the update")
-        }
     }
 
     private var themeIconName: String {
