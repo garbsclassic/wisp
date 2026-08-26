@@ -14,7 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = PanelController(model: model, updater: updater)
         panelController = panel
         menuBarController = MenuBarController(
-            onClick: { [weak panel] in panel?.toggle() },
+            // "Open Wisp" opens — the panel is still up while the status
+            // menu tracks, so toggling here would close it instead.
+            onClick: { [weak panel] in
+                panel?.openIfNeeded()
+                NSApp.activate(ignoringOtherApps: true)
+            },
             currentHotKey: { [weak self] in self?.model.hotKey ?? .default },
             onSetHotKey: { [weak self, weak panel] in
                 panel?.openIfNeeded()
@@ -45,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // UserDefaults (or HotKey.default if it's a fresh install). If
         // even this fails — e.g. user's saved binding is now claimed by
         // some other app — we leave the app without a hotkey; the user
-        // can rebind via the right-click menu.
+        // can rebind from the menu bar menu.
         _ = registerHotKey(model.hotKey)
 
         // Mediator the capture overlay calls when the user picks a
@@ -133,7 +138,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // somewhere visible; otherwise it can sit behind the desktop.
         panelController?.openIfNeeded()
         NSApp.activate(ignoringOtherApps: true)
+        // These run app-modal, so the desktop and other apps stay
+        // clickable; without this the first such click would dismiss the
+        // panel we just opened for the modal to sit on.
+        panelController?.presentingModal { runStorageLocationFlow() }
+    }
 
+    private func runStorageLocationFlow() {
         let openPanel = NSOpenPanel()
         openPanel.title = "Choose Wisp's Storage Folder"
         openPanel.prompt = "Choose"
@@ -182,6 +193,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func resetStorageLocation() {
+        panelController?.presentingModal { runStorageLocationReset() }
+    }
+
+    private func runStorageLocationReset() {
         do {
             try StorageLocation.resetToDefault(currentText: model.text)
             model.adoptLoadedText(model.text)
@@ -198,10 +213,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             MIT licensed. Source at github.com/sulemaanhamza/wisp.
 
-            Set in Inter Nerd Font — fixed-width glyphs for notes, proportional for chrome. Falls back to the system sans when not installed.
+            Set in Inter Nerd Font — the Propo variant for chrome, plain for notes so icon glyphs column-align. Falls back to the system sans when not installed.
             """,
             attributes: [
-                .font: NSFont.systemFont(ofSize: 11),
+                .font: Typography.uiFont(11),
                 .foregroundColor: NSColor.secondaryLabelColor,
             ]
         )

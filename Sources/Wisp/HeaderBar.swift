@@ -3,6 +3,7 @@ import SwiftUI
 struct HeaderBar: View {
     let headings: [Heading]
     let onJump: (Heading) -> Void
+    @Environment(\.palette) private var palette
 
     var body: some View {
         if headings.isEmpty {
@@ -15,7 +16,7 @@ struct HeaderBar: View {
                     ForEach(Array(headings.enumerated()), id: \.element.id) { index, heading in
                         if index > 0 {
                             Text("·")
-                                .foregroundStyle(.quaternary)
+                                .foregroundStyle(Color(palette.rule))
                                 .padding(.horizontal, 10)
                         }
                         Button(action: { onJump(heading) }) {
@@ -31,7 +32,7 @@ struct HeaderBar: View {
                 .padding(.vertical, 14)
             }
             .font(Typography.ui(11))
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(Color(palette.muted))
         }
     }
 }

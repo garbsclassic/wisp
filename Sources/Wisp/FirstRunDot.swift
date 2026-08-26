@@ -5,6 +5,7 @@ import SwiftUI
 struct FirstRunDot: View {
     let onTap: () -> Void
 
+    @Environment(\.palette) private var palette
     @State private var pulsing = false
 
     var body: some View {
@@ -12,13 +13,13 @@ struct FirstRunDot: View {
             ZStack {
                 // Outer breathing ring — fades out as it expands.
                 Circle()
-                    .stroke(Color.accentColor.opacity(0.5), lineWidth: 1)
+                    .stroke(Color(palette.accent).opacity(0.5), lineWidth: 1)
                     .frame(width: 18, height: 18)
                     .scaleEffect(pulsing ? 1.6 : 0.9)
                     .opacity(pulsing ? 0 : 0.9)
                 // Solid dot.
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(Color(palette.accent))
                     .frame(width: 8, height: 8)
             }
             // Hit area larger than the visible glow so clicks land

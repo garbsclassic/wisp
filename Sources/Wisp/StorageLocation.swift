@@ -3,7 +3,7 @@ import Foundation
 /// Where `scratchpad.md` lives on disk.
 ///
 /// Default: `~/Library/Application Support/Wisp/scratchpad.md`. The user
-/// can pick any folder via the right-click menu — putting it inside
+/// can pick any folder from the menu bar menu — putting it inside
 /// `~/Library/Mobile Documents/com~apple~CloudDocs/...` (iCloud Drive),
 /// `~/Dropbox/...`, or any sync tool's folder makes Wisp's scratchpad
 /// follow the user across machines for free, since macOS handles that

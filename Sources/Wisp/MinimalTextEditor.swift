@@ -70,6 +70,10 @@ struct MinimalTextEditor: NSViewRepresentable {
             let paragraph = NSMutableParagraphStyle()
             paragraph.lineHeightMultiple = 1.45
             Self.applyPalette(Palette.for(theme), to: textView, font: font, paragraph: paragraph)
+            // The match background is a storage attribute and applyPalette
+            // merges rather than replaces, so repaint it in the incoming
+            // theme's color instead of leaving the outgoing one behind.
+            applyFindHighlight(to: textView, scroll: false)
         }
         if context.coordinator.lastFocusToken != focusToken {
             context.coordinator.lastFocusToken = focusToken
@@ -91,22 +95,28 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
         if context.coordinator.lastFindHighlightToken != findHighlightToken {
             context.coordinator.lastFindHighlightToken = findHighlightToken
-            let range = findHighlightRange
-            let color = Palette.for(theme).findHighlight
-            if let storage = textView.textStorage {
-                let full = NSRange(location: 0, length: storage.length)
-                // Use a real storage background attribute (not a temporary
-                // layout attribute): storage mutations always trigger a
-                // redraw, so the highlight clears deterministically.
-                // Nothing else touches .backgroundColor during a find
-                // session, and it's never written to disk (we save .string).
-                storage.removeAttribute(.backgroundColor, range: full)
-                if range.length > 0, NSMaxRange(range) <= full.length {
-                    storage.addAttribute(.backgroundColor, value: color, range: range)
-                    textView.scrollRangeToVisible(range)
-                }
-            }
+            applyFindHighlight(to: textView, scroll: true)
         }
+    }
+
+    /// Paints the current find match. `scroll` is false when repainting
+    /// for a theme change — the match hasn't moved, so pulling the view
+    /// to it would be jarring.
+    private func applyFindHighlight(to textView: NSTextView, scroll: Bool) {
+        guard let storage = textView.textStorage else { return }
+        let full = NSRange(location: 0, length: storage.length)
+        let range = findHighlightRange
+        // Use a real storage background attribute (not a temporary layout
+        // attribute): storage mutations always trigger a redraw, so the
+        // highlight clears deterministically. Nothing else touches
+        // .backgroundColor during a find session, and it's never written
+        // to disk (we save .string).
+        storage.removeAttribute(.backgroundColor, range: full)
+        guard range.length > 0, NSMaxRange(range) <= full.length else { return }
+        storage.addAttribute(
+            .backgroundColor, value: Palette.for(theme).findHighlight, range: range
+        )
+        if scroll { textView.scrollRangeToVisible(range) }
     }
 
     private func applyFont(to textView: NSTextView) {

@@ -3,10 +3,8 @@ import SwiftUI
 /// First-run welcome overlay. Shows three essential tips and a single
 /// "Got it" affordance. Dismisses on click anywhere or Esc.
 struct TourOverlay: View {
-    let theme: Theme
+    @Environment(\.palette) private var palette
     let onDismiss: () -> Void
-
-    private var palette: Palette { Palette.for(theme) }
 
     var body: some View {
         ZStack {
@@ -34,7 +32,7 @@ struct TourOverlay: View {
                             .padding(.vertical, 6)
                             .background(
                                 RoundedRectangle(cornerRadius: 6)
-                                    .stroke(.tertiary, lineWidth: 1)
+                                    .stroke(Color(palette.border), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -52,7 +50,7 @@ struct TourOverlay: View {
     private func tip(_ key: String, _ description: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(key)
-                .font(Typography.ui(12, weight: .medium, monospaced: true))
+                .font(Typography.ui(12, weight: .medium))
                 .foregroundStyle(Color(palette.muted))
                 .frame(minWidth: 160, alignment: .leading)
             Text(description)

@@ -15,8 +15,9 @@ let icnsURL = scriptDir.appendingPathComponent("AppIcon.icns")
 try? FileManager.default.removeItem(at: iconsetDir)
 try FileManager.default.createDirectory(at: iconsetDir, withIntermediateDirectories: true)
 
-// Bold serif "W" on warm cream — ties to the app's body typography
-// (Charter) and the warm-cream palette used in the dark theme.
+// Bold "W" on warm cream. The app's body face is now Inter Nerd Font
+// (Typography.notesFamily), so the icon resolves that first and keeps
+// the old serif only as a fallback for machines without it.
 func makeIcon(pixelSize: Int) -> Data? {
     let size = CGFloat(pixelSize)
     let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -36,9 +37,9 @@ func makeIcon(pixelSize: Int) -> Data? {
 
     // Letter "W" centered.
     let fontSize = size * 0.6
-    var font = CTFontCreateWithName("Charter-Bold" as CFString, fontSize, nil)
-    if CTFontCopyPostScriptName(font) as String != "Charter-Bold" {
-        font = CTFontCreateWithName("Charter" as CFString, fontSize, nil)
+    var font = CTFontCreateWithName("InterNF-Bold" as CFString, fontSize, nil)
+    if CTFontCopyPostScriptName(font) as String != "InterNF-Bold" {
+        font = CTFontCreateWithName("Charter-Bold" as CFString, fontSize, nil)
     }
 
     let attrs: [NSAttributedString.Key: Any] = [

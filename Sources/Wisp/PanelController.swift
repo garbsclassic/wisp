@@ -157,10 +157,31 @@ final class PanelController {
             return false
         }
 
-        // The Esc fallback path orders out inside FloatingPanel; stop
-        // the click monitor there too so every hide path tears down.
-        panel.onWillHide = { [weak self] in
-            self?.stopOutsideClickMonitor()
+        // One teardown for every hide, wherever it was ordered from.
+        panel.onHide = { [weak self] in
+            self?.handleHide()
+        }
+
+        // NSApp.hide (⌥⌘H from another app, Dock → Hide) takes the panel
+        // off screen without routing through orderOut, so the monitor has
+        // to be stopped and restarted around it explicitly.
+        for (name, visible) in [
+            (NSApplication.didHideNotification, false),
+            (NSApplication.didUnhideNotification, true),
+        ] {
+            let token = NotificationCenter.default.addObserver(
+                forName: name, object: NSApp, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    if visible {
+                        if self.panel.isVisible { self.startOutsideClickMonitor() }
+                    } else {
+                        self.stopOutsideClickMonitor()
+                    }
+                }
+            }
+            frameObservers.append(token)
         }
     }
 
@@ -171,10 +192,22 @@ final class PanelController {
     }
 
     func dismiss() {
-        stopOutsideClickMonitor()
         if panel.isVisible {
             panel.orderOut(nil)
+        } else {
+            // Already off screen — still tear down, in case something
+            // hid the panel without going through orderOut.
+            handleHide()
         }
+    }
+
+    /// The one place hide-time teardown lives. Idempotent: `dismiss()`
+    /// and the panel's own orderOut can both reach it for a single hide.
+    private func handleHide() {
+        stopOutsideClickMonitor()
+        // orderOut leaves the SwiftUI hierarchy mounted, so overlays and
+        // their app-wide key monitors survive the hide unless we say so.
+        model.closeAllOverlays()
     }
 
     func toggle() {
@@ -213,22 +246,35 @@ final class PanelController {
 
     // MARK: Outside-click dismissal
 
+    /// Set while Wisp is presenting its own modal (storage picker,
+    /// alerts). Those run app-modal, so the rest of the desktop stays
+    /// clickable and every such click would otherwise dismiss the panel
+    /// the modal is sitting on.
+    private var isPresentingModal = false
+
+    /// Run `body` with outside-click dismissal suspended.
+    func presentingModal<T>(_ body: () -> T) -> T {
+        isPresentingModal = true
+        defer { isPresentingModal = false }
+        return body()
+    }
+
     /// Any click outside the panel dismisses it outright — "go away",
     /// not "back out one level" (Esc keeps the layered-cancel chain).
     /// A global monitor only sees *other* apps' events, so clicks inside
     /// the panel and on Wisp's own status item can't false-trigger, and
-    /// panel drags (local events) are unaffected. The monitor is torn
-    /// down on every hide path; one left running while hidden would
-    /// fire on every click the user makes anywhere.
+    /// panel drags (local events) are unaffected. Teardown hangs off
+    /// FloatingPanel.onHide, so it can't be skipped by a hide added
+    /// later; one left running while hidden would fire on every click
+    /// the user makes anywhere.
     private func startOutsideClickMonitor() {
         stopOutsideClickMonitor()
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseUp, .rightMouseUp, .otherMouseUp]
         ) { [weak self] _ in
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    self?.dismiss()
-                }
+            MainActor.assumeIsolated {
+                guard let self, !self.isPresentingModal else { return }
+                self.dismiss()
             }
         }
     }

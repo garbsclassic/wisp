@@ -8,7 +8,7 @@ import Carbon.HIToolbox
 /// On success the parent dismisses; on failure (combo in use system-
 /// wide) the error is shown inline and capture mode keeps listening.
 struct HotKeyCaptureOverlay: View {
-    let theme: Theme
+    @Environment(\.palette) private var palette
     /// Returns nil on success or a user-facing error message otherwise.
     let onTryRegister: (HotKey) -> String?
     let onSuccess: () -> Void
@@ -16,8 +16,6 @@ struct HotKeyCaptureOverlay: View {
 
     @State private var monitor: Any?
     @State private var errorMessage: String?
-
-    private var palette: Palette { Palette.for(theme) }
 
     var body: some View {
         ZStack {
@@ -37,7 +35,7 @@ struct HotKeyCaptureOverlay: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(Typography.ui(12))
-                        .foregroundStyle(Color(palette.accent))
+                        .foregroundStyle(Color(palette.danger))
                         .multilineTextAlignment(.center)
                         .padding(.top, 6)
                         .padding(.horizontal, 24)

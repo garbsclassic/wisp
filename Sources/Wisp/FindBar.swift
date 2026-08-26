@@ -6,7 +6,7 @@ import Carbon.HIToolbox
 /// search; Return / Shift-Return step matches; Esc closes. Deliberately
 /// minimal — no replace, no regex, no case toggle.
 struct FindBar: View {
-    let theme: Theme
+    @Environment(\.palette) private var palette
     @Binding var query: String
     let matchCount: Int
     let currentIndex: Int   // 1-based; 0 when no matches
@@ -17,13 +17,11 @@ struct FindBar: View {
     @FocusState private var focused: Bool
     @State private var monitor: Any?
 
-    private var palette: Palette { Palette.for(theme) }
-
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(Typography.ui(12))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color(palette.muted))
 
             TextField("Find", text: $query)
                 .textFieldStyle(.plain)
@@ -32,8 +30,8 @@ struct FindBar: View {
                 .frame(width: 160)
 
             Text(countLabel)
-                .font(Typography.ui(11, monospaced: true))
-                .foregroundStyle(.tertiary)
+                .font(Typography.ui(11, tabularDigits: true))
+                .foregroundStyle(Color(palette.muted))
                 .frame(minWidth: 58, alignment: .trailing)
 
             Divider().frame(height: 16)
@@ -89,7 +87,7 @@ struct FindBar: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color(palette.muted))
         .pointerCursor()
         .help(help)
     }

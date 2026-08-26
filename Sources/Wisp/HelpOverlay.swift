@@ -1,10 +1,8 @@
 import SwiftUI
 
 struct HelpOverlay: View {
-    let theme: Theme
+    @Environment(\.palette) private var palette
     let onDismiss: () -> Void
-
-    private var palette: Palette { Palette.for(theme) }
 
     var body: some View {
         ZStack {
@@ -22,6 +20,7 @@ struct HelpOverlay: View {
                     ("⌥Space", "summon or dismiss the panel"),
                     ("⌘F", "find in your notes (↵ / ⇧↵ to step)"),
                     ("Esc", "dismiss"),
+                    ("Click outside", "dismiss"),
                     ("⌘Q", "quit Wisp"),
                 ])
                 section("Format", items: [
@@ -49,7 +48,7 @@ struct HelpOverlay: View {
 
                 Text("Click anywhere or press Esc to close.")
                     .font(Typography.ui(11))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Color(palette.muted))
                     .padding(.top, 8)
             }
             .padding(.horizontal, 40)
@@ -70,7 +69,7 @@ struct HelpOverlay: View {
             ForEach(items, id: \.0) { item in
                 HStack(alignment: .firstTextBaseline, spacing: 16) {
                     Text(item.0)
-                        .font(Typography.ui(12, weight: .medium, monospaced: true))
+                        .font(Typography.ui(12, weight: .medium))
                         .foregroundStyle(Color(palette.muted))
                         .frame(width: 180, alignment: .leading)
                     Text(item.1)

@@ -8,15 +8,13 @@ import Carbon.HIToolbox
 /// per-session — opening the panel again brings the overlay back as
 /// long as the update is still pending.
 struct UpdateAvailableOverlay: View {
-    let theme: Theme
+    @Environment(\.palette) private var palette
     let state: UpdateState
     let highlights: [String]
     let onUpdate: () -> Void
     let onLater: () -> Void
 
     @State private var monitor: Any?
-
-    private var palette: Palette { Palette.for(theme) }
 
     var body: some View {
         ZStack {
@@ -36,7 +34,7 @@ struct UpdateAvailableOverlay: View {
                 VStack(spacing: 14) {
                     Text(headline)
                         .font(Typography.ui(15, weight: .medium))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Color(palette.text))
                         .multilineTextAlignment(.center)
 
                     if isDownloading {
@@ -47,16 +45,16 @@ struct UpdateAvailableOverlay: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("What's new")
                                 .font(Typography.ui(10, weight: .semibold))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(Color(palette.muted))
                                 .textCase(.uppercase)
                                 .tracking(0.6)
                             VStack(alignment: .leading, spacing: 6) {
                                 ForEach(highlights, id: \.self) { line in
                                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                        Text("·").foregroundStyle(.tertiary)
+                                        Text("·").foregroundStyle(Color(palette.muted))
                                         Text(line)
                                             .font(Typography.ui(12))
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(Color(palette.muted))
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }

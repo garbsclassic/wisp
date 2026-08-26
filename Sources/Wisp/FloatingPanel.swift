@@ -9,17 +9,22 @@ final class FloatingPanel: NSPanel {
     /// through to the default behavior (orderOut the panel).
     var onCancel: (() -> Bool)?
 
-    /// Called just before the panel orders itself out via the Esc
-    /// fallback path, so owners can tear down state (e.g., the
-    /// outside-click monitor) they keyed to visibility.
-    var onWillHide: (() -> Void)?
+    /// Called once per hide, whoever ordered it out. Owners key their
+    /// teardown to this rather than to individual dismiss call sites, so
+    /// a hide added later can't skip it.
+    var onHide: (() -> Void)?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
+    override func orderOut(_ sender: Any?) {
+        let wasVisible = isVisible
+        super.orderOut(sender)
+        if wasVisible { onHide?() }
+    }
+
     override func cancelOperation(_ sender: Any?) {
         if onCancel?() == true { return }
-        onWillHide?()
         orderOut(nil)
     }
 }

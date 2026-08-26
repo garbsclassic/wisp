@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 enum Theme: String, CaseIterable {
     case dark
@@ -35,9 +36,9 @@ enum ThemePreference: String, CaseIterable {
     }
 }
 
-private func rgb(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
+func rgb(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
     NSColor(
-        deviceRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
+        srgbRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
         green: CGFloat((hex >> 8) & 0xFF) / 255.0,
         blue: CGFloat(hex & 0xFF) / 255.0,
         alpha: alpha
@@ -45,30 +46,36 @@ private func rgb(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
 }
 
 /// Text-surface tokens. Dark is Flexoki Dark, light is Modernist Light
-/// (colors only — Wisp keeps its own rounded, blurred posture). Every
-/// color a view draws comes from here; nothing hardcodes a hex.
+/// (colors only — Wisp keeps its own rounded, blurred posture). Views
+/// draw their colors from here; the exceptions left on AppKit semantic
+/// colors are the system About panel and the first-run dot.
 struct Palette {
     /// Body text. Flexoki `tx` / Modernist `ink`.
     let text: NSColor
     /// Secondary text on modal surfaces. Flexoki `tx-2` / Modernist `muted`.
     let muted: NSColor
-    /// Panel background behind modal backdrops. Flexoki `bg-2` /
-    /// Modernist `panel`. The live panel itself is Chrome's job.
+    /// Failure text — hotkey registration errors. Flexoki red; distinct
+    /// from `accent` so an error never reads as a hint.
+    let danger: NSColor
+    /// The paper the live panel composites to, so modal backdrops paint
+    /// the same tone rather than stepping over it. See Chrome.for(.light).
     let panel: NSColor
-    /// Raised chips: find bar, update card. Flexoki `ui` / Modernist `surface`.
+    /// Raised chips: find bar, update card. Always lighter than `panel`
+    /// in both themes, or a chip reads as a recess.
     let surface: NSColor
-    /// The single accent, used sparingly — caret, selection, find match.
+    /// The single accent, used sparingly — caret and selection only.
     /// Flexoki cyan / Modernist vermilion.
     let accent: NSColor
-    /// 1px incidental rules, including the horizontal-rule glyph.
-    /// Flexoki `ui-3` / Modernist `row-rule`.
+    /// 1px incidental rules, including the horizontal-rule glyph. Alpha,
+    /// not opaque: the panel is vibrancy whose luminance tracks the
+    /// desktop, so an opaque rule washes out over a light wallpaper.
     let rule: NSColor
-    /// Panel frame and chip borders. Flexoki `ui-2` / Modernist `rule`.
+    /// Panel frame and chip borders — a hairline, not a structural rule.
     let border: NSColor
     /// Selection background. Accent-tinted per theme.
     let selection: NSColor
-    /// Background drawn behind the current Find match (temporary layout
-    /// attribute). Accent at a wash so words stay readable through it.
+    /// Background behind the current Find match. Amber in both themes so
+    /// it stays distinguishable from an accent-tinted selection.
     let findHighlight: NSColor
 
     static func `for`(_ theme: Theme) -> Palette {
@@ -78,27 +85,29 @@ struct Palette {
             return Palette(
                 text: rgb(0xCECDC3),
                 muted: rgb(0x7D7C78),
+                danger: rgb(0xD14D41),
                 panel: rgb(0x1C1B1A),
                 surface: rgb(0x282726),
                 accent: rgb(0x4ECBDF),
-                rule: rgb(0x403E3C),
-                border: rgb(0x343331),
+                rule: rgb(0xCECDC3, 0.32),
+                border: rgb(0xCECDC3, 0.10),
                 selection: rgb(0x4ECBDF, 0.20),
-                findHighlight: rgb(0x4ECBDF, 0.28)
+                findHighlight: rgb(0xD0A215, 0.38)
             )
         case .light:
             // Modernist Light — near-black ink on warm paper, vermilion
-            // accent kept for caret and matches only.
+            // accent kept for the caret and selection only.
             return Palette(
                 text: rgb(0x161413),
                 muted: rgb(0x4B4949),
-                panel: rgb(0xE8E6E6),
-                surface: rgb(0xEAE9E9),
+                danger: rgb(0xAF3029),
+                panel: rgb(0xF0EFEF),
+                surface: rgb(0xF7F6F6),
                 accent: rgb(0xEC3013),
                 rule: rgb(0x201E1D, 0.18),
-                border: rgb(0x201E1D),
+                border: rgb(0x201E1D, 0.12),
                 selection: rgb(0xEC3013, 0.14),
-                findHighlight: rgb(0xEC3013, 0.18)
+                findHighlight: rgb(0xD0A215, 0.50)
             )
         }
     }
@@ -125,13 +134,30 @@ struct Chrome {
             )
         case .light:
             // Modernist paper over vibrancy: the tint is a translucent
-            // wash so the blur stays alive in both themes, while the
-            // #E8E6E6 fill keeps the panel reading as the palette.
+            // wash so the blur stays alive in both themes. It composites
+            // over .windowBackground to #F0EFEF (measured), which is
+            // what Palette.light.panel records — keep the two in step,
+            // or modal backdrops step over the live panel.
             return Chrome(
                 material: .windowBackground,
                 tintColor: rgb(0xE8E6E6, 0.75),
                 appearance: .aqua
             )
         }
+    }
+}
+
+private struct PaletteKey: EnvironmentKey {
+    // Computed, so this is a resolver rather than shared global state.
+    static var defaultValue: Palette { Palette.for(.dark) }
+}
+
+extension EnvironmentValues {
+    /// Set once on the panel's root view. Every view below reads its
+    /// colors from here rather than taking a `theme` parameter and
+    /// resolving a Palette of its own.
+    var palette: Palette {
+        get { self[PaletteKey.self] }
+        set { self[PaletteKey.self] = newValue }
     }
 }

@@ -25,3 +25,6 @@
 - 2026-08-25 — [personalize](plan-personalize.md): vibrancy restored for light — tint is now a 75%
   paper wash over `.windowBackground` instead of an opaque fill with the effect view hidden;
   radius and vermilion accent confirmed as-is (99d5eb8, screenshot ed1241f)
+- 2026-08-26 — [personalize](plan-personalize.md): code review of the branch
+  ([findings](review-personalize.md)) — 15 findings fixed across panel lifecycle, palette tokens,
+  typography, and the self-test suite; 161/161 pass

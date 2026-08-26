@@ -9,6 +9,7 @@ struct BottomBar: View {
     let updateState: UpdateState
     let onUpdateClick: () -> Void
     let onHelpClick: () -> Void
+    @Environment(\.palette) private var palette
 
     var body: some View {
         HStack(spacing: 16) {
@@ -46,7 +47,7 @@ struct BottomBar: View {
             Text("esc to close")
         }
         .font(Typography.ui(11))
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(Color(palette.muted))
         .padding(.horizontal, 28)
         .padding(.vertical, 14)
     }

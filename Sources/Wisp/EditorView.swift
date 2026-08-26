@@ -273,6 +273,19 @@ final class EditorModel: ObservableObject {
         findHighlightToken &+= 1
     }
 
+    /// Tear every modal overlay down. Called on every panel hide: the
+    /// panel only orders out, so SwiftUI never unmounts the overlays and
+    /// their local key monitors would otherwise stay installed app-wide
+    /// with the panel gone. Deliberately leaves `showFirstRunHint` and
+    /// the persisted "tour seen" flag alone — clicking away isn't the
+    /// same as having read the tour.
+    func closeAllOverlays() {
+        if showFind { closeFind() }
+        showHotKeyCapture = false
+        showTour = false
+        showHelp = false
+    }
+
     func refreshPlaceholder() {
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
     }
@@ -341,7 +354,7 @@ struct EditorView: View {
                     if model.text.isEmpty {
                         Text(model.placeholder)
                             .font(Typography.notes(model.fontSize.pointSize))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Color(palette.muted))
                             .allowsHitTesting(false)
                             .padding(.horizontal, 28)
                             .padding(.top, model.headings.isEmpty ? 28 : 4)
@@ -374,7 +387,7 @@ struct EditorView: View {
                 .transition(.opacity)
             }
             if model.showTour {
-                TourOverlay(theme: model.theme) {
+                TourOverlay {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         model.dismissTour()
                     }
@@ -382,7 +395,7 @@ struct EditorView: View {
                 .transition(.opacity)
             }
             if model.showHelp {
-                HelpOverlay(theme: model.theme) {
+                HelpOverlay {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         model.showHelp = false
                     }
@@ -391,7 +404,6 @@ struct EditorView: View {
             }
             if model.showHotKeyCapture {
                 HotKeyCaptureOverlay(
-                    theme: model.theme,
                     onTryRegister: { hk in model.tryUpdateHotKey(hk) },
                     onSuccess: {
                         withAnimation(.easeInOut(duration: 0.18)) {
@@ -408,7 +420,6 @@ struct EditorView: View {
             }
             if shouldShowUpdateOverlay {
                 UpdateAvailableOverlay(
-                    theme: model.theme,
                     state: updater.state,
                     highlights: updater.highlights,
                     onUpdate: { updater.startUpdateAndRestart() },
@@ -423,7 +434,6 @@ struct EditorView: View {
             }
             if model.showFind {
                 FindBar(
-                    theme: model.theme,
                     query: $model.findQuery,
                     matchCount: model.findMatchCount,
                     currentIndex: model.findCurrentDisplayIndex,
@@ -443,10 +453,13 @@ struct EditorView: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(borderColor, lineWidth: 1)
+                .strokeBorder(Color(palette.border), lineWidth: 1)
                 .allowsHitTesting(false)
         }
+        .environment(\.palette, palette)
     }
+
+    private var palette: Palette { Palette.for(model.theme) }
 
     /// Show the update overlay whenever there's something installable
     /// (.available or .pending) or actively downloading, and the user
@@ -459,10 +472,6 @@ struct EditorView: View {
         case .available, .downloading, .pending: return true
         case .idle: return false
         }
-    }
-
-    private var borderColor: Color {
-        Color(Palette.for(model.theme).border)
     }
 
     private var wordCount: Int {

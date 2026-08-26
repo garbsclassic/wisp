@@ -11,8 +11,8 @@ import Carbon.HIToolbox
 ///
 /// Coverage is limited to types that don't need a running NSApplication:
 /// SmartEditing, Headings parsing, HotKey display + Carbon-modifier
-/// conversion, the Theme / FontSize enums, palette token values, and
-/// Typography font resolution. Anything that touches NSTextView, Carbon
+/// conversion, the Theme / FontSize enums, palette token relationships,
+/// and Typography font resolution. Anything that touches NSTextView, Carbon
 /// hotkey registration, or the panel needs integration / UI testing —
 /// out of scope here.
 enum SelfTests {
@@ -202,65 +202,92 @@ enum SelfTests {
 
         // MARK: - Palette tokens
 
-        // Values are constructed as device RGB, so components read back
-        // exactly and can be asserted without conversion.
+        // Assert the *relationships* the design depends on, not the hex
+        // literals — restating a literal two files from where it's
+        // declared catches nothing and turns every retune into a
+        // two-file edit. NSColor's own == is used deliberately: it
+        // compares across color spaces, where component-wise comparison
+        // would call a device-RGB and an sRGB color equal, and it
+        // returns false on a semantic color instead of trapping.
 
-        func rgb8(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
-            NSColor(
-                deviceRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
-                green: CGFloat((hex >> 8) & 0xFF) / 255.0,
-                blue: CGFloat(hex & 0xFF) / 255.0,
-                alpha: alpha
-            )
+        /// Relative luminance, for the "is this lighter than that" checks.
+        func luminance(_ c: NSColor) -> CGFloat {
+            guard let rgb = c.usingColorSpace(.sRGB) else { return 0 }
+            return 0.2126 * rgb.redComponent
+                + 0.7152 * rgb.greenComponent
+                + 0.0722 * rgb.blueComponent
         }
-        func sameColor(_ a: NSColor, _ b: NSColor) -> Bool {
-            a.redComponent == b.redComponent
-                && a.greenComponent == b.greenComponent
-                && a.blueComponent == b.blueComponent
-                && a.alphaComponent == b.alphaComponent
+        /// Same hue, ignoring alpha — for "is this a wash of that".
+        func sameHue(_ a: NSColor, _ b: NSColor) -> Bool {
+            a.withAlphaComponent(1) == b.withAlphaComponent(1)
         }
 
         let dark = Palette.for(.dark)
         let light = Palette.for(.light)
 
-        check("dark text is Flexoki tx", sameColor(dark.text, rgb8(0xCECDC3)))
-        check("dark muted is Flexoki tx-2", sameColor(dark.muted, rgb8(0x7D7C78)))
-        check("dark panel is Flexoki bg-2", sameColor(dark.panel, rgb8(0x1C1B1A)))
-        check("dark surface is Flexoki ui", sameColor(dark.surface, rgb8(0x282726)))
-        check("dark accent is Flexoki cyan", sameColor(dark.accent, rgb8(0x4ECBDF)))
-        check("dark rule is Flexoki ui-3", sameColor(dark.rule, rgb8(0x403E3C)))
-        check("dark border is Flexoki ui-2", sameColor(dark.border, rgb8(0x343331)))
+        // Tokens are pinned to sRGB, not device RGB: device components are
+        // consumed unconverted, so the same literal paints differently on
+        // a P3 panel than on an sRGB monitor.
+        check("dark accent is pinned to sRGB",
+              dark.accent == rgb(0x4ECBDF))
+        check("light accent is pinned to sRGB",
+              light.accent == rgb(0xEC3013))
+        check("device RGB is not accepted as equal to the sRGB token",
+              dark.accent != NSColor(
+                  deviceRed: 0x4E / 255.0, green: 0xCB / 255.0,
+                  blue: 0xDF / 255.0, alpha: 1
+              ))
 
-        check("light text is Modernist ink", sameColor(light.text, rgb8(0x161413)))
-        check("light muted is Modernist muted", sameColor(light.muted, rgb8(0x4B4949)))
-        check("light panel is Modernist panel", sameColor(light.panel, rgb8(0xE8E6E6)))
-        check("light surface is Modernist surface", sameColor(light.surface, rgb8(0xEAE9E9)))
-        check("light accent is Modernist vermilion",
-              sameColor(light.accent, rgb8(0xEC3013)))
-        check("light rule is row-rule at 18%",
-              sameColor(light.rule, rgb8(0x201E1D, 0.18)))
-        check("light border is structural rule",
-              sameColor(light.border, rgb8(0x201E1D)))
+        // Chips are raised, so they read lighter than the paper behind
+        // them. Inverting this makes a find bar look like a recess.
+        check("dark surface is lighter than panel",
+              luminance(dark.surface) > luminance(dark.panel))
+        check("light surface is lighter than panel",
+              luminance(light.surface) > luminance(light.panel))
 
-        // Accent stays sparing: caret/selection/find only, so selection
-        // and findHighlight must be washes of the accent, not full strength.
-        check("dark selection is an accent wash",
-              sameColor(dark.selection, rgb8(0x4ECBDF, 0.20)))
-        check("dark findHighlight is an accent wash",
-              sameColor(dark.findHighlight, rgb8(0x4ECBDF, 0.28)))
-        check("light selection is an accent wash",
-              sameColor(light.selection, rgb8(0xEC3013, 0.14)))
-        check("light findHighlight is an accent wash",
-              sameColor(light.findHighlight, rgb8(0xEC3013, 0.18)))
+        // The light panel is a translucent tint over vibrancy; `panel` has
+        // to record what that composites to, or modal backdrops step over
+        // the live panel instead of matching it.
+        check("light panel matches the chrome tint it composites from",
+              luminance(light.panel) >= luminance(Chrome.for(.light).tintColor))
 
-        // Roles stay distinct within each theme.
-        check("dark panel ≠ surface", !sameColor(dark.panel, dark.surface))
-        check("light panel ≠ surface", !sameColor(light.panel, light.surface))
+        // Selection is an accent wash; the find match is deliberately a
+        // different hue, so the current match stays tellable from a
+        // selection sitting next to it.
+        for (name, p) in [("dark", dark), ("light", light)] {
+            check("\(name) selection is a wash of the accent",
+                  sameHue(p.selection, p.accent) && p.selection.alphaComponent < 1)
+            check("\(name) find match is not the accent hue",
+                  !sameHue(p.findHighlight, p.accent))
+            check("\(name) find match is a wash",
+                  p.findHighlight.alphaComponent < 1)
+        }
+
+        // Rules and borders sit on vibrancy whose luminance tracks the
+        // desktop, so they have to be alpha rather than opaque.
+        for (name, p) in [("dark", dark), ("light", light)] {
+            check("\(name) rule is translucent", p.rule.alphaComponent < 1)
+            check("\(name) border is a hairline", p.border.alphaComponent <= 0.15)
+        }
+
+        // Errors must not read as an accent hint.
+        check("dark danger differs from accent", !sameHue(dark.danger, dark.accent))
+        check("light danger differs from accent", !sameHue(light.danger, light.accent))
+
+        // Text tiers stay ordered against their own background.
+        check("dark muted sits between panel and text",
+              luminance(dark.panel) < luminance(dark.muted))
+        check("dark text is brighter than muted",
+              luminance(dark.text) > luminance(dark.muted))
+        check("light text is darker than muted",
+              luminance(light.text) < luminance(light.muted))
 
         // MARK: - Chrome
 
-        check("chrome light is a paper wash over vibrancy",
-              sameColor(Chrome.for(.light).tintColor, rgb8(0xE8E6E6, 0.75)))
+        check("chrome light tint is translucent so vibrancy stays alive",
+              Chrome.for(.light).tintColor.alphaComponent < 1)
+        check("chrome dark tint is translucent so vibrancy stays alive",
+              Chrome.for(.dark).tintColor.alphaComponent < 1)
         check("chrome light appearance aqua",
               Chrome.for(.light).appearance == .aqua)
         check("chrome dark appearance darkAqua",
@@ -273,6 +300,7 @@ enum SelfTests {
 
         let body = Typography.notesFont(20)
         check("notesFont keeps requested size", body.pointSize == 20)
+        check("uiFont keeps requested size", Typography.uiFont(20).pointSize == 20)
         if Typography.notesInstalled {
             check("notesFont resolves the Nerd Font",
                   body.familyName == "Inter Nerd Font")
@@ -281,13 +309,16 @@ enum SelfTests {
                   body.familyName != "Inter Nerd Font")
         }
 
-        // Heading styling derives scaled bold from the base descriptor;
-        // verify the mechanism survives the face swap.
+        // Heading styling and ⌘B derive scaled bold from the base
+        // descriptor. Assert the trait actually resolved — a face that
+        // came back non-bold would silently unbold every heading.
         let derived = NSFont(
             descriptor: body.fontDescriptor.withSymbolicTraits(.bold), size: 24
         )
         check("symbolic-trait derivation yields a 24pt face",
               derived?.pointSize == 24)
+        check("symbolic-trait derivation actually yields bold",
+              derived?.fontDescriptor.symbolicTraits.contains(.bold) == true)
 
         // MARK: - LaunchAtLogin
         // Smoke-only: SMAppService talks to a system daemon and `swift

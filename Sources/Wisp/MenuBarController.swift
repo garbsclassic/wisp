@@ -1,12 +1,10 @@
 import AppKit
 
-/// Owns the single status-bar item. The menu is assigned permanently,
-/// which is what makes a plain left click open it (the old performClick
-/// trick is unnecessary); there is no separate right-click behavior.
-/// Item wording and icons follow Clef's menu where an item exists in
-/// both apps. Dynamic state — Launch at Login checkmark, Reset Storage
-/// visibility, current shortcut — refreshes in menuWillOpen rather than
-/// rebuilding the menu each time.
+/// Owns the single status-bar item. The permanently-assigned menu is
+/// what makes any click open it, and it refreshes its dynamic state —
+/// Launch at Login checkmark, Reset Storage visibility, current
+/// shortcut — in menuWillOpen rather than being rebuilt each time.
+/// Wording and icons follow Clef's menu where an item exists in both.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
@@ -20,9 +18,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let onPickStorageLocation: () -> Void
     private let onResetStorageLocation: () -> Void
 
-    private weak var shortcutItem: NSMenuItem?
-    private weak var launchItem: NSMenuItem?
-    private weak var resetItem: NSMenuItem?
+    // Strong: NSMenuItem.target is weak, so holding items here can't
+    // cycle, and it drops the assign-after-addItem ordering rule that
+    // weak refs made load-bearing.
+    private var shortcutItem: NSMenuItem?
+    private var launchItem: NSMenuItem?
+    private var resetItem: NSMenuItem?
 
     init(
         onClick: @escaping () -> Void,
@@ -57,42 +58,55 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-        menu.addItem(makeItem("Open Wisp", symbol: "square.and.pencil", action: #selector(openFromMenu)))
-        // Items are held strongly by the menu the moment they're added;
-        // the weak back-references for menuWillOpen must be assigned
-        // after that, never before.
-        let shortcut = makeItem("Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey))
-        menu.addItem(shortcut)
+        menu.addItem(makeItem(
+            "Open Wisp", symbol: "square.and.pencil", action: #selector(openFromMenu)
+        ))
+
+        // Order no longer matters: these refs are strong, so the items
+        // stay alive whether or not the menu has taken them yet.
+        let shortcut = makeItem(
+            "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
+        )
+        let launch = makeItem(
+            "Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin)
+        )
         shortcutItem = shortcut
-        let launch = makeItem("Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin))
-        menu.addItem(launch)
         launchItem = launch
+        menu.addItem(shortcut)
+        menu.addItem(launch)
 
         menu.addItem(.separator())
 
-        menu.addItem(makeItem("Storage Location…", symbol: "folder", action: #selector(handlePickStorageLocation)))
+        menu.addItem(makeItem(
+            "Storage Location…", symbol: "folder", action: #selector(handlePickStorageLocation)
+        ))
         let reset = makeItem(
             "Reset Storage Location",
             symbol: "arrow.uturn.backward",
             action: #selector(handleResetStorageLocation)
         )
-        menu.addItem(reset)
         resetItem = reset
+        menu.addItem(reset)
 
         menu.addItem(.separator())
 
-        menu.addItem(makeItem("About Wisp", symbol: "info.circle", action: #selector(handleShowAbout)))
+        menu.addItem(makeItem(
+            "About Wisp", symbol: "info.circle", action: #selector(handleShowAbout)
+        ))
 
         menu.addItem(.separator())
 
         // ⌘Q here fires only while this menu is open — a status item's
         // menu isn't the app's main menu, so it can't collide with
         // anything else.
-        menu.addItem(NSMenuItem(
-            title: "Quit Wisp",
-            action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q"
-        ))
+        let quit = makeItem(
+            "Quit Wisp", symbol: "xmark.circle", action: #selector(NSApplication.terminate(_:))
+        )
+        // nil target sends terminate: up the responder chain to NSApp;
+        // makeItem's default of `self` would just make it a dead item.
+        quit.target = nil
+        quit.keyEquivalent = "q"
+        menu.addItem(quit)
 
         // Assigned permanently so any click — left or right — opens it.
         statusItem.menu = menu
@@ -108,7 +122,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         return item
     }
 
-    func menuWillOpen(_ menu: NSMenu) {
+    func menuNeedsUpdate(_ menu: NSMenu) {
         launchItem?.state = currentLaunchAtLogin() ? .on : .off
         resetItem?.isHidden = !isStorageCustom()
         shortcutItem?.title = "Set Shortcut…  (\(currentHotKey().displayString))"
