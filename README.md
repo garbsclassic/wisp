@@ -8,25 +8,12 @@ A dead-simple macOS scratchpad. ⌃⌥. to summon, type, Esc or click away to di
 
 ## Install
 
-Requires macOS 13 (Ventura) or later, Apple silicon.
-
-**Homebrew**
-
-```sh
-brew tap sulemaanhamza/wisp
-brew install --cask wisp
-xattr -d com.apple.quarantine /Applications/Wisp.app
-```
-
-**Direct download**
-
-Grab the latest zip from [Releases](https://github.com/sulemaanhamza/wisp/releases), unzip, drag `Wisp.app` to `/Applications`, then:
+Requires macOS 13 (Ventura) or later, Apple silicon. This is a personal fork
+with no release pipeline — build it and copy the bundle across:
 
 ```sh
-xattr -d com.apple.quarantine /Applications/Wisp.app
+./scripts/build-app.sh && cp -R build/Wisp.app /Applications/
 ```
-
-The `xattr` step is needed because Wisp isn't signed with an Apple Developer ID — it tells macOS the app is safe to open.
 
 ## Features
 
@@ -75,18 +62,20 @@ indentation all survive a settings change made from the UI.
 ## Build from source
 
 ```sh
-git clone https://github.com/sulemaanhamza/wisp.git
+git clone https://github.com/garbsclassic/wisp.git
 cd wisp
 swift run
 ```
 
-## Contributing
-
-Run the test suite before sending a pull request:
+## Tests
 
 ```sh
 swift run WispCoreTests
 ```
+
+Not `swift test`: SwiftPM's test runner links XCTest, which Command Line
+Tools doesn't ship. The suites are ordinary Swift Testing `@Test` functions
+run through swift-testing's own entry point.
 
 ## License
 
