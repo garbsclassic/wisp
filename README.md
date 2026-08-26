@@ -55,7 +55,7 @@ swift run
 Run the test suite before sending a pull request:
 
 ```sh
-swift run Wisp --test
+swift run WispCoreTests
 ```
 
 ## License

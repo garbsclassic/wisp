@@ -1,4 +1,5 @@
 import SwiftUI
+import WispCore
 
 struct HeaderBar: View {
     let headings: [Heading]

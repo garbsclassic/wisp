@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Carbon.HIToolbox
+import WispCore
 
 /// A single-row find bar that floats at the top of the editor. Type to
 /// search; Return / Shift-Return step matches; Esc closes. Deliberately

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import WispCore
 
 struct MinimalTextEditor: NSViewRepresentable {
     @Binding var text: String
@@ -251,7 +252,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lineStart = 0
         while lineStart < total {
             let lineRange = ns.lineRange(for: NSRange(location: lineStart, length: 0))
-            if HorizontalRuleLayoutManager.isHorizontalRuleLine(
+            if SmartEditing.isHorizontalRuleLine(
                 lineRange: lineRange, in: ns
             ) {
                 var contentRange = lineRange

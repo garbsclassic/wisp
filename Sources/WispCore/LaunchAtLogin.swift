@@ -7,12 +7,12 @@ import ServiceManagement
 /// via `swift run` will fail because the executable isn't in a bundle the
 /// system recognizes — that's expected. The shipped .app from
 /// scripts/build-app.sh works.
-enum LaunchAtLogin {
-    static var isEnabled: Bool {
+public enum LaunchAtLogin {
+    public static var isEnabled: Bool {
         SMAppService.mainApp.status == .enabled
     }
 
-    static func setEnabled(_ enabled: Bool) {
+    public static func setEnabled(_ enabled: Bool) {
         do {
             if enabled {
                 guard SMAppService.mainApp.status != .enabled else { return }

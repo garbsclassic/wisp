@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Carbon.HIToolbox
+import WispCore
 
 /// Modal overlay shown while the user is rebinding the global hotkey.
 /// Listens for the next valid key combo (must include at least one

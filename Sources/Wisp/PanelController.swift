@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import WispCore
 
 private let panelSize = CGSize(width: 800, height: 640)
 private let cornerRadius: CGFloat = 18

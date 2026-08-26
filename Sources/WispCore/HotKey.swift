@@ -2,17 +2,22 @@ import AppKit
 import Carbon.HIToolbox
 
 /// A keyboard shortcut: Carbon-style keyCode + modifier mask.
-struct HotKey: Equatable, Sendable {
-    let keyCode: UInt32
-    let modifiers: UInt32
+public struct HotKey: Equatable, Sendable {
+    public let keyCode: UInt32
+    public let modifiers: UInt32
 
-    static let `default` = HotKey(
+    public init(keyCode: UInt32, modifiers: UInt32) {
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+    }
+
+    public static let `default` = HotKey(
         keyCode: UInt32(kVK_Space),
         modifiers: UInt32(optionKey)
     )
 
     /// Human-readable string like "⌥Space" or "⌃⇧F".
-    var displayString: String {
+    public var displayString: String {
         var s = ""
         if (modifiers & UInt32(controlKey)) != 0 { s += "⌃" }
         if (modifiers & UInt32(optionKey))  != 0 { s += "⌥" }
@@ -22,7 +27,7 @@ struct HotKey: Equatable, Sendable {
         return s
     }
 
-    static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
+    public static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
         var c: UInt32 = 0
         if flags.contains(.command) { c |= UInt32(cmdKey) }
         if flags.contains(.option)  { c |= UInt32(optionKey) }
@@ -76,7 +81,7 @@ extension HotKey {
     private static let keyCodeKey = "HotKeyCode"
     private static let modifiersKey = "HotKeyMods"
 
-    static func loadFromDefaults() -> HotKey? {
+    public static func loadFromDefaults() -> HotKey? {
         let defaults = UserDefaults.standard
         guard defaults.object(forKey: keyCodeKey) != nil else { return nil }
         let kc = UInt32(defaults.integer(forKey: keyCodeKey))
@@ -84,7 +89,7 @@ extension HotKey {
         return HotKey(keyCode: kc, modifiers: mods)
     }
 
-    func saveToDefaults() {
+    public func saveToDefaults() {
         let defaults = UserDefaults.standard
         defaults.set(Int(keyCode), forKey: Self.keyCodeKey)
         defaults.set(Int(modifiers), forKey: Self.modifiersKey)

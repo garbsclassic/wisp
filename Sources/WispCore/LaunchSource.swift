@@ -8,14 +8,14 @@ import Foundation
 /// when the app was opened as a login item. Pulled out as a pure helper
 /// so the launch-detection logic is unit-testable without spinning up
 /// NSApplication.
-enum LaunchSource {
-    static let isDefaultLaunchKey = "NSApplicationLaunchIsDefaultLaunchKey"
+public enum LaunchSource {
+    public static let isDefaultLaunchKey = "NSApplicationLaunchIsDefaultLaunchKey"
 
     /// `true` when the user kicked off this launch, `false` when macOS
     /// auto-launched at login. Defaults to `true` if the key is missing
     /// so we never silently suppress the panel on a launch path AppKit
     /// doesn't annotate.
-    static func isUserInitiated(launchUserInfo userInfo: [AnyHashable: Any]?) -> Bool {
+    public static func isUserInitiated(launchUserInfo userInfo: [AnyHashable: Any]?) -> Bool {
         (userInfo?[isDefaultLaunchKey] as? Bool) ?? true
     }
 }

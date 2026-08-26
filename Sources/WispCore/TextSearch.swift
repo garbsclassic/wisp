@@ -4,8 +4,8 @@ import Foundation
 /// as an NSRange (UTF-16 offsets) so the results line up directly with
 /// NSTextView's range API. No regex, no word-boundary, no replace —
 /// deliberately minimal.
-enum TextSearch {
-    static func matches(in text: String, query: String) -> [NSRange] {
+public enum TextSearch {
+    public static func matches(in text: String, query: String) -> [NSRange] {
         guard !query.isEmpty else { return [] }
         let ns = text as NSString
         var result: [NSRange] = []

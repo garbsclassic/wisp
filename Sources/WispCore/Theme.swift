@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-enum Theme: String, CaseIterable {
+public enum Theme: String, CaseIterable, Sendable {
     case dark
     case light
 }
@@ -11,13 +11,13 @@ enum Theme: String, CaseIterable {
 /// as Theme's so a stored value from the pre-system-mode era still
 /// loads correctly. `.system` resolves at runtime against
 /// NSApp.effectiveAppearance.
-enum ThemePreference: String, CaseIterable {
+public enum ThemePreference: String, CaseIterable, Sendable {
     case light
     case dark
     case system
 
     /// One-click cycle wired into the BottomBar button.
-    var next: ThemePreference {
+    public var next: ThemePreference {
         switch self {
         case .light: return .dark
         case .dark: return .system
@@ -25,7 +25,7 @@ enum ThemePreference: String, CaseIterable {
         }
     }
 
-    @MainActor func resolve() -> Theme {
+    @MainActor public func resolve() -> Theme {
         switch self {
         case .light: return .light
         case .dark: return .dark
@@ -36,7 +36,7 @@ enum ThemePreference: String, CaseIterable {
     }
 }
 
-func rgb(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
+public func rgb(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
     NSColor(
         srgbRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
         green: CGFloat((hex >> 8) & 0xFF) / 255.0,
@@ -49,36 +49,36 @@ func rgb(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
 /// (colors only — Wisp keeps its own rounded, blurred posture). Views
 /// draw their colors from here; the exceptions left on AppKit semantic
 /// colors are the system About panel and the first-run dot.
-struct Palette {
+public struct Palette {
     /// Body text. Flexoki `tx` / Modernist `ink`.
-    let text: NSColor
+    public let text: NSColor
     /// Secondary text on modal surfaces. Flexoki `tx-2` / Modernist `muted`.
-    let muted: NSColor
+    public let muted: NSColor
     /// Failure text — hotkey registration errors. Flexoki red; distinct
     /// from `accent` so an error never reads as a hint.
-    let danger: NSColor
+    public let danger: NSColor
     /// The paper the live panel composites to, so modal backdrops paint
     /// the same tone rather than stepping over it. See Chrome.for(.light).
-    let panel: NSColor
+    public let panel: NSColor
     /// Raised chips: find bar, update card. Always lighter than `panel`
     /// in both themes, or a chip reads as a recess.
-    let surface: NSColor
+    public let surface: NSColor
     /// The single accent, used sparingly — caret and selection only.
     /// Flexoki cyan / Modernist vermilion.
-    let accent: NSColor
+    public let accent: NSColor
     /// 1px incidental rules, including the horizontal-rule glyph. Alpha,
     /// not opaque: the panel is vibrancy whose luminance tracks the
     /// desktop, so an opaque rule washes out over a light wallpaper.
-    let rule: NSColor
+    public let rule: NSColor
     /// Panel frame and chip borders — a hairline, not a structural rule.
-    let border: NSColor
+    public let border: NSColor
     /// Selection background. Accent-tinted per theme.
-    let selection: NSColor
+    public let selection: NSColor
     /// Background behind the current Find match. Amber in both themes so
     /// it stays distinguishable from an accent-tinted selection.
-    let findHighlight: NSColor
+    public let findHighlight: NSColor
 
-    static func `for`(_ theme: Theme) -> Palette {
+    public static func `for`(_ theme: Theme) -> Palette {
         switch theme {
         case .dark:
             // Flexoki Dark — warm greys, cyan accent.
@@ -117,12 +117,12 @@ struct Palette {
 /// the NSAppearance that makes system controls and semantic colors agree
 /// with the palette. Kept separate from Palette because they have
 /// different types and different consumers.
-struct Chrome {
-    let material: NSVisualEffectView.Material
-    let tintColor: NSColor
-    let appearance: NSAppearance.Name
+public struct Chrome {
+    public let material: NSVisualEffectView.Material
+    public let tintColor: NSColor
+    public let appearance: NSAppearance.Name
 
-    static func `for`(_ theme: Theme) -> Chrome {
+    public static func `for`(_ theme: Theme) -> Chrome {
         switch theme {
         case .dark:
             // Warm-black glass over the Flexoki bg tone rather than pure
@@ -149,14 +149,14 @@ struct Chrome {
 
 private struct PaletteKey: EnvironmentKey {
     // Computed, so this is a resolver rather than shared global state.
-    static var defaultValue: Palette { Palette.for(.dark) }
+    public static var defaultValue: Palette { Palette.for(.dark) }
 }
 
 extension EnvironmentValues {
     /// Set once on the panel's root view. Every view below reads its
     /// colors from here rather than taking a `theme` parameter and
     /// resolving a Palette of its own.
-    var palette: Palette {
+    public var palette: Palette {
         get { self[PaletteKey.self] }
         set { self[PaletteKey.self] = newValue }
     }

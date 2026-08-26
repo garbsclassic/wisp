@@ -1,4 +1,5 @@
 import SwiftUI
+import WispCore
 
 struct HelpOverlay: View {
     @Environment(\.palette) private var palette

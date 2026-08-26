@@ -9,7 +9,7 @@ BUILD_DIR="$ROOT/build"
 APP_DIR="$BUILD_DIR/$NAME.app"
 
 echo "Building $NAME $VERSION (release)..."
-swift build -c release --package-path "$ROOT"
+swift build -c release --product "$NAME" --package-path "$ROOT"
 
 BINARY="$ROOT/.build/release/$NAME"
 [[ -x "$BINARY" ]] || { echo "Error: build did not produce $BINARY" >&2; exit 1; }

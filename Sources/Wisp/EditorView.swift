@@ -1,24 +1,5 @@
 import SwiftUI
-
-enum FontSize: String, CaseIterable {
-    case small
-    case medium
-    case large
-
-    var pointSize: CGFloat {
-        switch self {
-        case .small: return 17
-        case .medium: return 20
-        case .large: return 24
-        }
-    }
-
-    var next: FontSize {
-        let all = FontSize.allCases
-        let idx = all.firstIndex(of: self) ?? 0
-        return all[(idx + 1) % all.count]
-    }
-}
+import WispCore
 
 @MainActor
 final class EditorModel: ObservableObject {

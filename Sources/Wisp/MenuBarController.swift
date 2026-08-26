@@ -1,4 +1,5 @@
 import AppKit
+import WispCore
 
 /// Owns the single status-bar item. The permanently-assigned menu is
 /// what makes any click open it, and it refreshes its dynamic state —

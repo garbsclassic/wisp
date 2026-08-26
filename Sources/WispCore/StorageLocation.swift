@@ -13,13 +13,13 @@ import Foundation
 /// at the same instant can produce a `scratchpad (Mac-X's conflicted
 /// copy).md` file that Wisp doesn't merge automatically. The single-
 /// person-many-Macs case rarely hits this.
-enum StorageLocation {
-    static let folderKey = "ScratchpadFolder"
-    static let scratchpadFilename = "scratchpad.md"
-    static let backupPrefix = "scratchpad-local-backup-"
+public enum StorageLocation {
+    public static let folderKey = "ScratchpadFolder"
+    public static let scratchpadFilename = "scratchpad.md"
+    public static let backupPrefix = "scratchpad-local-backup-"
 
     /// `~/Library/Application Support/Wisp/`
-    static var defaultFolder: URL {
+    public static var defaultFolder: URL {
         let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -28,7 +28,7 @@ enum StorageLocation {
     }
 
     /// User's chosen folder, or default if none set.
-    static var currentFolder: URL {
+    public static var currentFolder: URL {
         if let path = UserDefaults.standard.string(forKey: folderKey),
            !path.isEmpty {
             return URL(fileURLWithPath: path)
@@ -36,11 +36,11 @@ enum StorageLocation {
         return defaultFolder
     }
 
-    static var currentURL: URL {
+    public static var currentURL: URL {
         scratchpadURL(in: currentFolder)
     }
 
-    static var isCustom: Bool {
+    public static var isCustom: Bool {
         guard let path = UserDefaults.standard.string(forKey: folderKey) else {
             return false
         }
@@ -48,13 +48,13 @@ enum StorageLocation {
     }
 
     /// Pure: compose the scratchpad file URL inside a given folder.
-    static func scratchpadURL(in folder: URL) -> URL {
+    public static func scratchpadURL(in folder: URL) -> URL {
         folder.appendingPathComponent(scratchpadFilename)
     }
 
     /// Pure: timestamped backup filename used when a folder switch
     /// would otherwise overwrite the user's local text.
-    static func backupFilename(at date: Date = Date()) -> String {
+    public static func backupFilename(at date: Date = Date()) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withFullDate, .withTime]
         let stamp = formatter.string(from: date)
@@ -65,10 +65,10 @@ enum StorageLocation {
     /// Outcome of switching folders. Drives the UI (whether to swap
     /// the in-memory text for the loaded existing file, and whether to
     /// surface a backup-was-saved message).
-    struct SwitchResult {
-        let newText: String
-        let backupURL: URL?
-        let loadedExisting: Bool
+    public struct SwitchResult {
+        public let newText: String
+        public let backupURL: URL?
+        public let loadedExisting: Bool
     }
 
     /// Switch to a new folder. Two paths:
@@ -76,7 +76,7 @@ enum StorageLocation {
     /// - destination has its own scratchpad.md → save a timestamped
     ///   backup of the local text in the old folder, then load the
     ///   existing file (the "Mac B joining iCloud sync" case)
-    static func setFolder(_ folder: URL, currentText: String) throws -> SwitchResult {
+    public static func setFolder(_ folder: URL, currentText: String) throws -> SwitchResult {
         let fm = FileManager.default
         let oldURL = currentURL
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -109,7 +109,7 @@ enum StorageLocation {
     /// default location and clears the custom path. The custom-folder
     /// file is *not* deleted — other Macs may still be syncing through
     /// it, and removing it here would yank their content too.
-    static func resetToDefault(currentText: String) throws {
+    public static func resetToDefault(currentText: String) throws {
         guard isCustom else { return }
         let fm = FileManager.default
         try fm.createDirectory(at: defaultFolder, withIntermediateDirectories: true)

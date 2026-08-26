@@ -1,4 +1,5 @@
 import AppKit
+import WispCore
 
 /// NSLayoutManager subclass that paints a full-width horizontal rule
 /// over any line whose entire content is HR markers (`-` and/or `─`,
@@ -29,7 +30,7 @@ final class HorizontalRuleLayoutManager: NSLayoutManager {
         let charEnd = charRange.location + charRange.length
         while lineStart < charEnd {
             let lineRange = nsString.lineRange(for: NSRange(location: lineStart, length: 0))
-            if Self.isHorizontalRuleLine(lineRange: lineRange, in: nsString) {
+            if SmartEditing.isHorizontalRuleLine(lineRange: lineRange, in: nsString) {
                 let glyphRange = self.glyphRange(
                     forCharacterRange: lineRange,
                     actualCharacterRange: nil
@@ -54,34 +55,5 @@ final class HorizontalRuleLayoutManager: NSLayoutManager {
             }
             lineStart = lineRange.location + lineRange.length
         }
-    }
-
-    /// Pure: is the given line content (a line range in `nsString`)
-    /// an HR-only line — at least three characters, all of which are
-    /// either `-` (0x2D) or `─` (0x2500), with the trailing newline
-    /// allowed. Public so SelfTests can exercise it.
-    static func isHorizontalRuleLine(lineRange: NSRange, in nsString: NSString) -> Bool {
-        var contentEnd = lineRange.location + lineRange.length
-        if contentEnd > lineRange.location,
-           nsString.character(at: contentEnd - 1) == 0x0A {
-            contentEnd -= 1
-        }
-        let contentLength = contentEnd - lineRange.location
-        if contentLength < 3 { return false }
-        for i in 0..<contentLength {
-            let c = nsString.character(at: lineRange.location + i)
-            if c != 0x2D && c != 0x2500 { return false }
-        }
-        return true
-    }
-
-    /// Convenience for tests — takes a Swift String, treats the whole
-    /// thing as the line content (no trailing newline expected).
-    static func isHorizontalRuleLine(_ line: String) -> Bool {
-        let ns = line as NSString
-        return isHorizontalRuleLine(
-            lineRange: NSRange(location: 0, length: ns.length),
-            in: ns
-        )
     }
 }

@@ -1,19 +1,19 @@
 import Foundation
 
-struct Heading: Identifiable, Equatable {
-    let name: String
-    let level: Int
+public struct Heading: Identifiable, Equatable {
+    public let name: String
+    public let level: Int
     /// NSString character offset where the heading line starts, used for
     /// scrolling the text view to the section.
-    let lineStart: Int
+    public let lineStart: Int
 
-    var id: Int { lineStart }
+    public var id: Int { lineStart }
 }
 
 extension String {
     /// Parse `#`-prefixed markdown headings out of the text. Returns one
     /// entry per heading line, in document order.
-    func extractHeadings() -> [Heading] {
+    public func extractHeadings() -> [Heading] {
         let ns = self as NSString
         let total = ns.length
         var result: [Heading] = []

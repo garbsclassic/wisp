@@ -1,4 +1,5 @@
 import SwiftUI
+import WispCore
 
 struct BottomBar: View {
     let wordCount: Int

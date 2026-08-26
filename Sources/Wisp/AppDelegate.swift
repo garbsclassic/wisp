@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import WispCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
