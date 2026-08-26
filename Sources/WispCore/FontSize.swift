@@ -2,7 +2,7 @@ import CoreGraphics
 
 /// The editor's three text sizes, cycled with ⌘1 / ⌘2 / ⌘3 or the footer
 /// "Aa" button.
-public enum FontSize: String, CaseIterable, Sendable {
+public enum FontSize: String, Codable, CaseIterable, Sendable {
     case small
     case medium
     case large

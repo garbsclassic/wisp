@@ -9,17 +9,21 @@ private let cornerRadius: CGFloat = 18
 final class PanelController {
     private let panel: FloatingPanel
     private let model: EditorModel
+    private let settings: Settings
     private let visualEffect: NSVisualEffectView
     private let tint: NSView
     private let inner: NSView
     private let outer: NSView
-    private var frameObservers: [NSObjectProtocol] = []
+    /// Only the app hide/unhide pair now — the frame observers are gone,
+    /// deliberately: nothing writes the config during a drag.
+    private var observers: [NSObjectProtocol] = []
     /// Global mouse-up monitor backing click-outside-to-dismiss. Non-nil
     /// only while the panel is visible.
     private var outsideClickMonitor: Any?
 
-    init(model: EditorModel) {
+    init(model: EditorModel, settings: Settings) {
         self.model = model
+        self.settings = settings
         let contentRect = NSRect(origin: .zero, size: panelSize)
         panel = FloatingPanel(
             contentRect: contentRect,
@@ -102,35 +106,11 @@ final class PanelController {
 
         panel.contentView = outer
 
-        // Restore the user's last frame if it's still reachable on the
-        // current screen layout; otherwise center at the default size.
-        let screens = NSScreen.screens.map { $0.visibleFrame }
-        if let saved = PanelFrameStore.load(), PanelFrameStore.isUsable(saved, onScreens: screens) {
-            panel.setFrame(saved, display: false)
-        } else {
-            panel.center()
-        }
+        placePanel()
 
         applyTheme(model.theme)
         model.onThemeChange = { [weak self] theme in
             self?.applyTheme(theme)
-        }
-
-        // Persist size + position whenever the user moves or finishes
-        // resizing the panel, so the next summon restores it. UserDefaults
-        // writes are cheap; didMove/didEndLiveResize don't fire per-pixel.
-        for name in [NSWindow.didMoveNotification, NSWindow.didEndLiveResizeNotification] {
-            let token = NotificationCenter.default.addObserver(
-                forName: name, object: panel, queue: .main
-            ) { [weak panel] _ in
-                // queue: .main guarantees this runs on the main actor;
-                // assumeIsolated lets us touch panel.frame without a hop.
-                MainActor.assumeIsolated {
-                    guard let panel else { return }
-                    PanelFrameStore.save(panel.frame)
-                }
-            }
-            frameObservers.append(token)
         }
 
         // Esc closes any modal overlay first; falls through to the
@@ -170,13 +150,17 @@ final class PanelController {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     if visible {
-                        if self.panel.isVisible { self.startOutsideClickMonitor() }
+                        if self.panel.isVisible,
+                            self.settings.config.dismissOnOutsideClick
+                        {
+                            self.startOutsideClickMonitor()
+                        }
                     } else {
                         self.stopOutsideClickMonitor()
                     }
                 }
             }
-            frameObservers.append(token)
+            observers.append(token)
         }
     }
 
@@ -199,6 +183,7 @@ final class PanelController {
     /// The one place hide-time teardown lives. Idempotent: `dismiss()`
     /// and the panel's own orderOut can both reach it for a single hide.
     private func handleHide() {
+        saveFrame()
         stopOutsideClickMonitor()
         // orderOut leaves the SwiftUI hierarchy mounted, so overlays and
         // their app-wide key monitors survive the hide unless we say so.
@@ -209,11 +194,12 @@ final class PanelController {
         if panel.isVisible {
             dismiss()
         } else {
-            // No re-centering — the panel keeps the size and position the
-            // user last left it (restored from PanelFrameStore on launch,
-            // kept fresh by the move/resize observers).
+            // With `monitor: pointer` the panel follows the cursor's
+            // screen on every summon; on `primary` this is a no-op once a
+            // usable frame has been restored.
+            if settings.config.monitor == .pointer { placePanel() }
             panel.makeKeyAndOrderFront(nil)
-            startOutsideClickMonitor()
+            if settings.config.dismissOnOutsideClick { startOutsideClickMonitor() }
             applyTheme(model.theme)
             // Pick up changes another Mac wrote to scratchpad.md while
             // we were dismissed — covers the iCloud/Dropbox sync case.
@@ -281,7 +267,62 @@ final class PanelController {
         panel.appearance = NSAppearance(named: chrome.appearance)
         visualEffect.material = chrome.material
         visualEffect.appearance = NSAppearance(named: chrome.appearance)
-        tint.layer?.backgroundColor = chrome.tintColor.cgColor
+        // With vibrancy off the tint is composited over nothing, so it has
+        // to carry the panel on its own; the palette records what the
+        // translucent version composites to.
+        let vibrancy = settings.config.vibrancy
+        visualEffect.isHidden = !vibrancy
+        tint.layer?.backgroundColor =
+            (vibrancy ? chrome.tintColor : Palette.for(theme).panel).cgColor
         // Border is rendered by SwiftUI in EditorView via .overlay.
+    }
+
+    // MARK: Placement
+
+    /// Restores the remembered frame, or centres when there isn't a usable
+    /// one — a frame saved on a display that has since been unplugged, say.
+    ///
+    /// `monitor: pointer` always places on the pointer's screen, carrying
+    /// the remembered frame's size and its position *relative to* its old
+    /// screen, so the panel lands in the same spot on whichever display you
+    /// are looking at.
+    private func placePanel() {
+        let screens = NSScreen.screens.map { $0.visibleFrame }
+        let saved = settings.config.panel.map {
+            NSRect(x: $0.x, y: $0.y, width: $0.w, height: $0.h)
+        }
+
+        if settings.config.monitor == .pointer,
+            let target = NSScreen.screens.first(where: {
+                $0.frame.contains(NSEvent.mouseLocation)
+            })?.visibleFrame
+        {
+            let frame = saved ?? NSRect(origin: .zero, size: panelSize)
+            let anchor = screens.first { $0.intersects(frame) } ?? screens.first ?? target
+            panel.setFrame(
+                PanelFrameStore.moved(frame, from: anchor, to: target), display: false)
+            return
+        }
+
+        if let saved, PanelFrameStore.isUsable(saved, onScreens: screens) {
+            panel.setFrame(saved, display: false)
+        } else {
+            panel.center()
+        }
+    }
+
+    /// Called from `applicationWillTerminate` — see `saveFrame`.
+    func savePanelFrameIfVisible() {
+        guard panel.isVisible else { return }
+        saveFrame()
+    }
+
+    /// The frame is written when the panel hides, not while it moves: the
+    /// only reader is the next summon, so one write per panel session is
+    /// exactly sufficient — and a slow drag can't emit a burst of rewrites
+    /// over someone's hand edits.
+    private func saveFrame() {
+        guard panel.frame.width >= PanelFrameStore.minSize else { return }
+        settings.setPanelFrame(panel.frame)
     }
 }

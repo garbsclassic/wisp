@@ -9,18 +9,46 @@ import SwiftUI
 /// monospaced design. Neither font is bundled; both resolve by family
 /// name and fall back to the system sans, which is the default
 /// experience on machines without them installed.
+/// Configured once at launch from `fonts` and `fontScale`, then read from
+/// everywhere. `@MainActor` rather than immutable because the families come
+/// from the config file, which isn't known until the app has started.
+@MainActor
 public enum Typography {
     /// Notes body, icon glyphs at a fixed advance (`InterNF-*` faces).
-    public static let notesFamily = "Inter Nerd Font"
+    public private(set) static var notesFamily = FontSet().notes
     /// Proportional Nerd Font for UI text (`InterNFP-*` faces).
-    public static let uiFamily = "Inter Nerd Font Propo"
+    public private(set) static var uiFamily = FontSet().ui
 
-    // Resolved once at first use rather than per call: `NSFont(name:)`
+    // Resolved at configure time rather than per call: `NSFont(name:)`
     // costs ~2µs on a hit and ~12µs on a miss with no negative caching,
     // and `ui(_:)` is called ~40 times per overlay body evaluation. A
     // font activated mid-session needs a relaunch to be picked up.
-    public static let notesInstalled = NSFont(name: notesFamily, size: 12) != nil
-    public static let uiInstalled = NSFont(name: uiFamily, size: 12) != nil
+    public private(set) static var notesInstalled = NSFont(name: notesFamily, size: 12) != nil
+    public private(set) static var uiInstalled = NSFont(name: uiFamily, size: 12) != nil
+
+    /// Multiplies every type size and nothing else — rules, padding, and
+    /// the panel's own proportions are untouched, so a dense display can be
+    /// made readable without redrawing the layout.
+    public private(set) static var scale: CGFloat = 1
+
+    /// The configured families that didn't resolve, for the footer warning.
+    /// Fonts are referenced by name and never bundled, so this is a real
+    /// case rather than a defensive one.
+    public static var missingFamilies: [String] {
+        (notesInstalled ? [] : [notesFamily]) + (uiInstalled ? [] : [uiFamily])
+    }
+
+    /// Point sizes at the current scale. The single place the scale is
+    /// applied — call sites keep passing their design sizes.
+    static func scaled(_ size: CGFloat) -> CGFloat { size * scale }
+
+    public static func configure(fonts: FontSet, scale: Double) {
+        notesFamily = fonts.notes
+        uiFamily = fonts.ui
+        notesInstalled = NSFont(name: notesFamily, size: 12) != nil
+        uiInstalled = NSFont(name: uiFamily, size: 12) != nil
+        self.scale = CGFloat(scale)
+    }
 
     // MARK: AppKit
 
@@ -28,12 +56,14 @@ public enum Typography {
     /// Nerd Font is missing — never returns nil. Bold and italic derive
     /// from this base via symbolic traits, same as before the swap.
     public static func notesFont(_ size: CGFloat) -> NSFont {
-        NSFont(name: notesFamily, size: size) ?? .systemFont(ofSize: size)
+        let size = scaled(size)
+        return NSFont(name: notesFamily, size: size) ?? .systemFont(ofSize: size)
     }
 
     /// UI face for AppKit call sites — the About panel's credits block.
     public static func uiFont(_ size: CGFloat) -> NSFont {
-        NSFont(name: uiFamily, size: size) ?? .systemFont(ofSize: size)
+        let size = scaled(size)
+        return NSFont(name: uiFamily, size: size) ?? .systemFont(ofSize: size)
     }
 
     // MARK: SwiftUI
@@ -53,6 +83,7 @@ public enum Typography {
         weight: Font.Weight = .regular,
         tabularDigits: Bool = false
     ) -> Font {
+        let size = scaled(size)
         let base = uiInstalled
             ? Font.custom(uiFamily, size: size).weight(weight)
             : .system(size: size, weight: weight)

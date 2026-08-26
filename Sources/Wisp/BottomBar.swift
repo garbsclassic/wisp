@@ -8,12 +8,24 @@ struct BottomBar: View {
     let themePreference: ThemePreference
     let onCycleTheme: () -> Void
     let onHelpClick: () -> Void
+    /// A bad config key, an unparseable chord, or a font that isn't
+    /// installed. Nil most of the time.
+    let warning: String?
     @Environment(\.palette) private var palette
 
     var body: some View {
         HStack(spacing: 16) {
             Text(wordsLabel)
                 .monospacedDigit()
+            if let warning {
+                // Truncated rather than wrapped: the footer is one line
+                // tall, and the full text is a hover away.
+                Text(warning)
+                    .foregroundStyle(Color(palette.danger))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(warning)
+            }
             Spacer()
             Button(action: onHelpClick) {
                 Image(systemName: "questionmark")

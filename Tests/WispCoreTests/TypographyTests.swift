@@ -3,12 +3,34 @@ import Testing
 
 @testable import WispCore
 
-@Suite("Typography")
+@Suite("Typography", .serialized)
+@MainActor
 struct TypographyTests {
-    @Test("The families are the Nerd Font pair")
+    @Test("The families default to the Nerd Font pair")
     func families() {
         #expect(Typography.notesFamily == "Inter Nerd Font")
         #expect(Typography.uiFamily == "Inter Nerd Font Propo")
+    }
+
+    /// Every size goes through one multiplier, so a display that needs
+    /// everything a notch bigger doesn't need the layout redrawn.
+    @Test("Configuring applies the families and scales every size")
+    func configuring() {
+        defer { Typography.configure(fonts: FontSet(), scale: 1) }
+        Typography.configure(fonts: FontSet(notes: "Helvetica", ui: "Menlo"), scale: 1.5)
+        #expect(Typography.notesFamily == "Helvetica")
+        #expect(Typography.notesFont(20).pointSize == 30)
+        #expect(Typography.uiFont(20).pointSize == 30)
+    }
+
+    /// Fonts are referenced by name and never bundled, so a family that
+    /// isn't installed has to be nameable in the footer rather than just
+    /// silently falling back.
+    @Test("A family that doesn't resolve is reported by name")
+    func missingFamilies() {
+        defer { Typography.configure(fonts: FontSet(), scale: 1) }
+        Typography.configure(fonts: FontSet(notes: "No Such Face", ui: "Menlo"), scale: 1)
+        #expect(Typography.missingFamilies == ["No Such Face"])
     }
 
     @Test("A resolved face keeps the requested size")

@@ -4,14 +4,15 @@ import WispCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let model = EditorModel()
+    let settings = Settings()
+    lazy var model = EditorModel(settings: settings)
     private var menuBarController: MenuBarController?
     private var panelController: PanelController?
     private let hotKey = HotKeyMonitor()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenuBuilder.make(target: self)
-        let panel = PanelController(model: model)
+        let panel = PanelController(model: model, settings: settings)
         panelController = panel
         menuBarController = MenuBarController(
             // "Open Wisp" opens — the panel is still up while the status
@@ -33,11 +34,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 panel?.dismiss()
                 self?.showStandardAboutPanel()
             },
+            onOpenConfig: { [weak self] in self?.settings.openConfigFile() },
             currentLaunchAtLogin: { LaunchAtLogin.isEnabled },
             onToggleLaunchAtLogin: {
                 LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
             },
-            isStorageCustom: { StorageLocation.isCustom },
+            isStorageCustom: { [weak self] in
+                StorageLocation.isCustom(self?.settings.config.scratchpadPath ?? "")
+            },
             onPickStorageLocation: { [weak self] in
                 self?.pickStorageLocation()
             },
@@ -46,8 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
 
-        // Initial registration uses whatever the model loaded from
-        // UserDefaults (or HotKey.default if it's a fresh install). If
+        // Initial registration uses the chord from wisp.jsonc (or the
+        // default when the file doesn't name one). If
         // even this fails — e.g. user's saved binding is now claimed by
         // some other app — we leave the app without a hotkey; the user
         // can rebind from the menu bar menu.
@@ -124,6 +128,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Flush any pending debounced save so quitting never loses the
         // last few keystrokes.
         model.flushSave()
+        // The frame is otherwise written on hide; quitting with the panel
+        // still open never hides it.
+        panelController?.savePanelFrameIfVisible()
     }
 
     /// Open an NSOpenPanel for the user to pick a folder. If the
@@ -151,7 +158,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         openPanel.canChooseDirectories = true
         openPanel.canCreateDirectories = true
         openPanel.allowsMultipleSelection = false
-        openPanel.directoryURL = StorageLocation.currentFolder
+        openPanel.directoryURL = settings.config.scratchpadFolder
 
         guard openPanel.runModal() == .OK, let folder = openPanel.url else { return }
 
@@ -168,7 +175,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         do {
-            let result = try StorageLocation.setFolder(folder, currentText: model.text)
+            let result = try StorageLocation.setFolder(
+                folder, currentText: model.text,
+                currentFolder: settings.config.scratchpadFolder)
+            settings.setScratchpadPath(result.folderPath)
             if result.loadedExisting {
                 model.adoptLoadedText(result.newText)
             } else {
@@ -195,8 +205,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func runStorageLocationReset() {
+        guard StorageLocation.isCustom(settings.config.scratchpadPath) else { return }
         do {
             try StorageLocation.resetToDefault(currentText: model.text)
+            settings.setScratchpadPath("")
             model.adoptLoadedText(model.text)
         } catch {
             let alert = NSAlert(error: error)

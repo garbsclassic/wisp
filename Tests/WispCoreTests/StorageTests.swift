@@ -95,3 +95,53 @@ struct PanelFrameStoreTests {
         )
     }
 }
+
+/// `monitor: pointer` carries the remembered frame to whichever display the
+/// cursor is on. Absolute coordinates would put it off the edge of a smaller
+/// second screen, so the position is kept relative to the screen it left.
+@Suite("PanelFrameStore.moved")
+struct PanelFrameMoveTests {
+    let small = NSRect(x: 0, y: 0, width: 1440, height: 900)
+    let large = NSRect(x: 1440, y: 0, width: 1920, height: 1080)
+
+    @Test("A centred frame lands centred on the destination")
+    func centred() {
+        let frame = NSRect(x: 320, y: 130, width: 800, height: 640)
+        let moved = PanelFrameStore.moved(frame, from: small, to: large)
+        #expect(moved.midX == large.midX)
+        #expect(moved.midY == large.midY)
+    }
+
+    @Test("A corner-pinned frame stays in that corner")
+    func corner() {
+        let frame = NSRect(x: 0, y: 0, width: 800, height: 640)
+        let moved = PanelFrameStore.moved(frame, from: small, to: large)
+        #expect(moved.origin == large.origin)
+    }
+
+    @Test("The size is carried across unchanged when it fits")
+    func sizePreserved() {
+        let frame = NSRect(x: 100, y: 100, width: 800, height: 640)
+        #expect(PanelFrameStore.moved(frame, from: small, to: large).size == frame.size)
+    }
+
+    /// Moving to a smaller display shrinks the panel rather than stranding
+    /// part of it off the edge.
+    @Test("A frame wider than the destination is clamped to it")
+    func clampedToDestination() {
+        let frame = NSRect(x: 0, y: 0, width: 1800, height: 1000)
+        let moved = PanelFrameStore.moved(frame, from: large, to: small)
+        #expect(moved.width == small.width)
+        #expect(moved.height == small.height)
+        #expect(PanelFrameStore.isUsable(moved, onScreens: [small]))
+    }
+
+    /// A frame that exactly fills its screen has no slack to be relative
+    /// to — centring is the only answer that isn't a divide by zero.
+    @Test("A full-screen frame centres rather than dividing by zero")
+    func noSlack() {
+        let moved = PanelFrameStore.moved(small, from: small, to: large)
+        #expect(moved.midX == large.midX)
+        #expect(moved.midY == large.midY)
+    }
+}

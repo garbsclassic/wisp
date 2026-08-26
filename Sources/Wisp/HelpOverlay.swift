@@ -3,6 +3,10 @@ import WispCore
 
 struct HelpOverlay: View {
     @Environment(\.palette) private var palette
+    /// The live summon chord, not a hardcoded one — it's configurable in
+    /// two places (wisp.jsonc and Set Shortcut…), so printing a constant
+    /// here would be wrong for anyone who changed it.
+    let summonChord: String
     let onDismiss: () -> Void
 
     var body: some View {
@@ -18,7 +22,7 @@ struct HelpOverlay: View {
 
             VStack(alignment: .leading, spacing: 18) {
                 section("Open / dismiss", items: [
-                    ("⌥Space", "summon or dismiss the panel"),
+                    (summonChord, "summon or dismiss the panel"),
                     ("⌘F", "find in your notes (↵ / ⇧↵ to step)"),
                     ("Esc", "dismiss"),
                     ("Click outside", "dismiss"),

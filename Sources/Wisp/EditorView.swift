@@ -45,7 +45,7 @@ final class EditorModel: ObservableObject {
     @Published var hotKey: HotKey = .default {
         didSet {
             guard didLoad else { return }
-            hotKey.saveToDefaults()
+            settings.setSummon(keyCode: hotKey.keyCode, carbonModifiers: hotKey.modifiers)
         }
     }
 
@@ -66,14 +66,14 @@ final class EditorModel: ObservableObject {
     @Published var fontSize: FontSize = .medium {
         didSet {
             guard didLoad else { return }
-            UserDefaults.standard.set(fontSize.rawValue, forKey: "FontSize")
+            settings.setFontSize(fontSize)
         }
     }
     /// User-facing choice: light, dark, or follow-system. Persisted.
     @Published var themePreference: ThemePreference = .system {
         didSet {
             guard didLoad else { return }
-            UserDefaults.standard.set(themePreference.rawValue, forKey: "Theme")
+            settings.setTheme(themePreference)
             theme = themePreference.resolve()
         }
     }
@@ -109,11 +109,18 @@ final class EditorModel: ObservableObject {
     /// via iCloud sync).
     private var lastLoadedMTime: Date?
 
-    init() {
-        if let saved = UserDefaults.standard.string(forKey: "Theme"),
-           let pref = ThemePreference(rawValue: saved) {
-            themePreference = pref
-        }
+    /// `wisp.jsonc`, which is where every value below is read from and
+    /// written back to.
+    let settings: Settings
+
+    /// Where `scratchpad.md` lives right now, per the config.
+    var scratchpadURL: URL {
+        StorageLocation.scratchpadURL(in: settings.config.scratchpadFolder)
+    }
+
+    init(settings: Settings) {
+        self.settings = settings
+        themePreference = settings.config.theme
         theme = themePreference.resolve()
         appearanceObservation = NSApplication.shared.observe(
             \.effectiveAppearance,
@@ -121,14 +128,10 @@ final class EditorModel: ObservableObject {
         ) { [weak self] _, _ in
             Task { @MainActor in self?.systemAppearanceMaybeChanged() }
         }
-        if let saved = UserDefaults.standard.string(forKey: "FontSize"),
-           let f = FontSize(rawValue: saved) {
-            fontSize = f
-        }
-        if let saved = HotKey.loadFromDefaults() {
-            hotKey = saved
-        }
-        let url = StorageLocation.currentURL
+        fontSize = settings.config.fontSize
+        let chord = settings.config.summonChord
+        hotKey = HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers)
+        let url = scratchpadURL
         if let loaded = try? String(contentsOf: url, encoding: .utf8) {
             text = loaded
             lastLoadedMTime = Self.fileMTime(at: url)
@@ -144,7 +147,7 @@ final class EditorModel: ObservableObject {
     /// to the file from outside Wisp aren't observed (no file watcher
     /// — kept intentionally simple).
     func reloadFromDiskIfChanged() {
-        let url = StorageLocation.currentURL
+        let url = scratchpadURL
         guard let mtime = Self.fileMTime(at: url) else { return }
         if let last = lastLoadedMTime, mtime <= last { return }
         guard let loaded = try? String(contentsOf: url, encoding: .utf8) else { return }
@@ -164,7 +167,7 @@ final class EditorModel: ObservableObject {
         isReloading = true
         text = newText
         isReloading = false
-        lastLoadedMTime = Self.fileMTime(at: StorageLocation.currentURL)
+        lastLoadedMTime = Self.fileMTime(at: scratchpadURL)
     }
 
     nonisolated private static func fileMTime(at url: URL) -> Date? {
@@ -265,21 +268,24 @@ final class EditorModel: ObservableObject {
     /// in-flight debounced save isn't lost when the user quits.
     func flushSave() {
         saveTask?.cancel()
-        try? Self.write(text)
+        try? Self.write(text, to: scratchpadURL)
     }
 
+    /// The destination is resolved on the main actor and carried into the
+    /// background write, so a folder switch mid-debounce can't land the old
+    /// text in the new folder.
     private func scheduleSave() {
         saveTask?.cancel()
         let snapshot = text
+        let url = scratchpadURL
         saveTask = Task.detached(priority: .background) {
             try? await Task.sleep(nanoseconds: 800_000_000)
             guard !Task.isCancelled else { return }
-            try? Self.write(snapshot)
+            try? Self.write(snapshot, to: url)
         }
     }
 
-    nonisolated private static func write(_ text: String) throws {
-        let url = StorageLocation.currentURL
+    nonisolated private static func write(_ text: String, to url: URL) throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -330,11 +336,12 @@ struct EditorView: View {
                         withAnimation(.easeInOut(duration: 0.18)) {
                             model.showHelp.toggle()
                         }
-                    }
+                    },
+                    warning: model.settings.warning
                 )
             }
             if model.showHelp {
-                HelpOverlay {
+                HelpOverlay(summonChord: model.hotKey.displayString) {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         model.showHelp = false
                     }

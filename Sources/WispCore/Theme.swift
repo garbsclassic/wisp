@@ -11,7 +11,7 @@ public enum Theme: String, CaseIterable, Sendable {
 /// as Theme's so a stored value from the pre-system-mode era still
 /// loads correctly. `.system` resolves at runtime against
 /// NSApp.effectiveAppearance.
-public enum ThemePreference: String, CaseIterable, Sendable {
+public enum ThemePreference: String, Codable, CaseIterable, Sendable {
     case light
     case dark
     case system

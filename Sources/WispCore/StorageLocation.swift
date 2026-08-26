@@ -13,8 +13,13 @@ import Foundation
 /// at the same instant can produce a `scratchpad (Mac-X's conflicted
 /// copy).md` file that Wisp doesn't merge automatically. The single-
 /// person-many-Macs case rarely hits this.
+/// The folder is passed in rather than read here: `wisp.jsonc` is the single
+/// source of truth for it, and a helper that reached for UserDefaults behind
+/// the caller's back would quietly reintroduce the shadow store.
 public enum StorageLocation {
-    public static let folderKey = "ScratchpadFolder"
+    /// The pre-config UserDefaults key. Read once on first run to seed
+    /// `scratchpadPath`, then never again.
+    public static let legacyFolderKey = "ScratchpadFolder"
     public static let scratchpadFilename = "scratchpad.md"
     public static let backupPrefix = "scratchpad-local-backup-"
 
@@ -27,24 +32,16 @@ public enum StorageLocation {
         return appSupport.appendingPathComponent("Wisp")
     }
 
-    /// User's chosen folder, or default if none set.
-    public static var currentFolder: URL {
-        if let path = UserDefaults.standard.string(forKey: folderKey),
-           !path.isEmpty {
-            return URL(fileURLWithPath: path)
-        }
-        return defaultFolder
+    /// Resolve a configured `scratchpadPath` to a folder. Empty means the
+    /// default; a leading `~` expands, so the path is writable by hand.
+    public static func folder(forConfiguredPath path: String) -> URL {
+        let trimmed = path.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return defaultFolder }
+        return URL(fileURLWithPath: NSString(string: trimmed).expandingTildeInPath)
     }
 
-    public static var currentURL: URL {
-        scratchpadURL(in: currentFolder)
-    }
-
-    public static var isCustom: Bool {
-        guard let path = UserDefaults.standard.string(forKey: folderKey) else {
-            return false
-        }
-        return !path.isEmpty
+    public static func isCustom(_ path: String) -> Bool {
+        !path.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     /// Pure: compose the scratchpad file URL inside a given folder.
@@ -69,6 +66,9 @@ public enum StorageLocation {
         public let newText: String
         public let backupURL: URL?
         public let loadedExisting: Bool
+        /// The path to persist into `scratchpadPath`. Empty for the default
+        /// folder, so a reset clears the key rather than pinning it.
+        public let folderPath: String
     }
 
     /// Switch to a new folder. Two paths:
@@ -76,15 +76,19 @@ public enum StorageLocation {
     /// - destination has its own scratchpad.md → save a timestamped
     ///   backup of the local text in the old folder, then load the
     ///   existing file (the "Mac B joining iCloud sync" case)
-    public static func setFolder(_ folder: URL, currentText: String) throws -> SwitchResult {
+    public static func setFolder(
+        _ folder: URL, currentText: String, currentFolder: URL
+    ) throws -> SwitchResult {
         let fm = FileManager.default
-        let oldURL = currentURL
+        let oldURL = scratchpadURL(in: currentFolder)
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
         let newURL = scratchpadURL(in: folder)
 
         // Same folder — nothing to do.
         if (newURL.standardizedFileURL.path) == (oldURL.standardizedFileURL.path) {
-            return SwitchResult(newText: currentText, backupURL: nil, loadedExisting: false)
+            return SwitchResult(
+                newText: currentText, backupURL: nil, loadedExisting: false,
+                folderPath: folder.path)
         }
 
         if fm.fileExists(atPath: newURL.path) {
@@ -95,13 +99,15 @@ public enum StorageLocation {
             // Stop pointing at the old file; remove it so the old
             // location doesn't keep getting stale writes.
             try? fm.removeItem(at: oldURL)
-            UserDefaults.standard.set(folder.path, forKey: folderKey)
-            return SwitchResult(newText: loaded, backupURL: backupURL, loadedExisting: true)
+            return SwitchResult(
+                newText: loaded, backupURL: backupURL, loadedExisting: true,
+                folderPath: folder.path)
         } else {
             try currentText.write(to: newURL, atomically: true, encoding: .utf8)
             try? fm.removeItem(at: oldURL)
-            UserDefaults.standard.set(folder.path, forKey: folderKey)
-            return SwitchResult(newText: currentText, backupURL: nil, loadedExisting: false)
+            return SwitchResult(
+                newText: currentText, backupURL: nil, loadedExisting: false,
+                folderPath: folder.path)
         }
     }
 
@@ -110,11 +116,9 @@ public enum StorageLocation {
     /// file is *not* deleted — other Macs may still be syncing through
     /// it, and removing it here would yank their content too.
     public static func resetToDefault(currentText: String) throws {
-        guard isCustom else { return }
         let fm = FileManager.default
         try fm.createDirectory(at: defaultFolder, withIntermediateDirectories: true)
         let defaultURL = scratchpadURL(in: defaultFolder)
         try currentText.write(to: defaultURL, atomically: true, encoding: .utf8)
-        UserDefaults.standard.removeObject(forKey: folderKey)
     }
 }

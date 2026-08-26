@@ -76,22 +76,3 @@ public struct HotKey: Equatable, Sendable {
         keyMap[Int(keyCode)] ?? "Key\(keyCode)"
     }
 }
-
-extension HotKey {
-    private static let keyCodeKey = "HotKeyCode"
-    private static let modifiersKey = "HotKeyMods"
-
-    public static func loadFromDefaults() -> HotKey? {
-        let defaults = UserDefaults.standard
-        guard defaults.object(forKey: keyCodeKey) != nil else { return nil }
-        let kc = UInt32(defaults.integer(forKey: keyCodeKey))
-        let mods = UInt32(defaults.integer(forKey: modifiersKey))
-        return HotKey(keyCode: kc, modifiers: mods)
-    }
-
-    public func saveToDefaults() {
-        let defaults = UserDefaults.standard
-        defaults.set(Int(keyCode), forKey: Self.keyCodeKey)
-        defaults.set(Int(modifiers), forKey: Self.modifiersKey)
-    }
-}

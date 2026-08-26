@@ -13,6 +13,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let currentHotKey: () -> HotKey
     private let onSetHotKey: () -> Void
     private let onShowAbout: () -> Void
+    private let onOpenConfig: () -> Void
     private let currentLaunchAtLogin: () -> Bool
     private let onToggleLaunchAtLogin: () -> Void
     private let isStorageCustom: () -> Bool
@@ -31,6 +32,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         currentHotKey: @escaping () -> HotKey,
         onSetHotKey: @escaping () -> Void,
         onShowAbout: @escaping () -> Void,
+        onOpenConfig: @escaping () -> Void,
         currentLaunchAtLogin: @escaping () -> Bool,
         onToggleLaunchAtLogin: @escaping () -> Void,
         isStorageCustom: @escaping () -> Bool,
@@ -41,6 +43,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.currentHotKey = currentHotKey
         self.onSetHotKey = onSetHotKey
         self.onShowAbout = onShowAbout
+        self.onOpenConfig = onOpenConfig
         self.currentLaunchAtLogin = currentLaunchAtLogin
         self.onToggleLaunchAtLogin = onToggleLaunchAtLogin
         self.isStorageCustom = isStorageCustom
@@ -61,6 +64,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.delegate = self
         menu.addItem(makeItem(
             "Open Wisp", symbol: "square.and.pencil", action: #selector(openFromMenu)
+        ))
+
+        // Opens wisp.jsonc in whatever app owns .jsonc — the same move as
+        // Clef's Settings…, and the only way most settings are changed.
+        menu.addItem(makeItem(
+            "Settings…", symbol: "gearshape", action: #selector(handleOpenConfig)
         ))
 
         // Order no longer matters: these refs are strong, so the items
@@ -139,6 +148,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func handleShowAbout() {
         onShowAbout()
+    }
+
+    @objc private func handleOpenConfig() {
+        onOpenConfig()
     }
 
     @objc private func handleToggleLaunchAtLogin() {
