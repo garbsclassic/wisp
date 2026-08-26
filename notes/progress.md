@@ -35,3 +35,10 @@
   carved out of the app, SelfTests replaced by 53 `#expect` tests in 14 suites. Command Line Tools
   ships no XCTest or Testing module, so swift-testing is a pinned source dependency and the suites
   run as `swift run WispCoreTests` rather than `swift test` (f556925)
+- 2026-08-26 — [personalize](plan-personalize.md): config file — Clef's Config/ConfigStore ported
+  into WispCore, every UserDefaults key migrated into `~/.config/wisp/wisp.jsonc` and then cleared.
+  New `JSONTextEdit` rewrites only the changed key's span so comments and key order survive a
+  UI-driven change. KeyChord ported with an inverse renderer; default chord is now `ctrl+opt+.`.
+  Also wires the settings that had none — vibrancy, dismissOnOutsideClick, `monitor: pointer` via a
+  new relative-placement helper, fontScale — plus the coalesced footer warning (step 4) and the
+  Settings… menu item. Frame now saves on hide, not on drag. 98 tests (4abdc69)
