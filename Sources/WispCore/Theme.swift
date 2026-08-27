@@ -47,8 +47,8 @@ public func rgb(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
 
 /// Text-surface tokens. Dark is Flexoki Dark, light is Modernist Light
 /// (colors only — Wisp keeps its own rounded, blurred posture). Views
-/// draw their colors from here; the exceptions left on AppKit semantic
-/// colors are the system About panel and the first-run dot.
+/// draw their colors from here; the exception left on AppKit semantic
+/// colors is the first-run dot.
 public struct Palette {
     /// Body text. Flexoki `tx` / Modernist `ink`.
     public let text: NSColor

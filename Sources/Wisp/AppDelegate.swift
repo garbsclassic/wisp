@@ -15,24 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = PanelController(model: model, settings: settings)
         panelController = panel
         menuBarController = MenuBarController(
-            // "Open Wisp" opens — the panel is still up while the status
-            // menu tracks, so toggling here would close it instead.
-            onClick: { [weak panel] in
-                panel?.openIfNeeded()
-                NSApp.activate(ignoringOtherApps: true)
-            },
-            currentHotKey: { [weak self] in self?.model.hotKey ?? .default },
             onSetHotKey: { [weak self, weak panel] in
                 panel?.openIfNeeded()
                 self?.model.showHotKeyCapture = true
-            },
-            onShowAbout: { [weak self, weak panel] in
-                // The Wisp panel is .floating-level so the standard
-                // about panel (which opens at .normal) gets stuck
-                // behind it. Dismissing first gives the about panel
-                // the screen; user re-summons Wisp afterwards.
-                panel?.dismiss()
-                self?.showStandardAboutPanel()
             },
             onOpenConfig: { [weak self] in self?.settings.openConfigFile() },
             currentLaunchAtLogin: { LaunchAtLogin.isEnabled },
@@ -216,27 +201,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func showStandardAboutPanel() {
-        let credits = NSAttributedString(
-            string: """
-            A minimalist macOS scratchpad — open with one keypress, type, dismiss.
-
-            MIT licensed. Source at github.com/garbsclassic/wisp.
-
-            Set in Inter Nerd Font — the Propo variant for chrome, plain for notes so icon glyphs column-align. Falls back to the system sans when not installed.
-            """,
-            attributes: [
-                .font: Typography.uiFont(11),
-                .foregroundColor: NSColor.secondaryLabelColor,
-            ]
-        )
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .applicationName: "Wisp",
-            .applicationVersion: version,
-            .credits: credits,
-            .init(rawValue: "Copyright"): "© 2026 Suleman Hamza",
-        ])
+    /// ⌘, in the main menu — fires while the Wisp panel is focused, the
+    /// menu-bar menu's own ⌘, item covers focus there.
+    @objc func openSettings(_ sender: Any?) {
+        settings.openConfigFile()
     }
 }

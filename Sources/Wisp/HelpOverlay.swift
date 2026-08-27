@@ -45,10 +45,10 @@ struct HelpOverlay: View {
                     (":bulb:   :warning:", "💡  ⚠️"),
                 ])
                 section("Settings — in the menu bar menu", items: [
+                    ("⌘,", "open Settings…"),
                     ("Set Shortcut…", "rebind the global hotkey"),
                     ("Launch at Login", "start automatically at login"),
                     ("Storage Location…", "any folder — iCloud Drive, Dropbox for sync"),
-                    ("About Wisp", "version + credits"),
                 ])
 
                 Text("Click anywhere or press Esc to close.")

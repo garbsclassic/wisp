@@ -20,7 +20,6 @@ struct TypographyTests {
         Typography.configure(fonts: FontSet(notes: "Helvetica", ui: "Menlo"), scale: 1.5)
         #expect(Typography.notesFamily == "Helvetica")
         #expect(Typography.notesFont(20).pointSize == 30)
-        #expect(Typography.uiFont(20).pointSize == 30)
     }
 
     /// Fonts are referenced by name and never bundled, so a family that
@@ -36,7 +35,6 @@ struct TypographyTests {
     @Test("A resolved face keeps the requested size")
     func sizes() {
         #expect(Typography.notesFont(20).pointSize == 20)
-        #expect(Typography.uiFont(20).pointSize == 20)
     }
 
     /// Fonts are referenced by name, never bundled, so both branches are

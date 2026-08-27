@@ -60,12 +60,6 @@ public enum Typography {
         return NSFont(name: notesFamily, size: size) ?? .systemFont(ofSize: size)
     }
 
-    /// UI face for AppKit call sites — the About panel's credits block.
-    public static func uiFont(_ size: CGFloat) -> NSFont {
-        let size = scaled(size)
-        return NSFont(name: uiFamily, size: size) ?? .systemFont(ofSize: size)
-    }
-
     // MARK: SwiftUI
 
     /// Bridges the AppKit resolver rather than re-resolving, so the

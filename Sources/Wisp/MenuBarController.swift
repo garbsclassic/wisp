@@ -1,18 +1,14 @@
 import AppKit
-import WispCore
 
 /// Owns the single status-bar item. The permanently-assigned menu is
 /// what makes any click open it, and it refreshes its dynamic state —
-/// Launch at Login checkmark, Reset Storage visibility, current
-/// shortcut — in menuWillOpen rather than being rebuilt each time.
-/// Wording and icons follow Clef's menu where an item exists in both.
+/// Launch at Login checkmark, Reset Storage visibility — in
+/// menuWillOpen rather than being rebuilt each time. Wording and icons
+/// follow Clef's menu where an item exists in both.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
-    private let onClick: () -> Void
-    private let currentHotKey: () -> HotKey
     private let onSetHotKey: () -> Void
-    private let onShowAbout: () -> Void
     private let onOpenConfig: () -> Void
     private let currentLaunchAtLogin: () -> Bool
     private let onToggleLaunchAtLogin: () -> Void
@@ -23,15 +19,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // Strong: NSMenuItem.target is weak, so holding items here can't
     // cycle, and it drops the assign-after-addItem ordering rule that
     // weak refs made load-bearing.
-    private var shortcutItem: NSMenuItem?
     private var launchItem: NSMenuItem?
     private var resetItem: NSMenuItem?
 
     init(
-        onClick: @escaping () -> Void,
-        currentHotKey: @escaping () -> HotKey,
         onSetHotKey: @escaping () -> Void,
-        onShowAbout: @escaping () -> Void,
         onOpenConfig: @escaping () -> Void,
         currentLaunchAtLogin: @escaping () -> Bool,
         onToggleLaunchAtLogin: @escaping () -> Void,
@@ -39,10 +31,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         onPickStorageLocation: @escaping () -> Void,
         onResetStorageLocation: @escaping () -> Void
     ) {
-        self.onClick = onClick
-        self.currentHotKey = currentHotKey
         self.onSetHotKey = onSetHotKey
-        self.onShowAbout = onShowAbout
         self.onOpenConfig = onOpenConfig
         self.currentLaunchAtLogin = currentLaunchAtLogin
         self.onToggleLaunchAtLogin = onToggleLaunchAtLogin
@@ -60,30 +49,19 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-        menu.addItem(makeItem(
-            "Open Wisp", symbol: "square.and.pencil", action: #selector(openFromMenu)
-        ))
 
         // Opens wisp.jsonc in whatever app owns .jsonc — the same move as
         // Clef's Settings…, and the only way most settings are changed.
-        menu.addItem(makeItem(
+        // ⌘, mirrors Clef's shortcut for it; fires while this menu is open.
+        let settings = makeItem(
             "Settings…", symbol: "gearshape", action: #selector(handleOpenConfig)
-        ))
+        )
+        settings.keyEquivalent = ","
+        menu.addItem(settings)
 
-        // Order no longer matters: these refs are strong, so the items
-        // stay alive whether or not the menu has taken them yet.
-        let shortcut = makeItem(
+        menu.addItem(makeItem(
             "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
-        )
-        let launch = makeItem(
-            "Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin)
-        )
-        shortcutItem = shortcut
-        launchItem = launch
-        menu.addItem(shortcut)
-        menu.addItem(launch)
-
-        menu.addItem(.separator())
+        ))
 
         menu.addItem(makeItem(
             "Storage Location…", symbol: "folder", action: #selector(handlePickStorageLocation)
@@ -98,9 +76,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        menu.addItem(makeItem(
-            "About Wisp", symbol: "info.circle", action: #selector(handleShowAbout)
-        ))
+        let launch = makeItem(
+            "Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin)
+        )
+        launchItem = launch
+        menu.addItem(launch)
 
         menu.addItem(.separator())
 
@@ -158,19 +138,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         launchItem?.state = currentLaunchAtLogin() ? .on : .off
         resetItem?.isHidden = !isStorageCustom()
-        shortcutItem?.title = "Set Shortcut…  (\(currentHotKey().displayString))"
-    }
-
-    @objc private func openFromMenu() {
-        onClick()
     }
 
     @objc private func handleSetHotKey() {
         onSetHotKey()
-    }
-
-    @objc private func handleShowAbout() {
-        onShowAbout()
     }
 
     @objc private func handleOpenConfig() {

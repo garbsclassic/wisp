@@ -7,6 +7,14 @@ enum MainMenuBuilder {
 
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
+        let settingsItem = NSMenuItem(
+            title: "Settings…",
+            action: #selector(AppDelegate.openSettings(_:)),
+            keyEquivalent: ","
+        )
+        settingsItem.target = target
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(
             withTitle: "Quit Wisp",
             action: #selector(NSApplication.terminate(_:)),
