@@ -1,6 +1,7 @@
-// Generates AppIcon.icns for Wisp.
+// Generates Resources/AppIcon.png for Wisp.
 // Run with: swift scripts/generate-icon.swift
-// Output: scripts/AppIcon.icns (committed to repo, build-app.sh copies it).
+// Output: Resources/AppIcon.png (1024x1024, pre-shaped with transparent
+// corners — build.sh resizes it into an .iconset via sips, no Xcode needed).
 
 import CoreGraphics
 import ImageIO
@@ -8,11 +9,7 @@ import UniformTypeIdentifiers
 import Foundation
 
 let scriptDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-let iconsetDir = scriptDir.appendingPathComponent("AppIcon.iconset")
-let icnsURL = scriptDir.appendingPathComponent("AppIcon.icns")
-
-try? FileManager.default.removeItem(at: iconsetDir)
-try FileManager.default.createDirectory(at: iconsetDir, withIntermediateDirectories: true)
+let outputURL = scriptDir.deletingLastPathComponent().appendingPathComponent("Resources/AppIcon.png")
 
 // "Aperture": concentric rings — pale green, mint, cyan, white core — on a
 // dark squircle with a cyan glow. Design settled in the Wisp/Clef icon
@@ -112,43 +109,9 @@ func makeIcon(pixelSize: Int) -> Data? {
     return mutableData as Data
 }
 
-let sizeMap: [(pixels: Int, filename: String)] = [
-    (16,   "icon_16x16.png"),
-    (32,   "icon_16x16@2x.png"),
-    (32,   "icon_32x32.png"),
-    (64,   "icon_32x32@2x.png"),
-    (128,  "icon_128x128.png"),
-    (256,  "icon_128x128@2x.png"),
-    (256,  "icon_256x256.png"),
-    (512,  "icon_256x256@2x.png"),
-    (512,  "icon_512x512.png"),
-    (1024, "icon_512x512@2x.png"),
-]
-
-for (pixels, filename) in sizeMap {
-    guard let data = makeIcon(pixelSize: pixels) else {
-        print("Failed to render \(filename)")
-        exit(1)
-    }
-    let url = iconsetDir.appendingPathComponent(filename)
-    try data.write(to: url)
-    print("\(filename)  \(pixels)x\(pixels)")
-}
-
-let task = Process()
-task.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
-task.arguments = [
-    "-c", "icns",
-    "-o", icnsURL.path,
-    iconsetDir.path,
-]
-try task.run()
-task.waitUntilExit()
-
-if task.terminationStatus == 0 {
-    print("Wrote \(icnsURL.path)")
-    try? FileManager.default.removeItem(at: iconsetDir)
-} else {
-    print("iconutil failed with status \(task.terminationStatus)")
+guard let data = makeIcon(pixelSize: 1024) else {
+    print("Failed to render icon")
     exit(1)
 }
+try data.write(to: outputURL)
+print("Wrote \(outputURL.path)")

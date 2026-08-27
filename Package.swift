@@ -4,16 +4,6 @@ import PackageDescription
 let package = Package(
     name: "Wisp",
     platforms: [.macOS(.v13)],
-    dependencies: [
-        // Command Line Tools ships neither XCTest nor a bundled Testing
-        // module, so Swift Testing comes in as a source dependency.
-        //
-        // Pinned exactly: from 6.3 on, the Testing target link-directives
-        // `_TestingInterop`, which it expects the *toolchain* to provide —
-        // the package only vends its own copy under a _DO_NOT_USE name, so
-        // 6.3+ fails to link here. 6.2.4 is the last tag that doesn't.
-        .package(url: "https://github.com/swiftlang/swift-testing.git", exact: "6.2.4")
-    ],
     targets: [
         // Logic the app is built out of — text parsing, config, theme
         // tokens, frame validation. No views and no controllers, so it
@@ -27,15 +17,13 @@ let package = Package(
             dependencies: ["WispCore"],
             path: "Sources/Wisp"
         ),
-        // An executable, not a `.testTarget`: SwiftPM's test runner links
-        // XCTest, which Command Line Tools does not ship. Run the suites
-        // with `swift run WispCoreTests`.
-        .executableTarget(
+        // Command Line Tools ships its own Testing.framework but not on the
+        // default search path, so `swift test` alone fails with "no such
+        // module 'Testing'" — scripts/test.sh points the compiler, linker,
+        // and dyld at it directly, the same trick Clef's test.sh uses.
+        .testTarget(
             name: "WispCoreTests",
-            dependencies: [
-                "WispCore",
-                .product(name: "Testing", package: "swift-testing"),
-            ],
+            dependencies: ["WispCore"],
             path: "Tests/WispCoreTests"
         ),
     ]

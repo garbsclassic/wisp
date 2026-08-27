@@ -9,11 +9,26 @@ A dead-simple macOS scratchpad. ⌃⌥. to summon, type, Esc or click away to di
 ## Install
 
 Requires macOS 13 (Ventura) or later, Apple silicon. This is a personal fork
-with no release pipeline — build it and copy the bundle across:
+with no release pipeline.
 
 ```sh
-./scripts/build-app.sh && cp -R build/Wisp.app /Applications/
+./scripts/install.sh
 ```
+
+Builds and copies to `/Applications/Wisp.app` (override with
+`WISP_INSTALL_DIR`). Launch it, then enable **Launch at Login** from the menu
+bar menu if you want it. Installing to a stable path matters for that: the
+login item is recorded against the bundle's location, so running from
+`dist/` means a rebuild or a move can orphan it.
+
+```sh
+./scripts/uninstall.sh            # removes the app, keeps your config
+./scripts/uninstall.sh --purge    # also removes ~/.config/wisp
+```
+
+Uninstall quits the running copy first. Turn Launch at Login **off before**
+uninstalling — the registration is keyed to the bundle, so deleting the app
+first leaves a dangling login item.
 
 ## Features
 
@@ -59,7 +74,23 @@ the system face (and says so in the footer) when one isn't installed.
 Wisp rewrites only the key it changed, so hand-added comments, key order, and
 indentation all survive a settings change made from the UI.
 
-## Build from source
+## Build
+
+```sh
+./scripts/build.sh
+open dist/Wisp.app
+```
+
+```sh
+./scripts/test.sh
+```
+
+No Xcode required — Command Line Tools are enough. `swift test` alone fails
+with `no such module 'Testing'`: Swift Testing ships inside CLT but isn't on
+the default search path, so `scripts/test.sh` points the compiler, linker,
+and dyld at it.
+
+For quick iteration without assembling a bundle:
 
 ```sh
 git clone https://github.com/garbsclassic/wisp.git
@@ -67,15 +98,18 @@ cd wisp
 swift run
 ```
 
-## Tests
+## Signing
+
+`scripts/build.sh` ad-hoc signs by default. Every rebuild relinks with a
+fresh `LC_UUID`, so the code identity changes each time, which can make
+macOS ask you to re-approve "Launch at Login" after a rebuild. To get a
+stable identity without Xcode or a paid Apple Developer account, create a
+self-signed **Code Signing** certificate in Keychain Access (Certificate
+Assistant → Create a Certificate) and:
 
 ```sh
-swift run WispCoreTests
+WISP_SIGN_IDENTITY="Your Cert Name" ./scripts/build.sh
 ```
-
-Not `swift test`: SwiftPM's test runner links XCTest, which Command Line
-Tools doesn't ship. The suites are ordinary Swift Testing `@Test` functions
-run through swift-testing's own entry point.
 
 ## License
 

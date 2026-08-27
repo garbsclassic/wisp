@@ -102,8 +102,8 @@ final class Settings: ObservableObject {
 
     /// Carries the pre-config UserDefaults values into the freshly seeded
     /// file, then clears them. Runs once, on the first launch after the
-    /// upgrade; afterwards `defaults read com.sulemaanhamza.wisp` is empty
-    /// and there is no shadow store beside the config.
+    /// upgrade; afterwards `defaults read dev.garbs.wisp` is empty and there
+    /// is no shadow store beside the config.
     private func migrateLegacyDefaults() {
         let defaults = UserDefaults.standard
         var migrated = config
