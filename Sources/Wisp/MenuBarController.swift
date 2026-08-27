@@ -53,10 +53,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         super.init()
 
         if let button = statusItem.button {
-            // SF Symbol `wind` reads as "wisp" — a single curved stroke,
-            // simpler and more on-brand than the default pencil glyph.
-            let image = NSImage(systemSymbolName: "wind", accessibilityDescription: "Wisp")
-            image?.isTemplate = true
+            let image = Self.makeStatusIcon()
+            image.accessibilityDescription = "Wisp"
             button.image = image
         }
 
@@ -120,6 +118,31 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Assigned permanently so any click — left or right — opens it.
         statusItem.menu = menu
+    }
+
+    // "Halo": a filled core with a thin ring held off it — option 5d from
+    // the icon canvas. Drawn rather than bundled since the app ships no
+    // asset catalog; isTemplate lets AppKit tint it for the bar.
+    private static func makeStatusIcon() -> NSImage {
+        let size = CGSize(width: 18, height: 18)
+        let image = NSImage(size: size, flipped: false) { rect in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            let center = CGPoint(x: rect.midX, y: rect.midY)
+            let k = rect.width / 30
+
+            context.setStrokeColor(NSColor.black.cgColor)
+            context.setLineWidth(2.8 * k)
+            context.addArc(center: center, radius: 12.7 * k, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+            context.strokePath()
+
+            context.setFillColor(NSColor.black.cgColor)
+            context.addArc(center: center, radius: 7 * k, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+            context.fillPath()
+
+            return true
+        }
+        image.isTemplate = true
+        return image
     }
 
     private func makeItem(_ title: String, symbol: String, action: Selector) -> NSMenuItem {

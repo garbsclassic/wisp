@@ -3,7 +3,6 @@
 // Output: scripts/AppIcon.icns (committed to repo, build-app.sh copies it).
 
 import CoreGraphics
-import CoreText
 import ImageIO
 import UniformTypeIdentifiers
 import Foundation
@@ -15,9 +14,10 @@ let icnsURL = scriptDir.appendingPathComponent("AppIcon.icns")
 try? FileManager.default.removeItem(at: iconsetDir)
 try FileManager.default.createDirectory(at: iconsetDir, withIntermediateDirectories: true)
 
-// Bold "W" on warm cream. The app's body face is now Inter Nerd Font
-// (Typography.notesFamily), so the icon resolves that first and keeps
-// the old serif only as a fallback for machines without it.
+// "Aperture": concentric rings — pale green, mint, cyan, white core — on a
+// dark squircle with a cyan glow. Design settled in the Wisp/Clef icon
+// canvas (option 3c); rings and background stops are lifted verbatim from
+// there, scaled off a 64pt reference box.
 func makeIcon(pixelSize: Int) -> Data? {
     let size = CGFloat(pixelSize)
     let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -31,31 +31,72 @@ func makeIcon(pixelSize: Int) -> Data? {
         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
     ) else { return nil }
 
-    // Warm cream background, full bleed.
-    context.setFillColor(red: 0.95, green: 0.92, blue: 0.86, alpha: 1.0)
-    context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+    // Squircle mask (border-radius: 14.4px on a 64px box in the reference).
+    let cornerRadius = size * (14.4 / 64)
+    let squircle = CGPath(
+        roundedRect: CGRect(x: 0, y: 0, width: size, height: size),
+        cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil
+    )
+    context.addPath(squircle)
+    context.clip()
 
-    // Letter "W" centered.
-    let fontSize = size * 0.6
-    var font = CTFontCreateWithName("InterNF-Bold" as CFString, fontSize, nil)
-    if CTFontCopyPostScriptName(font) as String != "InterNF-Bold" {
-        font = CTFontCreateWithName("Charter-Bold" as CFString, fontSize, nil)
+    // Base gradient, top to bottom: #25292A -> #171A1B (46%) -> #0C0E0E.
+    let baseColors = [
+        CGColor(red: 0x25 / 255, green: 0x29 / 255, blue: 0x2A / 255, alpha: 1),
+        CGColor(red: 0x17 / 255, green: 0x1A / 255, blue: 0x1B / 255, alpha: 1),
+        CGColor(red: 0x0C / 255, green: 0x0E / 255, blue: 0x0E / 255, alpha: 1),
+    ]
+    let baseGradient = CGGradient(
+        colorsSpace: colorSpace, colors: baseColors as CFArray, locations: [0, 0.46, 1]
+    )!
+    // CSS is top-down; CG's y axis runs bottom-up, so start/end are flipped.
+    context.drawLinearGradient(
+        baseGradient,
+        start: CGPoint(x: 0, y: size), end: CGPoint(x: 0, y: 0),
+        options: []
+    )
+
+    // Cyan glow, centered slightly above middle (50% / 48% from top).
+    let glowColors = [
+        CGColor(red: 78 / 255, green: 203 / 255, blue: 223 / 255, alpha: 0.20),
+        CGColor(red: 78 / 255, green: 203 / 255, blue: 223 / 255, alpha: 0),
+    ]
+    let glowGradient = CGGradient(
+        colorsSpace: colorSpace, colors: glowColors as CFArray, locations: [0, 1]
+    )!
+    let glowCenter = CGPoint(x: size * 0.5, y: size * (1 - 0.48))
+    context.drawRadialGradient(
+        glowGradient,
+        startCenter: glowCenter, startRadius: 0,
+        endCenter: glowCenter, endRadius: size * 0.64,
+        options: []
+    )
+
+    // Rings, defined in the reference's 50pt glyph box (centered in the
+    // 64pt icon box, so scale = size / 64 and center stays size/2).
+    let k = size / 64
+    let center = CGPoint(x: size / 2, y: size / 2)
+
+    func ring(radius: CGFloat, width: CGFloat, color: CGColor) {
+        context.setStrokeColor(color)
+        context.setLineWidth(width * k)
+        context.addArc(
+            center: center, radius: radius * k,
+            startAngle: 0, endAngle: .pi * 2, clockwise: false
+        )
+        context.strokePath()
     }
 
-    let attrs: [NSAttributedString.Key: Any] = [
-        .init(kCTFontAttributeName as String): font,
-        .init(kCTForegroundColorAttributeName as String):
-            CGColor(red: 0.12, green: 0.10, blue: 0.08, alpha: 1.0),
-    ]
-    let attrString = NSAttributedString(string: "W", attributes: attrs)
-    let line = CTLineCreateWithAttributedString(attrString as CFAttributedString)
+    ring(
+        radius: 21, width: 7,
+        color: CGColor(red: 143 / 255, green: 227 / 255, blue: 136 / 255, alpha: 0.28)
+    )
+    ring(radius: 16.5, width: 5.5, color: CGColor(red: 0x5B / 255, green: 0xD6 / 255, blue: 0xC0 / 255, alpha: 1))
+    ring(radius: 11, width: 5, color: CGColor(red: 0x4E / 255, green: 0xC5 / 255, blue: 0xDF / 255, alpha: 1))
 
-    let bounds = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
-    let x = (size - bounds.width) / 2 - bounds.origin.x
-    let y = (size - bounds.height) / 2 - bounds.origin.y
-
-    context.textPosition = CGPoint(x: x, y: y)
-    CTLineDraw(line, context)
+    context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+    context.addArc(center: center, radius: 7 * k, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+    context.fillPath()
 
     guard let cgImage = context.makeImage() else { return nil }
 
