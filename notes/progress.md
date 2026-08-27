@@ -48,3 +48,11 @@
   end to end: `chezmoi apply` merges the live per-machine keys into the managed defaults, and a
   targeted app write leaves the biome-formatted file byte-identical but for the changed value
   (chezmoi 231a708)
+- 2026-08-26 — tooling unification with Clef: switched `WispCoreTests` off the pinned
+  `swift-testing` source package onto Clef's native `Testing.framework` approach (a real
+  `.testTarget` plus `scripts/test.sh`'s linker flags) — the prior "does not actually run here"
+  note turned out to be a stale `.build` cache, not a real incompatibility, confirmed by a clean
+  rebuild passing all 99 tests. Also moved the app icon to a source PNG in `Resources/` with the
+  `.icns` built at build time, renamed `build-app.sh`/`build/` to `build.sh`/`dist/`, added
+  `install.sh`/`uninstall.sh` ported from Clef's (the former now restarts the app after a reinstall
+  only if it was running before), and renamed the bundle identifier to `dev.garbs.wisp` (c4aeecf)
