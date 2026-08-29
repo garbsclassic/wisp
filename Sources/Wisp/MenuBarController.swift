@@ -123,23 +123,58 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
     }
 
-    // "Halo": a filled core with a thin ring held off it — option 5d from
-    // the icon canvas. Drawn rather than bundled since the app ships no
+    // "Veil": the aperture reduced to a ring and a core, with the vapor
+    // trail above it — direction 9a from the icon canvas, matched to the app
+    // tile. At 18px the bands can't survive, so only the outer ring and core
+    // remain, and the trail is alpha-ramped rather than blurred to keep the
+    // template image crisp. Drawn rather than bundled since the app ships no
     // asset catalog; isTemplate lets AppKit tint it for the bar.
     private static func makeStatusIcon() -> NSImage {
         let size = CGSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
-            let center = CGPoint(x: rect.midX, y: rect.midY)
-            let k = rect.width / 30
 
-            context.setStrokeColor(NSColor.black.cgColor)
-            context.setLineWidth(2.8 * k)
-            context.addArc(center: center, radius: 12.7 * k, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+            // Authored on the canvas's 30-unit grid, y running downwards.
+            let k = rect.width / 30
+            func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                CGPoint(x: rect.minX + x * k, y: rect.maxY - y * k)
+            }
+            func ink(_ alpha: CGFloat) -> CGColor {
+                NSColor.black.withAlphaComponent(alpha).cgColor
+            }
+
+            // Vapor: a wide low-alpha skirt under a brighter body and a tip.
+            // The skirt is what makes it read as vapor and not a stack of dots.
+            let vapor: [(CGFloat, CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                (15, 10.4, 9.8, 4.3, 0.30),
+                (15, 6.2, 6.2, 3.2, 0.20),
+                (15, 10, 6.6, 3.3, 0.80),
+                (14.7, 5.6, 4.1, 2.5, 0.50),
+                (15.4, 2, 2.3, 1.8, 0.26),
+            ]
+            for (cx, cy, rx, ry, alpha) in vapor {
+                let center = point(cx, cy)
+                context.setFillColor(ink(alpha))
+                context.fillEllipse(in: CGRect(
+                    x: center.x - rx * k, y: center.y - ry * k,
+                    width: rx * 2 * k, height: ry * 2 * k
+                ))
+            }
+
+            let aperture = point(15, 20.7)
+            context.setStrokeColor(ink(1))
+            context.setLineWidth(3 * k)
+            context.addArc(
+                center: aperture, radius: 7.5 * k,
+                startAngle: 0, endAngle: .pi * 2, clockwise: false
+            )
             context.strokePath()
 
-            context.setFillColor(NSColor.black.cgColor)
-            context.addArc(center: center, radius: 7 * k, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+            context.setFillColor(ink(1))
+            context.addArc(
+                center: aperture, radius: 3.2 * k,
+                startAngle: 0, endAngle: .pi * 2, clockwise: false
+            )
             context.fillPath()
 
             return true
