@@ -2,7 +2,7 @@ import AppKit
 
 /// Owns the single status-bar item. The permanently-assigned menu is
 /// what makes any click open it, and it refreshes its dynamic state —
-/// Launch at Login checkmark, Reset Storage visibility — in
+/// Launch at Login checkmark, Reset Scratchpad Folder visibility — in
 /// menuWillOpen rather than being rebuilt each time. Wording and icons
 /// follow Clef's menu where an item exists in both.
 @MainActor
@@ -10,11 +10,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let onSetHotKey: () -> Void
     private let onOpenConfig: () -> Void
+    private let onRefresh: () -> Void
     private let currentLaunchAtLogin: () -> Bool
     private let onToggleLaunchAtLogin: () -> Void
     private let isStorageCustom: () -> Bool
     private let onPickStorageLocation: () -> Void
     private let onResetStorageLocation: () -> Void
+    private let onRevealNote: () -> Void
 
     // Strong: NSMenuItem.target is weak, so holding items here can't
     // cycle, and it drops the assign-after-addItem ordering rule that
@@ -25,19 +27,23 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     init(
         onSetHotKey: @escaping () -> Void,
         onOpenConfig: @escaping () -> Void,
+        onRefresh: @escaping () -> Void,
         currentLaunchAtLogin: @escaping () -> Bool,
         onToggleLaunchAtLogin: @escaping () -> Void,
         isStorageCustom: @escaping () -> Bool,
         onPickStorageLocation: @escaping () -> Void,
-        onResetStorageLocation: @escaping () -> Void
+        onResetStorageLocation: @escaping () -> Void,
+        onRevealNote: @escaping () -> Void
     ) {
         self.onSetHotKey = onSetHotKey
         self.onOpenConfig = onOpenConfig
+        self.onRefresh = onRefresh
         self.currentLaunchAtLogin = currentLaunchAtLogin
         self.onToggleLaunchAtLogin = onToggleLaunchAtLogin
         self.isStorageCustom = isStorageCustom
         self.onPickStorageLocation = onPickStorageLocation
         self.onResetStorageLocation = onResetStorageLocation
+        self.onRevealNote = onRevealNote
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -59,20 +65,33 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         settings.keyEquivalent = ","
         menu.addItem(settings)
 
+        // Re-reads wisp.jsonc and re-checks scratchpad.md's mtime — for
+        // either changing underfoot via iCloud/Dropbox/chezmoi sync.
+        menu.addItem(makeItem(
+            "Refresh", symbol: "arrow.clockwise", action: #selector(handleRefresh)
+        ))
+
         menu.addItem(makeItem(
             "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
         ))
 
         menu.addItem(makeItem(
-            "Storage Location…", symbol: "folder", action: #selector(handlePickStorageLocation)
+            "Scratchpad Folder…", symbol: "folder", action: #selector(handlePickStorageLocation)
         ))
         let reset = makeItem(
-            "Reset Storage Location",
+            "Reset Scratchpad Folder",
             symbol: "arrow.uturn.backward",
             action: #selector(handleResetStorageLocation)
         )
         resetItem = reset
         menu.addItem(reset)
+
+        menu.addItem(.separator())
+
+        menu.addItem(makeItem(
+            "Reveal Note in Finder", symbol: "doc.text.magnifyingglass",
+            action: #selector(handleRevealNote)
+        ))
 
         menu.addItem(.separator())
 
@@ -148,6 +167,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         onOpenConfig()
     }
 
+    @objc private func handleRefresh() {
+        onRefresh()
+    }
+
     @objc private func handleToggleLaunchAtLogin() {
         onToggleLaunchAtLogin()
     }
@@ -158,5 +181,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func handleResetStorageLocation() {
         onResetStorageLocation()
+    }
+
+    @objc private func handleRevealNote() {
+        onRevealNote()
     }
 }

@@ -170,8 +170,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// Clicking another app dismisses the panel outright. Switchable here so
     /// turning it off doesn't need a rebuild.
     public var dismissOnOutsideClick: Bool
-    /// Folder holding `scratchpad.md`. Empty means the default,
-    /// `~/Library/Application Support/Wisp`.
+    /// Folder holding `scratchpad.md`. Empty means the default, `~/Documents`.
     public var scratchpadPath: String
     public var keymap: Keymap
     /// Absent until the panel has been shown and hidden once.

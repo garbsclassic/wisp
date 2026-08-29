@@ -10,7 +10,7 @@ struct StorageLocationTests {
     func names() {
         #expect(StorageLocation.scratchpadFilename == "scratchpad.md")
         #expect(StorageLocation.backupPrefix == "scratchpad-local-backup-")
-        #expect(StorageLocation.defaultFolder.lastPathComponent == "Wisp")
+        #expect(StorageLocation.defaultFolder.lastPathComponent == "Documents")
     }
 
     @Test("The scratchpad lands directly inside the chosen folder")

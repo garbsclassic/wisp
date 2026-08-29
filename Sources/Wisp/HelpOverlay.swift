@@ -46,9 +46,11 @@ struct HelpOverlay: View {
                 ])
                 section("Settings — in the menu bar menu", items: [
                     ("⌘,", "open Settings…"),
+                    ("Refresh", "re-read settings and the note from disk"),
                     ("Set Shortcut…", "rebind the global hotkey"),
                     ("Launch at Login", "start automatically at login"),
-                    ("Storage Location…", "any folder — iCloud Drive, Dropbox for sync"),
+                    ("Scratchpad Folder…", "any folder — iCloud Drive, Dropbox for sync"),
+                    ("Reveal Note in Finder", "show scratchpad.md in Finder"),
                 ])
 
                 Text("Click anywhere or press Esc to close.")

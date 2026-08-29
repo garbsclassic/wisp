@@ -2,8 +2,8 @@ import Foundation
 
 /// Where `scratchpad.md` lives on disk.
 ///
-/// Default: `~/Library/Application Support/Wisp/scratchpad.md`. The user
-/// can pick any folder from the menu bar menu — putting it inside
+/// Default: `~/Documents/scratchpad.md`. The user can pick any folder
+/// from the menu bar menu — putting it inside
 /// `~/Library/Mobile Documents/com~apple~CloudDocs/...` (iCloud Drive),
 /// `~/Dropbox/...`, or any sync tool's folder makes Wisp's scratchpad
 /// follow the user across machines for free, since macOS handles that
@@ -23,13 +23,9 @@ public enum StorageLocation {
     public static let scratchpadFilename = "scratchpad.md"
     public static let backupPrefix = "scratchpad-local-backup-"
 
-    /// `~/Library/Application Support/Wisp/`
+    /// `~/Documents/`
     public static var defaultFolder: URL {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first!
-        return appSupport.appendingPathComponent("Wisp")
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
     }
 
     /// Resolve a configured `scratchpadPath` to a folder. Empty means the

@@ -39,7 +39,7 @@ first leaves a dangling login item.
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic** — ⌘B / ⌘I
 - **Launch at Login** — toggle in the menu bar menu
-- **Plain markdown on disk** at `~/Library/Application Support/Wisp/scratchpad.md`
+- **Plain markdown on disk** at `~/Documents/scratchpad.md`
 - **Sync across Macs** — point at any folder via the menu bar menu (iCloud Drive, Dropbox, Syncthing all work)
 - **Hand-editable config** at `~/.config/wisp/wisp.jsonc` — see below
 
@@ -64,7 +64,7 @@ ignored.
 | `vibrancy`              | `true`                                    | Blurs whatever is behind the panel                                  |
 | `monitor`               | `"primary"`                               | `pointer` opens on whichever display the cursor is on               |
 | `dismissOnOutsideClick` | `true`                                    | Clicking another app closes the panel                               |
-| `scratchpadPath`        | `""`                                      | Folder for `scratchpad.md`; empty means Application Support         |
+| `scratchpadPath`        | `""`                                      | Folder for `scratchpad.md`; empty means `~/Documents`                |
 | `keymap.summon`         | `"ctrl+opt+."`                            | The global chord, e.g. `cmd+shift+space`                            |
 | `panel`                 | _(written on first hide)_                 | Remembered `x` / `y` / `w` / `h`, in screen points                  |
 

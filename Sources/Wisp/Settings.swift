@@ -81,6 +81,16 @@ final class Settings: ObservableObject {
         write(["panel"], panel)
     }
 
+    /// Re-reads wisp.jsonc from disk — the Refresh menu item, for a file
+    /// hand-edited or synced in from another Mac while Wisp was running.
+    /// Skips `migrateLegacyDefaults()`, which is a first-run-only step.
+    func reload() {
+        let load = ConfigStore.loadOrSeed()
+        config = load.config
+        configWarning = load.error
+        Typography.configure(fonts: config.fonts, scale: config.clampedFontScale)
+    }
+
     /// Opens the config in whatever app owns `.jsonc`, seeding it first if
     /// it isn't there — the Settings… menu item.
     func openConfigFile() {

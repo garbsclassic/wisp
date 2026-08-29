@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.model.showHotKeyCapture = true
             },
             onOpenConfig: { [weak self] in self?.settings.openConfigFile() },
+            onRefresh: { [weak self] in self?.refresh() },
             currentLaunchAtLogin: { LaunchAtLogin.isEnabled },
             onToggleLaunchAtLogin: {
                 LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
@@ -32,7 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onResetStorageLocation: { [weak self] in
                 self?.resetStorageLocation()
-            }
+            },
+            onRevealNote: { [weak self] in self?.revealNoteInFinder() }
         )
 
         // Initial registration uses the chord from wisp.jsonc (or the
@@ -136,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func runStorageLocationFlow() {
         let openPanel = NSOpenPanel()
-        openPanel.title = "Choose Wisp's Storage Folder"
+        openPanel.title = "Choose Wisp's Scratchpad Folder"
         openPanel.prompt = "Choose"
         openPanel.message = "Pick a folder for scratchpad.md. Choose a folder inside iCloud Drive (or Dropbox, etc.) to sync across Macs."
         openPanel.canChooseFiles = false
@@ -205,5 +207,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// menu-bar menu's own ⌘, item covers focus there.
     @objc func openSettings(_ sender: Any?) {
         settings.openConfigFile()
+    }
+
+    /// Refresh — re-reads wisp.jsonc and re-checks scratchpad.md's mtime,
+    /// for either changing on disk without Wisp's own writes (iCloud
+    /// Drive, Dropbox, or a chezmoi apply on another Mac).
+    private func refresh() {
+        settings.reload()
+        model.reloadFromDiskIfChanged()
+    }
+
+    private func revealNoteInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([model.scratchpadURL])
     }
 }
