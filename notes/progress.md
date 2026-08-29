@@ -78,3 +78,16 @@
   via a new `EditorModel.adoptSettings()`; before this it re-read the file but the window kept
   rendering the values it read at launch. Verified end to end with synthetic events: ⌘R reloads a
   theme and a note changed on disk with the panel open, ⌘, closes it
+- 2026-08-29 — live reload, ported from Clef's `VaultWatcher` as `WispCore.DirectoryWatcher`: one
+  FSEvents stream each on the config directory and the scratchpad's folder, both feeding the same
+  `reloadConfig()` / `reloadFromDiskIfChanged()` that ⌘R calls. Directories, not files, because
+  every writer here — Wisp's own atomic save, iCloud, Syncthing, chezmoi — replaces the file by
+  rename. Three things Clef doesn't need: `IgnoreSelf` plus a pending-save flag and an mtime stamp
+  on our own writes, since Wisp writes the files it watches and a reload landing between a save and
+  the keystroke after it would read our own older copy back over the buffer (measured: with
+  `NoDefer` the event arrives within milliseconds of the write, so the window is much narrower than
+  it first looked, but the guards also skip a pointless re-read on every save); the note watcher is
+  rebuilt whenever the scratchpad folder moves, where Clef's is bound to the launch-time vault for
+  its lifetime; and a folder changed by hand in the config adopts that folder's note, since the
+  mtime baseline describes a file in the old one. A stream that won't start is a sticky footer
+  warning rather than silent staleness

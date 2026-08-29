@@ -104,10 +104,15 @@ final class EditorModel: ObservableObject {
     /// re-save the content we just loaded.
     private var isReloading = false
     /// mtime of the file the last time we successfully loaded from
-    /// disk. Drives reloadFromDiskIfChanged so we only re-read when
-    /// the file has actually moved on (e.g., another Mac wrote to it
-    /// via iCloud sync).
+    /// disk — or wrote it ourselves, which counts the same way. Drives
+    /// reloadFromDiskIfChanged so we only re-read when the file has
+    /// actually moved on (e.g., another Mac wrote to it via iCloud sync).
     private var lastLoadedMTime: Date?
+    /// True between a keystroke and the debounced save that follows it.
+    /// The directory watcher can otherwise fire on a save of ours while
+    /// the buffer has already moved past what landed on disk, and the
+    /// reload would read our own stale write back over the newer text.
+    private var hasPendingSave = false
 
     /// `wisp.jsonc`, which is where every value below is read from and
     /// written back to.
@@ -147,6 +152,9 @@ final class EditorModel: ObservableObject {
     /// to the file from outside Wisp aren't observed (no file watcher
     /// — kept intentionally simple).
     func reloadFromDiskIfChanged() {
+        // Our own write is still in flight and the buffer is ahead of the
+        // file; whatever is on disk right now is by definition older.
+        guard !hasPendingSave else { return }
         let url = scratchpadURL
         guard let mtime = Self.fileMTime(at: url) else { return }
         if let last = lastLoadedMTime, mtime <= last { return }
@@ -157,6 +165,19 @@ final class EditorModel: ObservableObject {
             isReloading = false
         }
         lastLoadedMTime = mtime
+    }
+
+    /// Adopts whatever file is at the current scratchpad path, for a
+    /// `scratchpadPath` that changed in the config: the mtime baseline
+    /// describes a file in the old folder, so `reloadFromDiskIfChanged`
+    /// can't be trusted to notice the new one. A folder with no scratchpad
+    /// in it yet keeps the current text, which the next save writes there.
+    func adoptScratchpadAtCurrentPath() {
+        guard let loaded = try? String(contentsOf: scratchpadURL, encoding: .utf8) else {
+            lastLoadedMTime = nil
+            return
+        }
+        adoptLoadedText(loaded)
     }
 
     /// Replace the in-memory text with a freshly chosen content (e.g.,
@@ -296,7 +317,9 @@ final class EditorModel: ObservableObject {
     /// in-flight debounced save isn't lost when the user quits.
     func flushSave() {
         saveTask?.cancel()
+        hasPendingSave = false
         try? Self.write(text, to: scratchpadURL)
+        lastLoadedMTime = Self.fileMTime(at: scratchpadURL)
     }
 
     /// The destination is resolved on the main actor and carried into the
@@ -304,13 +327,27 @@ final class EditorModel: ObservableObject {
     /// text in the new folder.
     private func scheduleSave() {
         saveTask?.cancel()
+        hasPendingSave = true
         let snapshot = text
         let url = scratchpadURL
-        saveTask = Task.detached(priority: .background) {
+        saveTask = Task.detached(priority: .background) { [weak self] in
             try? await Task.sleep(nanoseconds: 800_000_000)
             guard !Task.isCancelled else { return }
             try? Self.write(snapshot, to: url)
+            let mtime = Self.fileMTime(at: url)
+            await MainActor.run { self?.didWrite(url: url, mtime: mtime) }
         }
+    }
+
+    /// Baselines the file we just wrote so the directory watcher doesn't
+    /// treat our own save as someone else's change. Skipped when the
+    /// scratchpad has moved out from under the write — that file is no
+    /// longer the one being watched, and stamping it would suppress a real
+    /// reload of the new one.
+    private func didWrite(url: URL, mtime: Date?) {
+        hasPendingSave = false
+        guard url == scratchpadURL else { return }
+        lastLoadedMTime = mtime
     }
 
     nonisolated private static func write(_ text: String, to url: URL) throws {

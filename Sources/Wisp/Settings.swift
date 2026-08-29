@@ -14,6 +14,10 @@ final class Settings: ObservableObject {
     /// Unreadable file, malformed keys, or a failed write — surfaced in the
     /// footer rather than swallowed.
     @Published private(set) var configWarning: String?
+    /// A directory whose change stream wouldn't start, so edits there only
+    /// arrive on ⌘R. Sticky: the stream is never retried, so the state it
+    /// describes lasts until relaunch.
+    @Published private(set) var watcherWarning: String?
 
     init() {
         let load = ConfigStore.loadOrSeed()
@@ -30,6 +34,7 @@ final class Settings: ObservableObject {
     /// anyway. Follows Clef's footer warning.
     var warning: String? {
         if let configWarning { return configWarning }
+        if let watcherWarning { return watcherWarning }
         if !config.summonChordIsValid {
             return "Unreadable summon chord \"\(config.keymap.summon)\" — using the default"
         }
@@ -40,6 +45,11 @@ final class Settings: ObservableObject {
                 : "Fonts not installed: \(missing.joined(separator: ", "))"
         }
         return nil
+    }
+
+    /// Set once at launch, from whichever watchers failed to start.
+    func reportWatcherFailure(_ description: String) {
+        watcherWarning = description
     }
 
     // MARK: Mutations

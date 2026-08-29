@@ -40,6 +40,7 @@ first leaves a dangling login item.
 - **Bold / Italic** — ⌘B / ⌘I
 - **Launch at Login** — toggle in the menu bar menu
 - **Refresh** — ⌘R re-reads the config and the note from disk
+- **Live reload** — changes to either from another app, Mac, or sync client appear on their own
 - **Plain markdown on disk** at `~/Documents/scratchpad.md`
 - **Sync across Macs** — point at any folder via the menu bar menu (iCloud Drive, Dropbox, Syncthing all work)
 - **Hand-editable config** at `~/.config/wisp/wisp.jsonc` — see below
@@ -75,6 +76,11 @@ the system face (and says so in the footer) when one isn't installed.
 
 Wisp rewrites only the key it changed, so hand-added comments, key order, and
 indentation all survive a settings change made from the UI.
+
+The config directory and the scratchpad's folder are both watched, so a change
+to either — a hand edit, a `chezmoi apply`, another Mac's copy landing over
+iCloud Drive — applies without a Refresh. Everything but `vibrancy` takes effect
+live. If a watch can't start, the footer says so and ⌘R still works.
 
 ## Build
 

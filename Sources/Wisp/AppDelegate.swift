@@ -9,6 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
     private var panelController: PanelController?
     private let hotKey = HotKeyMonitor()
+    /// Live reload: wisp.jsonc changed by hand or by a chezmoi apply, and
+    /// scratchpad.md changed by another Mac through iCloud Drive, Dropbox,
+    /// or Syncthing. The note watcher is rebuilt whenever the scratchpad
+    /// moves, since it is bound to one directory for its lifetime.
+    private var configWatcher: DirectoryWatcher?
+    private var noteWatcher: DirectoryWatcher?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenuBuilder.make(target: self)
@@ -36,6 +42,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onRevealNote: { [weak self] in self?.revealNoteInFinder() }
         )
+
+        configWatcher = DirectoryWatcher(directoryURL: ConfigStore.directory) { [weak self] in
+            self?.reloadConfig()
+        }
+        startNoteWatcher()
+        let failures = [configWatcher, noteWatcher].compactMap { $0?.failureDescription }
+        if !failures.isEmpty {
+            settings.reportWatcherFailure(failures.joined(separator: " "))
+        }
 
         // Initial registration uses the chord from wisp.jsonc (or the
         // default when the file doesn't name one). If
@@ -166,6 +181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 folder, currentText: model.text,
                 currentFolder: settings.config.scratchpadFolder)
             settings.setScratchpadPath(result.folderPath)
+            startNoteWatcher()
             if result.loadedExisting {
                 model.adoptLoadedText(result.newText)
             } else {
@@ -196,6 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             try StorageLocation.resetToDefault(currentText: model.text)
             settings.setScratchpadPath("")
+            startNoteWatcher()
             model.adoptLoadedText(model.text)
         } catch {
             let alert = NSAlert(error: error)
@@ -225,13 +242,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// selection.
     @objc func refresh(_ sender: Any?) {
         panelController?.openIfNeeded()
-        settings.reload()
-        model.adoptSettings()
+        reloadConfig()
         model.reloadFromDiskIfChanged()
+    }
+
+    /// Re-reads wisp.jsonc and applies whatever changed in it. Shared by
+    /// ⌘R and the config watcher, so a hand-edit and a menu Refresh land in
+    /// exactly the same place.
+    ///
+    /// Does nothing when the file's contents haven't actually changed —
+    /// Wisp writes this file itself on every theme flip, text-size change,
+    /// and panel hide, and each of those comes back as a watcher event.
+    private func reloadConfig() {
+        let previous = settings.config
+        settings.reload()
+        guard settings.config != previous else { return }
+
+        model.adoptSettings()
         // A reloaded `position` decides whether the panel can be dragged.
         // Only the movability, not the placement: re-placing would jerk
         // the panel out from under someone mid-sentence.
         panelController?.applyPositionMode()
+
+        // The note itself moved, so the watcher is pointed at the wrong
+        // directory and the mtime baseline describes the wrong file.
+        if settings.config.scratchpadPath != previous.scratchpadPath {
+            startNoteWatcher()
+            model.adoptScratchpadAtCurrentPath()
+        }
+    }
+
+    /// (Re)starts the watcher on the folder holding scratchpad.md. The
+    /// folder, not the file: every writer here replaces it by rename, and
+    /// a watch on the old inode would see nothing.
+    private func startNoteWatcher() {
+        noteWatcher = DirectoryWatcher(directoryURL: settings.config.scratchpadFolder) {
+            [weak self] in
+            self?.model.reloadFromDiskIfChanged()
+        }
     }
 
     private func revealNoteInFinder() {
