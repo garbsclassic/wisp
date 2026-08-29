@@ -14,13 +14,24 @@ let outputURL = scriptDir.deletingLastPathComponent().appendingPathComponent("Re
 
 // "Veil" (direction 9a from the icon canvas): the aperture — four concentric
 // bands around a white core — sitting low on the tile with a vapor trail
-// rising off it. Geometry is authored on the canvas's 50-unit grid, which
-// fills 81% of the tile; the vapor is rendered on its own layer and blurred
-// as one body (the bands stay crisp).
+// rising off it. Geometry is authored on the canvas's 50-unit grid; the vapor
+// is rendered on its own layer and blurred there (the bands stay crisp).
 
 let grid: CGFloat = 50
-let artworkFraction: CGFloat = 0.8125  // 52pt of artwork in a 64pt tile
-let vaporBlurSigma: CGFloat = 2.4      // feGaussianBlur stdDeviation, grid units
+// The canvas prototype drew the artwork at 81% of the tile; filling more of
+// it reads better in the Dock. 0.95 is the ceiling — the fringe band sits 2
+// grid units off the bottom, so anything more crowds the squircle's curve.
+let artworkFraction: CGFloat = 0.95
+// The trail departs from the canvas's stacked ellipses, which float clear of
+// the aperture and read as an arrowhead. It is one tapered plume instead,
+// rising out of the fringe band and narrowing to a point, its alpha ramped by
+// a clipped gradient. Blur is still what makes it vapor, just gentler — the
+// gradient now carries the falloff the ellipse stack used it for.
+let vaporBlurSigma: CGFloat = 2.0     // grid units
+let vaporBaseRadius: CGFloat = 12.5   // the fringe band, so the plume starts buried
+let vaporShoulder: CGFloat = 48       // degrees off vertical
+let vaporTipY: CGFloat = 1.5
+let vaporWaist: CGFloat = 0.14        // how far in the sides pinch below the tip
 
 func rgba(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> CGColor {
     CGColor(red: r / 255, green: g / 255, blue: b / 255, alpha: a)
@@ -85,39 +96,58 @@ func makeContext(pixelSize: Int) -> CGContext? {
     )
 }
 
-/// The vapor trail, drawn on a transparent layer of its own so the whole
-/// group can be blurred together — that shared blur is what fuses the five
-/// ellipses into one body instead of a stack of rings.
+/// The vapor trail, drawn on a transparent layer of its own so it can be
+/// blurred without touching the aperture bands it rises from.
 func makeVaporLayer(pixelSize: Int) -> CGImage? {
     guard let context = makeContext(pixelSize: pixelSize) else { return nil }
     let canvas = Canvas(context: context, pixelSize: CGFloat(pixelSize))
-    let vapor: (CGFloat) -> CGColor = { rgba(127, 227, 242, $0) }
 
-    canvas.ellipse(cx: 25,   cy: 18.6, rx: 11.2, ry: 6.4, fill: vapor(0.34))
-    canvas.ellipse(cx: 24.8, cy: 13.4, rx: 8,    ry: 5.2, fill: vapor(0.28))
-    canvas.ellipse(cx: 25.4, cy: 8.8,  rx: 5.4,  ry: 4.2, fill: vapor(0.21))
-    canvas.ellipse(cx: 25,   cy: 4.8,  rx: 3.4,  ry: 3.2, fill: vapor(0.15))
-    canvas.ellipse(cx: 25.2, cy: 1.8,  rx: 2,    ry: 2,   fill: vapor(0.09))
+    // The plume's base is an arc of the fringe band itself, so the trail and
+    // the aperture are one continuous body rather than two stacked shapes.
+    let center = canvas.point(25, 33)
+    let base = canvas.length(vaporBaseRadius)
+    let tip = canvas.point(25, vaporTipY)
+    let shoulder = vaporShoulder * .pi / 180
+    let flank = CGPoint(x: center.x + base * sin(shoulder), y: center.y + base * cos(shoulder))
+    let rise = tip.y - flank.y
+    let waist = center.x + (flank.x - center.x) * vaporWaist
 
-    // Faint directional core: M25 18 C22.6 14.4, 26.6 12, 25 8.6
-    let path = CGMutablePath()
-    path.move(to: canvas.point(25, 18))
-    path.addCurve(
-        to: canvas.point(25, 8.6),
-        control1: canvas.point(22.6, 14.4), control2: canvas.point(26.6, 12)
+    let plume = CGMutablePath()
+    plume.addArc(
+        center: center, radius: base,
+        startAngle: .pi / 2 + shoulder, endAngle: .pi / 2 - shoulder, clockwise: true
     )
-    context.addPath(path)
-    context.setStrokeColor(rgba(0xDD, 0xF7, 0xFC, 0.5))
-    context.setLineWidth(canvas.length(2.6))
-    context.setLineCap(.round)
-    context.strokePath()
+    plume.addCurve(
+        to: tip,
+        control1: CGPoint(x: flank.x, y: flank.y + rise * 0.45),
+        control2: CGPoint(x: waist, y: tip.y - rise * 0.22)
+    )
+    plume.addCurve(
+        to: CGPoint(x: 2 * center.x - flank.x, y: flank.y),
+        control1: CGPoint(x: 2 * center.x - waist, y: tip.y - rise * 0.22),
+        control2: CGPoint(x: 2 * center.x - flank.x, y: flank.y + rise * 0.45)
+    )
+    plume.closeSubpath()
 
-    guard let layer = context.makeImage() else { return nil }
+    context.addPath(plume)
+    context.clip()
+    let vapor: (CGFloat) -> CGColor = { rgba(127, 227, 242, $0) }
+    let ramp = CGGradient(
+        colorsSpace: CGColorSpaceCreateDeviceRGB(),
+        colors: [vapor(1), vapor(0.70), vapor(0.35), vapor(0)] as CFArray,
+        locations: [0, 0.35, 0.7, 1]
+    )!
+    context.drawLinearGradient(
+        ramp,
+        start: CGPoint(x: center.x, y: flank.y), end: CGPoint(x: center.x, y: tip.y),
+        options: []
+    )
 
-    let sigma = canvas.length(vaporBlurSigma)
-    guard let blur = CIFilter(name: "CIGaussianBlur") else { return layer }
+    guard let layer = context.makeImage(), let blur = CIFilter(name: "CIGaussianBlur") else {
+        return context.makeImage()
+    }
     blur.setValue(CIImage(cgImage: layer), forKey: kCIInputImageKey)
-    blur.setValue(sigma, forKey: kCIInputRadiusKey)
+    blur.setValue(canvas.length(vaporBlurSigma), forKey: kCIInputRadiusKey)
     guard let blurred = blur.outputImage else { return layer }
 
     // CIGaussianBlur grows the extent; crop back to the tile before compositing.

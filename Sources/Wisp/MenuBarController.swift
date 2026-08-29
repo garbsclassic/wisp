@@ -123,56 +123,90 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
     }
 
-    // "Veil": the aperture reduced to a ring and a core, with the vapor
-    // trail above it — direction 9a from the icon canvas, matched to the app
-    // tile. At 18px the bands can't survive, so only the outer ring and core
-    // remain, and the trail is alpha-ramped rather than blurred to keep the
-    // template image crisp. Drawn rather than bundled since the app ships no
-    // asset catalog; isTemplate lets AppKit tint it for the bar.
+    // "Veil": the aperture reduced to a ring and a core, with the vapor trail
+    // above it — direction 9a from the icon canvas, matched to the app tile.
+    // At 18px the bands can't survive, so only the outer ring and core remain.
+    //
+    // The trail departs from the canvas geometry, whose stacked ellipses read
+    // at this size as a widening pile with ears flaring past the ring. It is
+    // one tapered plume instead: its base *is* the ring's outer arc, so the
+    // two are continuous, and it narrows to a point. A clipped linear
+    // gradient carries the alpha ramp — no blur, so the template image stays
+    // crisp. Drawn rather than bundled since the app ships no asset catalog;
+    // isTemplate lets AppKit tint it for the bar.
     private static func makeStatusIcon() -> NSImage {
         let size = CGSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
 
-            // Authored on the canvas's 30-unit grid, y running downwards.
-            let k = rect.width / 30
+            // Authored on the canvas's 30-unit grid, y running downwards. The
+            // artwork only spans y 0.2...29.7 of that grid, so the span — not
+            // the grid — is what's fitted to the image, filling the full 18pt.
+            let artworkTop: CGFloat = 0.2
+            let k = rect.width / 29.5
             func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-                CGPoint(x: rect.minX + x * k, y: rect.maxY - y * k)
+                CGPoint(x: rect.midX + (x - 15) * k, y: rect.maxY - (y - artworkTop) * k)
             }
             func ink(_ alpha: CGFloat) -> CGColor {
                 NSColor.black.withAlphaComponent(alpha).cgColor
             }
 
-            // Vapor: a wide low-alpha skirt under a brighter body and a tip.
-            // The skirt is what makes it read as vapor and not a stack of dots.
-            let vapor: [(CGFloat, CGFloat, CGFloat, CGFloat, CGFloat)] = [
-                (15, 10.4, 9.8, 4.3, 0.30),
-                (15, 6.2, 6.2, 3.2, 0.20),
-                (15, 10, 6.6, 3.3, 0.80),
-                (14.7, 5.6, 4.1, 2.5, 0.50),
-                (15.4, 2, 2.3, 1.8, 0.26),
-            ]
-            for (cx, cy, rx, ry, alpha) in vapor {
-                let center = point(cx, cy)
-                context.setFillColor(ink(alpha))
-                context.fillEllipse(in: CGRect(
-                    x: center.x - rx * k, y: center.y - ry * k,
-                    width: rx * 2 * k, height: ry * 2 * k
-                ))
-            }
+            let center = point(15, 20.7)
+            let ringOuter = 9 * k
+            let tip = point(15, 0.6)
 
-            let aperture = point(15, 20.7)
+            // Shoulders 58° off vertical: wide enough to look like a plume,
+            // never wider than the ring it rises from.
+            let shoulder = 58 * CGFloat.pi / 180
+            let flank = CGPoint(
+                x: center.x + ringOuter * sin(shoulder), y: center.y + ringOuter * cos(shoulder)
+            )
+            let rise = tip.y - flank.y
+            let waist = center.x + (flank.x - center.x) * 0.14
+
+            let plume = CGMutablePath()
+            plume.addArc(
+                center: center, radius: ringOuter,
+                startAngle: .pi / 2 + shoulder, endAngle: .pi / 2 - shoulder, clockwise: true
+            )
+            plume.addCurve(
+                to: tip,
+                control1: CGPoint(x: flank.x, y: flank.y + rise * 0.45),
+                control2: CGPoint(x: waist, y: tip.y - rise * 0.22)
+            )
+            plume.addCurve(
+                to: CGPoint(x: 2 * center.x - flank.x, y: flank.y),
+                control1: CGPoint(x: 2 * center.x - waist, y: tip.y - rise * 0.22),
+                control2: CGPoint(x: 2 * center.x - flank.x, y: flank.y + rise * 0.45)
+            )
+            plume.closeSubpath()
+
+            context.saveGState()
+            context.addPath(plume)
+            context.clip()
+            let ramp = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [ink(0.95), ink(0.65), ink(0.35), ink(0)] as CFArray,
+                locations: [0, 0.35, 0.7, 1]
+            )!
+            context.drawLinearGradient(
+                ramp,
+                start: CGPoint(x: center.x, y: flank.y), end: CGPoint(x: center.x, y: tip.y),
+                options: []
+            )
+            context.restoreGState()
+
             context.setStrokeColor(ink(1))
             context.setLineWidth(3 * k)
             context.addArc(
-                center: aperture, radius: 7.5 * k,
+                center: center, radius: 7.5 * k,
                 startAngle: 0, endAngle: .pi * 2, clockwise: false
             )
             context.strokePath()
 
             context.setFillColor(ink(1))
             context.addArc(
-                center: aperture, radius: 3.2 * k,
+                center: center, radius: 3.2 * k,
                 startAngle: 0, endAngle: .pi * 2, clockwise: false
             )
             context.fillPath()
