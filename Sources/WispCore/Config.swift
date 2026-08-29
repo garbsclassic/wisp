@@ -131,7 +131,7 @@ public struct Keymap: Codable, Equatable, Sendable {
 
 /// Where the panel opens.
 public enum PanelPosition: String, Codable, CaseIterable, Sendable {
-    /// Centred horizontally, top edge a fifth of the way down the screen.
+    /// Centred horizontally, top edge a tenth of the way down the screen.
     /// `panel.x` / `panel.y` are neither read nor written, and the panel
     /// can't be dragged — there would be nowhere for the move to go.
     case auto

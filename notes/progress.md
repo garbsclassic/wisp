@@ -68,3 +68,6 @@
   reads as a click on another app — now guarded by the cursor being over the panel plus a
   just-moved window. `monitor: primary` also placed against `NSScreen.main`, which is the *focused*
   screen, not the menu-bar one; it uses `screens.first` now. 110 tests
+- 2026-08-29 — `position: auto` now puts the panel's top edge a tenth of the way down the screen
+  rather than a fifth, so it reads as an overlay near the top of the display instead of sitting at
+  eye level over whatever is behind it

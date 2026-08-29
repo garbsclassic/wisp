@@ -64,7 +64,7 @@ ignored.
 | `vibrancy`              | `true`                    | Blurs whatever is behind the panel                                                                                           |
 | `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on                                                                        |
 | `dismissOnOutsideClick` | `true`                    | Clicking another app closes the panel                                                                                        |
-| `position`              | `"auto"`                  | `auto` opens the panel centred, top edge a fifth down the screen, and pins it there; `manual` leaves it wherever you drag it |
+| `position`              | `"auto"`                  | `auto` opens the panel centred, top edge a tenth down the screen, and pins it there; `manual` leaves it wherever you drag it |
 | `scratchpadPath`        | `""`                      | Folder for `scratchpad.md`; empty means `~/Documents`                                                                        |
 | `keymap.summon`         | `"ctrl+opt+."`            | The global chord, e.g. `cmd+shift+space`                                                                                     |
 | `panel`                 | _(written on first hide)_ | Remembered `width` / `height`, plus `x` / `y` once the panel has been dragged under `manual`                                 |

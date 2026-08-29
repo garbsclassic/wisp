@@ -18,9 +18,10 @@ public enum PanelFrameStore {
     public static let minSize: CGFloat = 200
 
     /// How far down the screen the top edge of an auto-placed panel sits,
-    /// as a fraction of the screen's visible height. A fifth leaves the
-    /// panel high enough to read at a glance without crowding the menu bar.
-    public static let autoTopInset: CGFloat = 0.2
+    /// as a fraction of the screen's visible height. A tenth sits the
+    /// panel high on the screen, where a note you glance at belongs,
+    /// while still clearing the menu bar.
+    public static let autoTopInset: CGFloat = 0.1
 
     /// Pure: where an auto-placed panel of `size` goes on `screen` —
     /// centred horizontally, its top edge `autoTopInset` of the way down.

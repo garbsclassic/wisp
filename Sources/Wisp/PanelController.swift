@@ -325,7 +325,7 @@ final class PanelController {
     /// the user is allowed to move it from there.
     ///
     /// `position: auto` places it on every summon — centred, top edge a
-    /// fifth down — and ignores any remembered origin. `manual` restores
+    /// tenth down — and ignores any remembered origin. `manual` restores
     /// the remembered frame, falling back to the auto placement when there
     /// isn't a usable one: never dragged, or dragged onto a display that
     /// has since been unplugged.
