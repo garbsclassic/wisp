@@ -55,8 +55,48 @@ struct ConfigDecodingTests {
     @Test("A remembered frame decodes, and its absence is not an error")
     func panelFrame() throws {
         #expect(try decode("{}").panel == nil)
+        let config = try decode(
+            #"{ "panel": { "x": 10, "y": 20, "width": 800, "height": 640 } }"#)
+        #expect(config.panel == PanelFrame(width: 800, height: 640, x: 10, y: 20))
+    }
+
+    /// A size-only frame is what `position: auto` and a never-dragged
+    /// `manual` panel both write, so it has to be a first-class shape and
+    /// not a malformed one.
+    @Test("A frame with no origin decodes as one")
+    func panelFrameWithoutOrigin() throws {
+        let config = try decode(#"{ "panel": { "width": 800, "height": 640 } }"#)
+        #expect(config.panel?.origin == nil)
+        #expect(config.panel?.width == 800)
+    }
+
+    /// A lone coordinate describes no placement, so it reads as none.
+    @Test("Half an origin is no origin")
+    func panelFrameHalfOrigin() throws {
+        let config = try decode(#"{ "panel": { "width": 800, "height": 640, "x": 10 } }"#)
+        #expect(config.panel?.origin == nil)
+    }
+
+    @Test("The pre-rename w / h keys still carry a remembered size")
+    func panelFrameLegacyKeys() throws {
         let config = try decode(#"{ "panel": { "x": 10, "y": 20, "w": 800, "h": 640 } }"#)
-        #expect(config.panel == PanelFrame(x: 10, y: 20, w: 800, h: 640))
+        #expect(config.panel == PanelFrame(width: 800, height: 640, x: 10, y: 20))
+    }
+
+    /// A panel object with no size at all can't be honoured, and a key
+    /// that's present but unusable is named rather than silently dropped.
+    @Test("A sizeless panel object is reported, not silently defaulted")
+    func panelFrameWithoutSize() throws {
+        let diagnostics = ConfigDiagnostics()
+        let config = try decode(#"{ "panel": { "x": 10, "y": 20 } }"#, diagnostics: diagnostics)
+        #expect(config.panel == nil)
+        #expect(diagnostics.malformedKeys == ["panel"])
+    }
+
+    @Test("Position defaults to auto and reads both modes")
+    func position() throws {
+        #expect(try decode("{}").position == .auto)
+        #expect(try decode(#"{ "position": "manual" }"#).position == .manual)
     }
 }
 

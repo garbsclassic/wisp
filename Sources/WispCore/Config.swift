@@ -129,21 +129,67 @@ public struct Keymap: Codable, Equatable, Sendable {
     }
 }
 
+/// Where the panel opens.
+public enum PanelPosition: String, Codable, CaseIterable, Sendable {
+    /// Centred horizontally, top edge a fifth of the way down the screen.
+    /// `panel.x` / `panel.y` are neither read nor written, and the panel
+    /// can't be dragged — there would be nowhere for the move to go.
+    case auto
+    /// The panel stays where it was last dragged. Until it has been
+    /// dragged once it opens where `auto` would have put it.
+    case manual
+}
+
 /// The remembered panel frame, in screen points.
 ///
-/// Absent until the panel has been shown once. Written when the panel hides,
-/// never while it moves — see `PanelController`.
+/// The size is remembered from the first hide onwards; the origin only
+/// once the panel has actually been moved, so `position: manual` can tell
+/// "never dragged" (fall back to the auto placement) from "dragged to
+/// exactly here". Written when the panel hides, never while it moves —
+/// see `PanelController`.
 public struct PanelFrame: Codable, Equatable, Sendable {
-    public var x: Double
-    public var y: Double
-    public var w: Double
-    public var h: Double
+    public var width: Double
+    public var height: Double
+    public var x: Double?
+    public var y: Double?
 
-    public init(x: Double, y: Double, w: Double, h: Double) {
+    public init(width: Double, height: Double, x: Double? = nil, y: Double? = nil) {
+        self.width = width
+        self.height = height
         self.x = x
         self.y = y
-        self.w = w
-        self.h = h
+    }
+
+    /// `w` / `h` were the names before the keys were spelled out. Still
+    /// read, never written, so a config from an earlier version keeps its
+    /// remembered size instead of silently reverting to the default.
+    private enum LegacySizeKeys: String, CodingKey {
+        case w, h
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let legacy = try decoder.container(keyedBy: LegacySizeKeys.self)
+        guard
+            let width = try container.decodeIfPresent(Double.self, forKey: .width)
+                ?? legacy.decodeIfPresent(Double.self, forKey: .w),
+            let height = try container.decodeIfPresent(Double.self, forKey: .height)
+                ?? legacy.decodeIfPresent(Double.self, forKey: .h)
+        else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.width,
+                .init(codingPath: decoder.codingPath, debugDescription: "panel has no size"))
+        }
+        self.width = width
+        self.height = height
+        x = try container.decodeIfPresent(Double.self, forKey: .x)
+        y = try container.decodeIfPresent(Double.self, forKey: .y)
+    }
+
+    /// Both or neither: a lone coordinate has no placement to describe.
+    public var origin: (x: Double, y: Double)? {
+        guard let x, let y else { return nil }
+        return (x, y)
     }
 }
 
@@ -167,6 +213,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// the tints are translucent so the blur is the panel's whole substance.
     public var vibrancy: Bool
     public var monitor: MonitorTarget
+    /// Auto-placed on every summon, or left wherever it was last dragged.
+    public var position: PanelPosition
     /// Clicking another app dismisses the panel outright. Switchable here so
     /// turning it off doesn't need a rebuild.
     public var dismissOnOutsideClick: Bool
@@ -183,6 +231,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         fontScale: Double = 1.0,
         vibrancy: Bool = true,
         monitor: MonitorTarget = .primary,
+        position: PanelPosition = .auto,
         dismissOnOutsideClick: Bool = true,
         scratchpadPath: String = "",
         keymap: Keymap = Keymap(),
@@ -194,6 +243,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.fontScale = fontScale
         self.vibrancy = vibrancy
         self.monitor = monitor
+        self.position = position
         self.dismissOnOutsideClick = dismissOnOutsideClick
         self.scratchpadPath = scratchpadPath
         self.keymap = keymap
@@ -219,6 +269,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .vibrancy, default: defaults.vibrancy, diagnostics: diagnostics)
         monitor = container.lenientValue(
             forKey: .monitor, default: defaults.monitor, diagnostics: diagnostics)
+        position = container.lenientValue(
+            forKey: .position, default: defaults.position, diagnostics: diagnostics)
         dismissOnOutsideClick = container.lenientValue(
             forKey: .dismissOnOutsideClick, default: defaults.dismissOnOutsideClick,
             diagnostics: diagnostics)

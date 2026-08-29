@@ -56,3 +56,15 @@
   `.icns` built at build time, renamed `build-app.sh`/`build/` to `build.sh`/`dist/`, added
   `install.sh`/`uninstall.sh` ported from Clef's (the former now restarts the app after a reinstall
   only if it was running before), and renamed the bundle identifier to `dev.garbs.wisp` (c4aeecf)
+- 2026-08-29 — panel placement: new `position` setting (`auto` / `manual`, default `auto`). `auto`
+  places the panel on every summon — centred, top edge a fifth down the screen's visible frame, via
+  a pure `PanelFrameStore.autoFrame` — and neither reads nor writes `panel.x` / `panel.y`; the panel
+  is not movable in that mode. `manual` is the old remember-where-you-left-it behavior, except an
+  untouched panel now falls back to the auto placement and only writes an origin once it has
+  actually been dragged, so a never-dragged panel isn't frozen to one display. `panel`'s `w` / `h`
+  are spelled `width` / `height` (the old keys are still read), and `x` / `y` are optional. Fixed a
+  drag that closed the panel on mouse-up under `dismissOnOutsideClick`: AppKit runs a
+  window drag in its own tracking loop, so the mouse-up ending it reaches the *global* monitor and
+  reads as a click on another app — now guarded by the cursor being over the panel plus a
+  just-moved window. `monitor: primary` also placed against `NSScreen.main`, which is the *focused*
+  screen, not the menu-bar one; it uses `screens.first` now. 110 tests

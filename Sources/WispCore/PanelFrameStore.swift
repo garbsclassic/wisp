@@ -17,6 +17,33 @@ public enum PanelFrameStore {
     /// Reject degenerate / absurd sizes from a corrupted default.
     public static let minSize: CGFloat = 200
 
+    /// How far down the screen the top edge of an auto-placed panel sits,
+    /// as a fraction of the screen's visible height. A fifth leaves the
+    /// panel high enough to read at a glance without crowding the menu bar.
+    public static let autoTopInset: CGFloat = 0.2
+
+    /// Pure: where an auto-placed panel of `size` goes on `screen` —
+    /// centred horizontally, its top edge `autoTopInset` of the way down.
+    ///
+    /// The size is clamped to the screen and the origin to its bounds, so
+    /// a panel larger than the display it opens on is still whole and
+    /// still grabbable rather than hanging off the bottom.
+    ///
+    /// The origin is rounded to whole points because AppKit pixel-aligns a
+    /// window's frame anyway: hand it a fractional origin and the frame it
+    /// reports back differs from the one it was given, which reads
+    /// downstream as the user having moved the panel.
+    public static func autoFrame(size: NSSize, on screen: NSRect) -> NSRect {
+        let width = min(size.width, screen.width)
+        let height = min(size.height, screen.height)
+        let top = screen.maxY - screen.height * autoTopInset
+        return NSRect(
+            x: (screen.minX + (screen.width - width) / 2).rounded(),
+            y: min(max(top - height, screen.minY), screen.maxY - height).rounded(),
+            width: width,
+            height: height)
+    }
+
     /// Pure: is `frame` reachable given the current screens' visible
     /// frames? True when it's a sane size and overlaps some screen by
     /// at least `minVisible` in both dimensions.

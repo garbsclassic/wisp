@@ -54,19 +54,20 @@ are fine — it is read as JSON5. A key that's missing takes its default; a key
 that's present but the wrong shape is named in the footer rather than silently
 ignored.
 
-| Key                     | Default                                   | What it does                                                        |
-| ----------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
-| `theme`                 | `"system"`                                | `light`, `dark`, or follow macOS                                    |
-| `fonts.notes`           | `"Inter Nerd Font"`                       | The notes body face                                                 |
-| `fonts.ui`              | `"Inter Nerd Font Propo"`                 | Header, footer, and overlays                                        |
-| `fontSize`              | `"medium"`                                | `small` / `medium` / `large` — the ⌘1 / ⌘2 / ⌘3 cycle               |
-| `fontScale`             | `1.0`                                     | Multiplies every type size. Clamped to 0.6–2.5                      |
-| `vibrancy`              | `true`                                    | Blurs whatever is behind the panel                                  |
-| `monitor`               | `"primary"`                               | `pointer` opens on whichever display the cursor is on               |
-| `dismissOnOutsideClick` | `true`                                    | Clicking another app closes the panel                               |
-| `scratchpadPath`        | `""`                                      | Folder for `scratchpad.md`; empty means `~/Documents`                |
-| `keymap.summon`         | `"ctrl+opt+."`                            | The global chord, e.g. `cmd+shift+space`                            |
-| `panel`                 | _(written on first hide)_                 | Remembered `x` / `y` / `w` / `h`, in screen points                  |
+| Key                     | Default                   | What it does                                                                                                                 |
+| ----------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `theme`                 | `"system"`                | `light`, `dark`, or follow macOS                                                                                             |
+| `fonts.notes`           | `"Inter Nerd Font"`       | The notes body face                                                                                                          |
+| `fonts.ui`              | `"Inter Nerd Font Propo"` | Header, footer, and overlays                                                                                                 |
+| `fontSize`              | `"medium"`                | `small` / `medium` / `large` — the ⌘1 / ⌘2 / ⌘3 cycle                                                                        |
+| `fontScale`             | `1.0`                     | Multiplies every type size. Clamped to 0.6–2.5                                                                               |
+| `vibrancy`              | `true`                    | Blurs whatever is behind the panel                                                                                           |
+| `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on                                                                        |
+| `dismissOnOutsideClick` | `true`                    | Clicking another app closes the panel                                                                                        |
+| `position`              | `"auto"`                  | `auto` opens the panel centred, top edge a fifth down the screen, and pins it there; `manual` leaves it wherever you drag it |
+| `scratchpadPath`        | `""`                      | Folder for `scratchpad.md`; empty means `~/Documents`                                                                        |
+| `keymap.summon`         | `"ctrl+opt+."`            | The global chord, e.g. `cmd+shift+space`                                                                                     |
+| `panel`                 | _(written on first hide)_ | Remembered `width` / `height`, plus `x` / `y` once the panel has been dragged under `manual`                                 |
 
 Neither font is bundled — both are referenced by name, and Wisp falls back to
 the system face (and says so in the footer) when one isn't installed.

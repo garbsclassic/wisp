@@ -239,7 +239,7 @@ final class ConfigStoreTests {
     func panelFrameRoundTrip() throws {
         _ = ConfigStore.loadOrSeed()
         var config = WispConfig()
-        config.panel = PanelFrame(x: 12, y: 34, w: 800, h: 640)
+        config.panel = PanelFrame(width: 800, height: 640, x: 12, y: 34)
         try ConfigStore.update(["panel"], to: config.panel, in: config)
         #expect(ConfigStore.loadOrSeed().config.panel == config.panel)
     }

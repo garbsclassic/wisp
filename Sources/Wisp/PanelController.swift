@@ -20,6 +20,13 @@ final class PanelController {
     /// Global mouse-up monitor backing click-outside-to-dismiss. Non-nil
     /// only while the panel is visible.
     private var outsideClickMonitor: Any?
+    /// The frame `placePanel` last put the panel at. `position: manual`
+    /// compares against it on hide to tell a drag from an untouched
+    /// panel that simply opened where it was told to.
+    private var placedFrame: NSRect?
+    /// When the panel last moved or resized, used to spot the mouse-up
+    /// that *ended* a drag — see `startOutsideClickMonitor`.
+    private var frameChangedAt: Date?
 
     init(model: EditorModel, settings: Settings) {
         self.model = model
@@ -42,6 +49,8 @@ final class PanelController {
         // through v0.1.23. Removing it entirely and using the system
         // shadow gave us back a clean rounded shadow with no corner leak.
         panel.hasShadow = true
+        // Actual value comes from `applyPosition()`, below — `auto`
+        // places the panel itself, so there is nowhere for a drag to go.
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
@@ -137,6 +146,18 @@ final class PanelController {
             self?.handleHide()
         }
 
+        // A drag or a live resize is the one thing that can put a mouse-up
+        // over the panel in front of the *global* monitor, so note when one
+        // happened — `startOutsideClickMonitor` uses it.
+        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+            let token = NotificationCenter.default.addObserver(
+                forName: name, object: panel, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.frameChangedAt = Date() }
+            }
+            observers.append(token)
+        }
+
         // NSApp.hide (⌥⌘H from another app, Dock → Hide) takes the panel
         // off screen without routing through orderOut, so the monitor has
         // to be stopped and restarted around it explicitly.
@@ -194,10 +215,11 @@ final class PanelController {
         if panel.isVisible {
             dismiss()
         } else {
-            // With `monitor: pointer` the panel follows the cursor's
-            // screen on every summon; on `primary` this is a no-op once a
-            // usable frame has been restored.
-            if settings.config.monitor == .pointer { placePanel() }
+            // Every summon, not just the first: `position: auto` and
+            // `monitor: pointer` both place against the screen the user is
+            // looking at *now*. For a settled `manual` panel it re-applies
+            // the frame it already has, which is a no-op.
+            placePanel()
             panel.makeKeyAndOrderFront(nil)
             if settings.config.dismissOnOutsideClick { startOutsideClickMonitor() }
             applyTheme(model.theme)
@@ -238,11 +260,18 @@ final class PanelController {
     /// Any click outside the panel dismisses it outright — "go away",
     /// not "back out one level" (Esc keeps the layered-cancel chain).
     /// A global monitor only sees *other* apps' events, so clicks inside
-    /// the panel and on Wisp's own status item can't false-trigger, and
-    /// panel drags (local events) are unaffected. Teardown hangs off
-    /// FloatingPanel.onHide, so it can't be skipped by a hide added
-    /// later; one left running while hidden would fire on every click
-    /// the user makes anywhere.
+    /// the panel and on Wisp's own status item can't false-trigger.
+    /// Teardown hangs off FloatingPanel.onHide, so it can't be skipped by
+    /// a hide added later; one left running while hidden would fire on
+    /// every click the user makes anywhere.
+    ///
+    /// Dragging the panel is the exception the two guards below exist for.
+    /// AppKit runs the drag inside its own tracking loop, so the mouse-up
+    /// that ends it never arrives as a local event and this monitor sees
+    /// it — closing the panel the user was only repositioning. The cursor
+    /// is over the panel for the whole drag, which covers it; except when
+    /// the window clamps against a screen edge and the cursor keeps going,
+    /// which the just-moved window is what covers.
     private func startOutsideClickMonitor() {
         stopOutsideClickMonitor()
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
@@ -250,10 +279,23 @@ final class PanelController {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, !self.isPresentingModal else { return }
+                if self.panel.frame.contains(NSEvent.mouseLocation) { return }
+                if let changed = self.frameChangedAt,
+                    Date().timeIntervalSince(changed) < Self.dragSettleWindow
+                {
+                    self.frameChangedAt = nil
+                    return
+                }
                 self.dismiss()
             }
         }
     }
+
+    /// How recently the panel has to have moved for a mouse-up to read as
+    /// the end of that drag. Long enough to cover the gap between the last
+    /// `didMove` and the mouse-up, short enough that a deliberate click
+    /// away right after a drag still dismisses.
+    private static let dragSettleWindow: TimeInterval = 0.3
 
     private func stopOutsideClickMonitor() {
         if let monitor = outsideClickMonitor {
@@ -279,36 +321,74 @@ final class PanelController {
 
     // MARK: Placement
 
-    /// Restores the remembered frame, or centres when there isn't a usable
-    /// one — a frame saved on a display that has since been unplugged, say.
+    /// Puts the panel where the config says it goes, and decides whether
+    /// the user is allowed to move it from there.
     ///
-    /// `monitor: pointer` always places on the pointer's screen, carrying
-    /// the remembered frame's size and its position *relative to* its old
-    /// screen, so the panel lands in the same spot on whichever display you
-    /// are looking at.
+    /// `position: auto` places it on every summon — centred, top edge a
+    /// fifth down — and ignores any remembered origin. `manual` restores
+    /// the remembered frame, falling back to the auto placement when there
+    /// isn't a usable one: never dragged, or dragged onto a display that
+    /// has since been unplugged.
+    ///
+    /// `monitor: pointer` chooses the screen for both modes, and in
+    /// `manual` carries the remembered frame's position *relative to* its
+    /// old screen, so the panel lands in the same spot on whichever display
+    /// you are looking at.
     private func placePanel() {
-        let screens = NSScreen.screens.map { $0.visibleFrame }
-        let saved = settings.config.panel.map {
-            NSRect(x: $0.x, y: $0.y, width: $0.w, height: $0.h)
-        }
+        let manual = settings.config.position == .manual
+        panel.isMovable = manual
+        panel.isMovableByWindowBackground = manual
 
-        if settings.config.monitor == .pointer,
-            let target = NSScreen.screens.first(where: {
-                $0.frame.contains(NSEvent.mouseLocation)
-            })?.visibleFrame
-        {
-            let frame = saved ?? NSRect(origin: .zero, size: panelSize)
-            let anchor = screens.first { $0.intersects(frame) } ?? screens.first ?? target
-            panel.setFrame(
-                PanelFrameStore.moved(frame, from: anchor, to: target), display: false)
+        let screens = NSScreen.screens.map { $0.visibleFrame }
+        let saved = settings.config.panel
+        let size = saved.map { NSSize(width: $0.width, height: $0.height) } ?? panelSize
+        let target = targetScreen()
+        let auto = PanelFrameStore.autoFrame(size: size, on: target)
+
+        guard manual, let saved, let origin = saved.origin else {
+            setPlacedFrame(auto)
             return
         }
 
-        if let saved, PanelFrameStore.isUsable(saved, onScreens: screens) {
-            panel.setFrame(saved, display: false)
-        } else {
-            panel.center()
+        let remembered = NSRect(
+            x: origin.x, y: origin.y, width: saved.width, height: saved.height)
+        guard PanelFrameStore.isUsable(remembered, onScreens: screens) else {
+            setPlacedFrame(auto)
+            return
         }
+
+        if settings.config.monitor == .pointer {
+            let anchor = screens.first { $0.intersects(remembered) } ?? target
+            setPlacedFrame(PanelFrameStore.moved(remembered, from: anchor, to: target))
+        } else {
+            setPlacedFrame(remembered)
+        }
+    }
+
+    /// The screen to place against: the pointer's under `monitor: pointer`,
+    /// otherwise the one holding the menu bar — which is `screens.first`,
+    /// not `NSScreen.main`. `main` is the screen holding the *focused*
+    /// window, so on a two-display desk it follows whatever app the user
+    /// was in when they summoned Wisp.
+    private func targetScreen() -> NSRect {
+        if settings.config.monitor == .pointer,
+            let pointer = NSScreen.screens.first(where: {
+                $0.frame.contains(NSEvent.mouseLocation)
+            })
+        {
+            return pointer.visibleFrame
+        }
+        return NSScreen.screens.first?.visibleFrame ?? NSRect(origin: .zero, size: panelSize)
+    }
+
+    /// Moving the panel ourselves fires `didMove`, which would otherwise
+    /// leave `frameChangedAt` set and swallow the user's next outside
+    /// click. Recording where we put it is what lets `saveFrame` tell a
+    /// drag from a panel that just opened where it was told to.
+    private func setPlacedFrame(_ frame: NSRect) {
+        panel.setFrame(frame, display: false)
+        placedFrame = frame
+        frameChangedAt = nil
     }
 
     /// Called from `applicationWillTerminate` — see `saveFrame`.
@@ -321,8 +401,30 @@ final class PanelController {
     /// only reader is the next summon, so one write per panel session is
     /// exactly sufficient — and a slow drag can't emit a burst of rewrites
     /// over someone's hand edits.
+    ///
+    /// The size is always remembered. The origin is only written once the
+    /// panel has actually been moved off where it was placed, so under
+    /// `auto` — which never moves it — the config's `x` / `y` are left
+    /// exactly as the user wrote them, and under `manual` an untouched
+    /// panel keeps falling back to the auto placement rather than freezing
+    /// itself at one absolute point on one display.
     private func saveFrame() {
-        guard panel.frame.width >= PanelFrameStore.minSize else { return }
-        settings.setPanelFrame(panel.frame)
+        let frame = panel.frame
+        guard frame.width >= PanelFrameStore.minSize else { return }
+
+        // A point of slack: AppKit pixel-aligns the frame it was handed,
+        // and no one drags a window one point on purpose.
+        let moved =
+            settings.config.position == .manual
+            && (placedFrame.map {
+                abs($0.origin.x - frame.origin.x) > 1 || abs($0.origin.y - frame.origin.y) > 1
+            } ?? true)
+        let origin = moved ? frame.origin : nil
+
+        settings.setPanel(
+            PanelFrame(
+                width: Double(frame.width), height: Double(frame.height),
+                x: origin.map { Double($0.x) } ?? settings.config.panel?.x,
+                y: origin.map { Double($0.y) } ?? settings.config.panel?.y))
     }
 }

@@ -96,6 +96,65 @@ struct PanelFrameStoreTests {
     }
 }
 
+/// `position: auto` places the panel itself: centred across the screen,
+/// top edge a fifth of the way down.
+@Suite("PanelFrameStore.autoFrame")
+struct PanelFrameAutoTests {
+    let screen = NSRect(x: 0, y: 0, width: 1440, height: 900)
+    let size = NSSize(width: 800, height: 640)
+
+    @Test("The panel is centred horizontally")
+    func centredHorizontally() {
+        #expect(PanelFrameStore.autoFrame(size: size, on: screen).midX == screen.midX)
+    }
+
+    @Test("The top edge sits a fifth of the way down")
+    func topInset() {
+        let frame = PanelFrameStore.autoFrame(size: size, on: screen)
+        #expect(frame.maxY == screen.maxY - screen.height * PanelFrameStore.autoTopInset)
+    }
+
+    /// AppKit pixel-aligns whatever frame it is handed, so a fractional
+    /// origin would come back changed and read as a drag.
+    @Test("The origin lands on whole points")
+    func integralOrigin() {
+        let odd = NSRect(x: 0, y: 0, width: 1443, height: 907)
+        let frame = PanelFrameStore.autoFrame(size: size, on: odd)
+        #expect(frame.origin.x == frame.origin.x.rounded())
+        #expect(frame.origin.y == frame.origin.y.rounded())
+    }
+
+    /// The origin is relative to the screen, not the global coordinate
+    /// space — a second display to the right isn't a 1440-point offset.
+    @Test("A screen with a non-zero origin is placed against its own bounds")
+    func offsetScreen() {
+        let second = NSRect(x: 1440, y: 300, width: 1920, height: 1080)
+        let frame = PanelFrameStore.autoFrame(size: size, on: second)
+        #expect(frame.midX == second.midX)
+        #expect(frame.maxY == second.maxY - second.height * PanelFrameStore.autoTopInset)
+        #expect(frame.minX > second.minX)
+    }
+
+    /// A panel remembered from a larger display still has to arrive whole
+    /// and grabbable on a smaller one.
+    @Test("A panel larger than the screen is clamped onto it")
+    func clamped() {
+        let small = NSRect(x: 0, y: 0, width: 600, height: 400)
+        let frame = PanelFrameStore.autoFrame(size: size, on: small)
+        #expect(frame.size == small.size)
+        #expect(PanelFrameStore.isUsable(frame, onScreens: [small]))
+    }
+
+    /// Tall enough that a fifth-down top edge would hang the bottom off
+    /// the screen; the placement gives up the inset before the panel.
+    @Test("A tall panel is pushed up rather than off the bottom")
+    func tallPanel() {
+        let frame = PanelFrameStore.autoFrame(
+            size: NSSize(width: 800, height: 880), on: screen)
+        #expect(frame.minY >= screen.minY)
+    }
+}
+
 /// `monitor: pointer` carries the remembered frame to whichever display the
 /// cursor is on. Absolute coordinates would put it off the edge of a smaller
 /// second screen, so the position is kept relative to the screen it left.

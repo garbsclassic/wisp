@@ -71,11 +71,10 @@ final class Settings: ObservableObject {
     }
 
     /// Written when the panel hides, never while it moves — see
-    /// `PanelController.handleHide`.
-    func setPanelFrame(_ frame: NSRect) {
-        let panel = PanelFrame(
-            x: Double(frame.origin.x), y: Double(frame.origin.y),
-            w: Double(frame.width), h: Double(frame.height))
+    /// `PanelController.handleHide`. The caller decides whether the origin
+    /// is part of it: `position: auto` never writes one, and `manual`
+    /// only once the panel has actually been dragged.
+    func setPanel(_ panel: PanelFrame) {
         guard panel != config.panel else { return }
         config.panel = panel
         write(["panel"], panel)
@@ -138,8 +137,8 @@ final class Settings: ObservableObject {
             let rect = NSRectFromString(saved)
             if !rect.isEmpty {
                 migrated.panel = PanelFrame(
-                    x: Double(rect.origin.x), y: Double(rect.origin.y),
-                    w: Double(rect.width), h: Double(rect.height))
+                    width: Double(rect.width), height: Double(rect.height),
+                    x: Double(rect.origin.x), y: Double(rect.origin.y))
             }
         }
 
