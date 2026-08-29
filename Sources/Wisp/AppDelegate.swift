@@ -19,8 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 panel?.openIfNeeded()
                 self?.model.showHotKeyCapture = true
             },
-            onOpenConfig: { [weak self] in self?.settings.openConfigFile() },
-            onRefresh: { [weak self] in self?.refresh() },
+            onOpenConfig: { [weak self] in self?.openSettings(nil) },
+            onRefresh: { [weak self] in self?.refresh(nil) },
             currentLaunchAtLogin: { LaunchAtLogin.isEnabled },
             onToggleLaunchAtLogin: {
                 LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
@@ -203,18 +203,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// ⌘, in the main menu — fires while the Wisp panel is focused, the
-    /// menu-bar menu's own ⌘, item covers focus there.
+    /// ⌘, from either menu — the main menu's item fires while the Wisp
+    /// panel is focused, the menu-bar menu's own while that is open.
+    ///
+    /// The panel goes away first: settings open in whatever app owns
+    /// .jsonc, and leaving Wisp floating over the editor you are about to
+    /// type in is the wrong half of the screen. Explicit rather than left
+    /// to `dismissOnOutsideClick`, which the user may have turned off.
     @objc func openSettings(_ sender: Any?) {
+        panelController?.dismiss()
         settings.openConfigFile()
     }
 
-    /// Refresh — re-reads wisp.jsonc and re-checks scratchpad.md's mtime,
-    /// for either changing on disk without Wisp's own writes (iCloud
-    /// Drive, Dropbox, or a chezmoi apply on another Mac).
-    private func refresh() {
+    /// ⌘R from either menu — re-reads wisp.jsonc and re-checks
+    /// scratchpad.md's mtime, for either changing on disk without Wisp's
+    /// own writes (iCloud Drive, Dropbox, or a chezmoi apply on another
+    /// Mac).
+    ///
+    /// Shows the panel, since a refresh you can't see the result of isn't
+    /// worth a keystroke; one already open stays open and keeps its
+    /// selection.
+    @objc func refresh(_ sender: Any?) {
+        panelController?.openIfNeeded()
         settings.reload()
+        model.adoptSettings()
         model.reloadFromDiskIfChanged()
+        // A reloaded `position` decides whether the panel can be dragged.
+        // Only the movability, not the placement: re-placing would jerk
+        // the panel out from under someone mid-sentence.
+        panelController?.applyPositionMode()
     }
 
     private func revealNoteInFinder() {

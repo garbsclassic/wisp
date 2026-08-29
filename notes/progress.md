@@ -71,3 +71,10 @@
 - 2026-08-29 — `position: auto` now puts the panel's top edge a tenth of the way down the screen
   rather than a fifth, so it reads as an overlay near the top of the display instead of sitting at
   eye level over whatever is behind it
+- 2026-08-29 — settings and refresh shortcuts: Settings… now dismisses the panel first, from both
+  the main menu's ⌘, and the menu-bar menu's item, so Wisp isn't left floating over the editor the
+  config just opened in. Refresh is bound to ⌘R in both menus and opens the panel if it is closed.
+  Refresh also re-applies what the model caches from the config — theme, text size, summon chord —
+  via a new `EditorModel.adoptSettings()`; before this it re-read the file but the window kept
+  rendering the values it read at launch. Verified end to end with synthetic events: ⌘R reloads a
+  theme and a note changed on disk with the panel open, ⌘, closes it

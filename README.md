@@ -39,6 +39,7 @@ first leaves a dangling login item.
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic** — ⌘B / ⌘I
 - **Launch at Login** — toggle in the menu bar menu
+- **Refresh** — ⌘R re-reads the config and the note from disk
 - **Plain markdown on disk** at `~/Documents/scratchpad.md`
 - **Sync across Macs** — point at any folder via the menu bar menu (iCloud Drive, Dropbox, Syncthing all work)
 - **Hand-editable config** at `~/.config/wisp/wisp.jsonc` — see below

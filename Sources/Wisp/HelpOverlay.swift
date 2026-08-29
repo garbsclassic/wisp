@@ -45,8 +45,8 @@ struct HelpOverlay: View {
                     (":bulb:   :warning:", "💡  ⚠️"),
                 ])
                 section("Settings — in the menu bar menu", items: [
-                    ("⌘,", "open Settings…"),
-                    ("Refresh", "re-read settings and the note from disk"),
+                    ("⌘,", "open Settings… (closes the panel)"),
+                    ("⌘R", "re-read settings and the note from disk"),
                     ("Set Shortcut…", "rebind the global hotkey"),
                     ("Launch at Login", "start automatically at login"),
                     ("Scratchpad Folder…", "any folder — iCloud Drive, Dropbox for sync"),

@@ -335,10 +335,9 @@ final class PanelController {
     /// old screen, so the panel lands in the same spot on whichever display
     /// you are looking at.
     private func placePanel() {
-        let manual = settings.config.position == .manual
-        panel.isMovable = manual
-        panel.isMovableByWindowBackground = manual
+        applyPositionMode()
 
+        let manual = settings.config.position == .manual
         let screens = NSScreen.screens.map { $0.visibleFrame }
         let saved = settings.config.panel
         let size = saved.map { NSSize(width: $0.width, height: $0.height) } ?? panelSize
@@ -363,6 +362,15 @@ final class PanelController {
         } else {
             setPlacedFrame(remembered)
         }
+    }
+
+    /// Whether the user can drag the panel. Split out of `placePanel` so
+    /// a config reload can pick up a changed `position` without also
+    /// moving the panel that is currently on screen.
+    func applyPositionMode() {
+        let manual = settings.config.position == .manual
+        panel.isMovable = manual
+        panel.isMovableByWindowBackground = manual
     }
 
     /// The screen to place against: the pointer's under `monitor: pointer`,

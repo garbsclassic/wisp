@@ -260,6 +260,34 @@ final class EditorModel: ObservableObject {
         showHelp = false
     }
 
+    /// Re-applies the settings this model caches from a config that has
+    /// just been re-read — theme, text size, and the summon chord. Without
+    /// it Refresh reloads the file but the window keeps rendering the
+    /// values it read at launch.
+    ///
+    /// Adoption, not a user change: `didLoad` is dropped for the duration
+    /// so the property setters don't write the file's own values back at
+    /// it, and the chord is re-registered only when it actually differs,
+    /// since that can fail and cost the user their binding.
+    func adoptSettings() {
+        let wasLoaded = didLoad
+        didLoad = false
+        defer { didLoad = wasLoaded }
+
+        themePreference = settings.config.theme
+        theme = themePreference.resolve()
+        fontSize = settings.config.fontSize
+
+        let chord = settings.config.summonChord
+        let reloaded = HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers)
+        if reloaded != hotKey { _ = tryUpdateHotKey(reloaded) }
+
+        // Fonts and fontScale live in Typography rather than in a
+        // published property, so nothing above forces the re-render that
+        // picks up a changed face.
+        objectWillChange.send()
+    }
+
     func refreshPlaceholder() {
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
     }

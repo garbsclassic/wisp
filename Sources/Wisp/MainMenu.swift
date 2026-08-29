@@ -14,6 +14,16 @@ enum MainMenuBuilder {
         )
         settingsItem.target = target
         appMenu.addItem(settingsItem)
+        // Re-reads wisp.jsonc and the note. Here as well as in the
+        // menu-bar menu so ⌘R works while the panel has focus, which is
+        // where the reloaded note actually shows up.
+        let refreshItem = NSMenuItem(
+            title: "Refresh",
+            action: #selector(AppDelegate.refresh(_:)),
+            keyEquivalent: "r"
+        )
+        refreshItem.target = target
+        appMenu.addItem(refreshItem)
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(
             withTitle: "Quit Wisp",

@@ -67,9 +67,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Re-reads wisp.jsonc and re-checks scratchpad.md's mtime — for
         // either changing underfoot via iCloud/Dropbox/chezmoi sync.
-        menu.addItem(makeItem(
+        // ⌘R matches the main menu's item and fires while this menu is
+        // open, the same arrangement Settings… above has with ⌘,.
+        let refresh = makeItem(
             "Refresh", symbol: "arrow.clockwise", action: #selector(handleRefresh)
-        ))
+        )
+        refresh.keyEquivalent = "r"
+        menu.addItem(refresh)
 
         menu.addItem(makeItem(
             "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
