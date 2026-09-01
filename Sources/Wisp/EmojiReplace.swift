@@ -47,9 +47,7 @@ enum EmojiReplace {
             }
 
             let replaceRange = NSRange(location: codeStart, length: codeLen)
-            guard textView.shouldChangeText(in: replaceRange, replacementString: entry.emoji) else { return }
-            textView.textStorage?.replaceCharacters(in: replaceRange, with: entry.emoji)
-            textView.didChangeText()
+            guard textView.replaceText(in: replaceRange, with: entry.emoji) else { return }
             let newCursor = codeStart + (entry.emoji as NSString).length
             textView.setSelectedRange(NSRange(location: newCursor, length: 0))
             return

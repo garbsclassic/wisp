@@ -2,11 +2,28 @@ import SwiftUI
 import AppKit
 import WispCore
 
+extension NSTextView {
+    /// Replace `range` with `replacement` through the `shouldChangeText` /
+    /// `didChangeText` bookkeeping AppKit's own edit path uses — required for
+    /// undo grouping and delegate notifications to fire on a hand-rolled
+    /// edit. Returns false, performing no edit, if the delegate refuses.
+    @discardableResult
+    func replaceText(in range: NSRange, with replacement: String) -> Bool {
+        guard shouldChangeText(in: range, replacementString: replacement) else { return false }
+        textStorage?.replaceCharacters(in: range, with: replacement)
+        didChangeText()
+        return true
+    }
+}
+
 struct MinimalTextEditor: NSViewRepresentable {
     @Binding var text: String
+    @Binding var headings: [Heading]
     var focusToken: Int
     var scrollToken: Int
     var scrollTarget: Int
+    var wrapToken: Int
+    var wrapMarker: String
     var findHighlightToken: Int
     var findHighlightRange: NSRange
     var fontSize: FontSize
@@ -30,8 +47,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
 
         let font = Typography.notesFont(fontSize.pointSize)
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineHeightMultiple = 1.45
+        let paragraph = Self.makeParagraphStyle()
 
         textView.delegate = context.coordinator
         textView.drawsBackground = false
@@ -49,7 +65,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         textView.textContainer?.lineFragmentPadding = 0
         textView.string = text
 
-        Self.applyPalette(Palette.for(theme), to: textView, font: font, paragraph: paragraph)
+        Self.applyPalette(Palette.for(theme), to: textView, font: font, paragraph: paragraph, headings: headings)
 
         context.coordinator.lastFontSize = fontSize
         context.coordinator.lastTheme = theme
@@ -68,9 +84,8 @@ struct MinimalTextEditor: NSViewRepresentable {
         if context.coordinator.lastTheme != theme {
             context.coordinator.lastTheme = theme
             let font = Typography.notesFont(fontSize.pointSize)
-            let paragraph = NSMutableParagraphStyle()
-            paragraph.lineHeightMultiple = 1.45
-            Self.applyPalette(Palette.for(theme), to: textView, font: font, paragraph: paragraph)
+            let paragraph = Self.makeParagraphStyle()
+            Self.applyPalette(Palette.for(theme), to: textView, font: font, paragraph: paragraph, headings: headings)
             // The match background is a storage attribute and applyPalette
             // merges rather than replaces, so repaint it in the incoming
             // theme's color instead of leaving the outgoing one behind.
@@ -98,6 +113,18 @@ struct MinimalTextEditor: NSViewRepresentable {
             context.coordinator.lastFindHighlightToken = findHighlightToken
             applyFindHighlight(to: textView, scroll: true)
         }
+        if context.coordinator.lastWrapToken != wrapToken {
+            context.coordinator.lastWrapToken = wrapToken
+            if textView.window?.firstResponder === textView {
+                MarkdownWrap.toggle(in: textView, marker: wrapMarker)
+            }
+        }
+    }
+
+    private static func makeParagraphStyle() -> NSMutableParagraphStyle {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineHeightMultiple = 1.45
+        return paragraph
     }
 
     /// Paints the current find match. `scroll` is false when repainting
@@ -129,7 +156,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         if let storage = textView.textStorage {
             let range = NSRange(location: 0, length: storage.length)
             storage.addAttributes([.font: font], range: range)
-            Self.styleHeadings(in: storage, baseFont: font)
+            Self.styleHeadings(in: storage, baseFont: font, headings: headings)
             Self.styleBoldItalic(in: storage, baseFont: font)
         }
     }
@@ -138,7 +165,8 @@ struct MinimalTextEditor: NSViewRepresentable {
         _ palette: Palette,
         to textView: NSTextView,
         font: NSFont,
-        paragraph: NSParagraphStyle
+        paragraph: NSParagraphStyle,
+        headings: [Heading]
     ) {
         textView.textColor = palette.text
         textView.insertionPointColor = palette.accent
@@ -157,7 +185,7 @@ struct MinimalTextEditor: NSViewRepresentable {
             let range = NSRange(location: 0, length: storage.length)
             storage.addAttributes([.foregroundColor: palette.text], range: range)
             styleHorizontalRules(in: storage)
-            styleHeadings(in: storage, baseFont: font)
+            styleHeadings(in: storage, baseFont: font, headings: headings)
             styleBoldItalic(in: storage, baseFont: font)
         }
     }
@@ -166,26 +194,16 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// marker (`#` through `######`). Plain text on disk; this is just a
     /// per-range font attribute so the heading reads as a section title
     /// without leaving plain-text mode.
-    private static func styleHeadings(in storage: NSTextStorage, baseFont: NSFont) {
+    private static func styleHeadings(in storage: NSTextStorage, baseFont: NSFont, headings: [Heading]) {
         let ns = storage.string as NSString
-        let total = ns.length
-        var lineStart = 0
-        while lineStart < total {
-            let lineRange = ns.lineRange(for: NSRange(location: lineStart, length: 0))
-            let raw = ns.substring(with: lineRange)
-            let line = raw.trimmingCharacters(in: CharacterSet(charactersIn: "\n"))
-            if let match = line.firstMatch(of: /^(#{1,6})\s+(\S.*)/) {
-                _ = match.2
-                let level = match.1.count
-                let font = headingFont(level: level, baseFont: baseFont)
-                var styleRange = lineRange
-                if styleRange.length > 0,
-                   ns.character(at: styleRange.location + styleRange.length - 1) == 0x0A {
-                    styleRange.length -= 1
-                }
-                storage.addAttribute(.font, value: font, range: styleRange)
+        for heading in headings {
+            let font = headingFont(level: heading.level, baseFont: baseFont)
+            var styleRange = ns.lineRange(for: NSRange(location: heading.lineStart, length: 0))
+            if styleRange.length > 0,
+               ns.character(at: styleRange.location + styleRange.length - 1) == 0x0A {
+                styleRange.length -= 1
             }
-            lineStart = lineRange.location + lineRange.length
+            storage.addAttribute(.font, value: font, range: styleRange)
         }
     }
 
@@ -273,20 +291,30 @@ struct MinimalTextEditor: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text)
+        Coordinator(text: $text, headings: $headings)
     }
 
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
+        /// Kept as a live binding rather than a `lastXToken`-style cached
+        /// copy so `textDidChange` can read the fresh value mid-callback
+        /// (below) without re-running `extractHeadings()` itself. This
+        /// relies on `EditorModel.text`'s `didSet` recomputing `headings`
+        /// synchronously and unconditionally — true today because the
+        /// header bar needs it live on every keystroke too, but worth
+        /// re-checking here if that ever changes.
+        var headings: Binding<[Heading]>
         var lastFocusToken: Int = 0
         var lastScrollToken: Int = 0
+        var lastWrapToken: Int = 0
         var lastFindHighlightToken: Int = 0
         var lastFontSize: FontSize = .medium
         var lastTheme: Theme = .dark
 
-        init(text: Binding<String>) {
+        init(text: Binding<String>, headings: Binding<[Heading]>) {
             self.text = text
+            self.headings = headings
         }
 
         func textDidChange(_ notification: Notification) {
@@ -310,7 +338,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                 storage.addAttribute(.font, value: baseFont, range: total)
                 storage.addAttribute(.foregroundColor, value: palette.text, range: total)
                 MinimalTextEditor.styleHorizontalRules(in: storage)
-                MinimalTextEditor.styleHeadings(in: storage, baseFont: baseFont)
+                MinimalTextEditor.styleHeadings(in: storage, baseFont: baseFont, headings: headings.wrappedValue)
                 MinimalTextEditor.styleBoldItalic(in: storage, baseFont: baseFont)
             }
         }
@@ -423,9 +451,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
 
         private func replace(in textView: NSTextView, range: NSRange, with replacement: String) {
-            guard textView.shouldChangeText(in: range, replacementString: replacement) else { return }
-            textView.textStorage?.replaceCharacters(in: range, with: replacement)
-            textView.didChangeText()
+            guard textView.replaceText(in: range, with: replacement) else { return }
             let newCursor = range.location + (replacement as NSString).length
             let newRange = NSRange(location: newCursor, length: 0)
             textView.setSelectedRange(newRange)

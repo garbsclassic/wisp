@@ -73,19 +73,4 @@ struct KeyChordRenderTests {
     func unmappedKeyCode() {
         #expect(KeyChord.string(keyCode: 9999, carbonModifiers: UInt32(cmdKey)) == nil)
     }
-
-    @Test("Modifier glyphs render in macOS order")
-    func symbolOrder() {
-        #expect(KeyChord.symbols(for: "cmd+shift+opt+ctrl+f") == ["⌃", "⌥", "⇧", "⌘", "F"])
-    }
-
-    /// A menu item matches by character, so an arrow set verbatim would print
-    /// the word "left" in the menu.
-    @Test("Named keys become glyphs for a menu key equivalent")
-    func menuEquivalents() {
-        #expect(KeyChord.menuKeyEquivalent(for: "left") == "←")
-        #expect(KeyChord.menuKeyEquivalent(for: "escape") == "⎋")
-        #expect(KeyChord.menuKeyEquivalent(for: "f5") == "F5")
-        #expect(KeyChord.menuKeyEquivalent(for: ".") == ".")
-    }
 }

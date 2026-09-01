@@ -30,21 +30,22 @@ public enum SmartEditing {
         }
         if let match = line.firstMatch(of: /^([A-Z])\.\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
-            let c = Character(String(match.1))
-            guard c < "Z", let ascii = c.asciiValue else { return nil }
-            return "\(Character(UnicodeScalar(ascii + 1))). "
+            return nextAlphaMarker(Character(String(match.1)), limit: "Z")
         }
         if let match = line.firstMatch(of: /^([a-z])\.\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
-            let c = Character(String(match.1))
-            guard c < "z", let ascii = c.asciiValue else { return nil }
-            return "\(Character(UnicodeScalar(ascii + 1))). "
+            return nextAlphaMarker(Character(String(match.1)), limit: "z")
         }
         return nil
     }
 
     private static func isEmptyAfter(_ range: Range<String.Index>, in line: String) -> Bool {
         line[range.upperBound...].trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private static func nextAlphaMarker(_ c: Character, limit: Character) -> String? {
+        guard c < limit, let ascii = c.asciiValue else { return nil }
+        return "\(Character(UnicodeScalar(ascii + 1))). "
     }
 
     /// Pure: is the given line content (a line range in `nsString`) an

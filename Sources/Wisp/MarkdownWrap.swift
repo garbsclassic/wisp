@@ -17,9 +17,7 @@ enum MarkdownWrap {
 
         if selectedRange.length == 0 {
             let combined = marker + marker
-            guard textView.shouldChangeText(in: selectedRange, replacementString: combined) else { return }
-            textView.textStorage?.replaceCharacters(in: selectedRange, with: combined)
-            textView.didChangeText()
+            guard textView.replaceText(in: selectedRange, with: combined) else { return }
             let newCursor = selectedRange.location + markerLen
             textView.setSelectedRange(NSRange(location: newCursor, length: 0))
             return
@@ -35,9 +33,7 @@ enum MarkdownWrap {
                 location: markerLen,
                 length: totalLen - 2 * markerLen
             ))
-            guard textView.shouldChangeText(in: selectedRange, replacementString: inner) else { return }
-            textView.textStorage?.replaceCharacters(in: selectedRange, with: inner)
-            textView.didChangeText()
+            guard textView.replaceText(in: selectedRange, with: inner) else { return }
             textView.setSelectedRange(NSRange(
                 location: selectedRange.location,
                 length: (inner as NSString).length
@@ -46,9 +42,7 @@ enum MarkdownWrap {
         }
 
         let wrapped = marker + selectedText + marker
-        guard textView.shouldChangeText(in: selectedRange, replacementString: wrapped) else { return }
-        textView.textStorage?.replaceCharacters(in: selectedRange, with: wrapped)
-        textView.didChangeText()
+        guard textView.replaceText(in: selectedRange, with: wrapped) else { return }
         textView.setSelectedRange(NSRange(
             location: selectedRange.location + markerLen,
             length: (selectedText as NSString).length

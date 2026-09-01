@@ -13,7 +13,9 @@ final class EditorModel: ObservableObject {
     @Published var headings: [Heading] = []
     @Published var focusToken: Int = 0
     @Published var scrollToken: Int = 0
+    @Published var wrapToken: Int = 0
     private(set) var scrollTarget: Int = 0
+    private(set) var wrapMarker: String = "**"
     @Published private(set) var placeholder: String = ""
     @Published var showHelp: Bool = false
     @Published var showHotKeyCapture: Bool = false
@@ -216,6 +218,15 @@ final class EditorModel: ObservableObject {
         if resolved != theme { theme = resolved }
     }
 
+    /// ⌘B / ⌘I from either menu. Routed through a token, like focus/scroll,
+    /// rather than AppDelegate reaching into the responder chain for the
+    /// notes NSTextView itself — MinimalTextEditor's Coordinator is the one
+    /// that actually owns it. Bold and italic share one token/marker pair
+    /// rather than each getting its own, since they're the same operation
+    /// parameterized by the marker string.
+    func toggleBold() { wrapMarker = "**"; wrapToken &+= 1 }
+    func toggleItalic() { wrapMarker = "*"; wrapToken &+= 1 }
+
     func jumpTo(_ heading: Heading) {
         scrollTarget = heading.lineStart
         scrollToken &+= 1
@@ -271,14 +282,23 @@ final class EditorModel: ObservableObject {
         findHighlightToken &+= 1
     }
 
+    /// Closes the topmost open modal overlay, in priority order, and
+    /// reports whether it closed anything — so a caller like Esc can fall
+    /// through to further handling only once nothing is left open.
+    @discardableResult
+    func dismissTopOverlay() -> Bool {
+        if showFind { closeFind(); return true }
+        if showHotKeyCapture { showHotKeyCapture = false; return true }
+        if showHelp { showHelp = false; return true }
+        return false
+    }
+
     /// Tear every modal overlay down. Called on every panel hide: the
     /// panel only orders out, so SwiftUI never unmounts the overlays and
     /// their local key monitors would otherwise stay installed app-wide
     /// with the panel gone.
     func closeAllOverlays() {
-        if showFind { closeFind() }
-        showHotKeyCapture = false
-        showHelp = false
+        while dismissTopOverlay() {}
     }
 
     /// Re-applies the settings this model caches from a config that has
@@ -371,9 +391,12 @@ struct EditorView: View {
                 ZStack(alignment: .topLeading) {
                     MinimalTextEditor(
                         text: $model.text,
+                        headings: $model.headings,
                         focusToken: model.focusToken,
                         scrollToken: model.scrollToken,
                         scrollTarget: model.scrollTarget,
+                        wrapToken: model.wrapToken,
+                        wrapMarker: model.wrapMarker,
                         findHighlightToken: model.findHighlightToken,
                         findHighlightRange: model.findHighlightRange,
                         fontSize: model.fontSize,
