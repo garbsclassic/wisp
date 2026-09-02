@@ -24,16 +24,23 @@ struct HelpOverlay: View {
                 section("Open / dismiss", items: [
                     (summonChord, "summon or dismiss the panel"),
                     ("⌘F", "find in your notes (↵ / ⇧↵ to step)"),
+                    ("⌘/", "show or hide this page"),
                     ("Esc", "dismiss"),
                     ("Click outside", "dismiss"),
                     ("⌘Q", "quit Wisp"),
                 ])
                 section("Format", items: [
                     ("⌘B  /  ⌘I", "bold  /  italic (toggle)"),
-                    ("⌘1  /  ⌘2  /  ⌘3", "text size"),
+                    ("⌘=  /  ⌘-", "larger  /  smaller text"),
+                    ("⌘0", "back to your default text size"),
+                ])
+                section("Editing", items: [
+                    ("⌘D", "duplicate the line, or the selection"),
+                    ("⌘C  /  ⌘X", "with nothing selected, the whole line"),
+                    ("⇥  /  ⇧⇥", "indent  /  outdent the line or selection"),
                 ])
                 section("Smart editing — type and press Enter", items: [
-                    ("-   *   +", "unordered list, auto-continues"),
+                    ("-   *   +", "bulleted list, auto-continues"),
                     ("1.    A.    a.", "ordered list, auto-increments"),
                     ("# / ## / ###", "headings (jump from top bar)"),
                     ("---", "horizontal rule (no Enter needed)"),
@@ -54,7 +61,7 @@ struct HelpOverlay: View {
                 ])
 
                 Text("Click anywhere or press Esc to close.")
-                    .font(Typography.ui(11))
+                    .font(Typography.ui(Metrics.chromeSize))
                     .foregroundStyle(Color(palette.muted))
                     .padding(.top, 8)
             }
@@ -68,7 +75,7 @@ struct HelpOverlay: View {
     private func section(_ title: String, items: [(String, String)]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(Typography.ui(11, weight: .medium))
+                .font(Typography.ui(Metrics.chromeSize, weight: .medium))
                 .foregroundStyle(Color(palette.muted))
                 .textCase(.uppercase)
                 .tracking(0.6)
@@ -76,11 +83,11 @@ struct HelpOverlay: View {
             ForEach(items, id: \.0) { item in
                 HStack(alignment: .firstTextBaseline, spacing: 16) {
                     Text(item.0)
-                        .font(Typography.ui(12, weight: .medium))
+                        .font(Typography.ui(Metrics.labelSize, weight: .medium))
                         .foregroundStyle(Color(palette.muted))
                         .frame(width: 180, alignment: .leading)
                     Text(item.1)
-                        .font(Typography.ui(13))
+                        .font(Typography.ui(Metrics.rowSize))
                         .foregroundStyle(Color(palette.text))
                 }
             }

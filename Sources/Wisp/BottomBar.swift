@@ -3,8 +3,8 @@ import WispCore
 
 struct BottomBar: View {
     let wordCount: Int
-    let fontSize: FontSize
-    let onCycleFontSize: () -> Void
+    let onDecreaseFontScale: () -> Void
+    let onIncreaseFontScale: () -> Void
     let themePreference: ThemePreference
     let onCycleTheme: () -> Void
     let onHelpClick: () -> Void
@@ -27,39 +27,42 @@ struct BottomBar: View {
                     .help(warning)
             }
             Spacer()
-            Button(action: onHelpClick) {
-                Image(systemName: "questionmark")
-                    .font(Typography.ui(11))
-                    .frame(width: 24, height: 20)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .pointerCursor()
-            .help("Keyboard shortcuts and formatting")
-            Button(action: onCycleTheme) {
-                Image(systemName: themeIconName)
-                    .font(Typography.ui(11))
-                    .frame(width: 24, height: 20)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .pointerCursor()
-            .help(themeButtonHelp)
-            Button(action: onCycleFontSize) {
-                Text("Aa")
-                    .font(Typography.ui(indicatorSize, weight: .medium))
-                    .frame(width: 30, height: 20)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .pointerCursor()
-            .help("Cycle text size (⌘1 / ⌘2 / ⌘3)")
+            glyphButton(
+                "questionmark", help: "Keyboard shortcuts and formatting (⌘/)",
+                action: onHelpClick)
+            glyphButton(themeIconName, help: themeButtonHelp, action: onCycleTheme)
+            // Two buttons rather than the old "Aa" cycle: the scale is
+            // continuous now, and a single button can't express a range
+            // you can move in both directions.
+            glyphButton(
+                "textformat.size.smaller", help: "Smaller text (⌘-)",
+                action: onDecreaseFontScale)
+            glyphButton(
+                "textformat.size.larger", help: "Larger text (⌘=)",
+                action: onIncreaseFontScale)
             Text("esc to close")
         }
-        .font(Typography.ui(11))
+        .font(Typography.ui(Metrics.chromeSize))
         .foregroundStyle(Color(palette.muted))
         .padding(.horizontal, 28)
         .padding(.vertical, 14)
+    }
+
+    /// Footer buttons share one shape: an SF Symbol in a fixed box, so
+    /// the row's spacing doesn't rag as the icons change.
+    @ViewBuilder
+    private func glyphButton(
+        _ symbol: String, help: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(Typography.ui(Metrics.chromeSize))
+                .frame(width: Metrics.footerButtonWidth, height: Metrics.footerButtonHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .pointerCursor()
+        .help(help)
     }
 
     private var themeIconName: String {
@@ -75,14 +78,6 @@ struct BottomBar: View {
         case .light: return "Switch to light theme"
         case .dark: return "Switch to dark theme"
         case .system: return "Follow system appearance"
-        }
-    }
-
-    private var indicatorSize: CGFloat {
-        switch fontSize {
-        case .small: return 9
-        case .medium: return 11
-        case .large: return 13
         }
     }
 

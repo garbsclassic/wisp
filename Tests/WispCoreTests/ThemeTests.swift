@@ -35,25 +35,44 @@ struct ThemeEnumTests {
     }
 }
 
-@Suite("FontSize")
-struct FontSizeTests {
-    @Test("Each step has its point size")
-    func pointSizes() {
-        #expect(FontSize.small.pointSize == 17)
-        #expect(FontSize.medium.pointSize == 20)
-        #expect(FontSize.large.pointSize == 24)
+@Suite("Metrics")
+struct MetricsTests {
+    @Test("The default scale sits inside the clamp range")
+    func defaultInRange() {
+        #expect(Metrics.fontScaleRange.contains(WispConfig().fontScale))
+        #expect(Metrics.fontScaleRange.contains(WispConfig().defaultFontScale))
     }
 
-    @Test("⌘1/2/3 cycles wrap around")
-    func cycle() {
-        #expect(FontSize.small.next == .medium)
-        #expect(FontSize.medium.next == .large)
-        #expect(FontSize.large.next == .small)
+    @Test("Clamping bounds a scale without moving one already in range")
+    func clamping() {
+        #expect(Metrics.clampFontScale(0.1) == Metrics.fontScaleRange.lowerBound)
+        #expect(Metrics.clampFontScale(9) == Metrics.fontScaleRange.upperBound)
+        #expect(Metrics.clampFontScale(1.05) == 1.05)
     }
 
-    @Test("Raw values are the stored strings")
-    func rawValues() {
-        #expect(FontSize.allCases.map(\.rawValue) == ["small", "medium", "large"])
+    @Test("Stepping lands on the step grid rather than accumulating drift")
+    func stepping() {
+        var scale = 1.0
+        for _ in 0..<3 { scale = Metrics.steppedFontScale(scale, by: 1) }
+        // The point of rounding onto the grid: 1.0 + 0.1 + 0.1 + 0.1 in
+        // binary floating point is 1.3000000000000003, and this value gets
+        // written into a config a person reads.
+        #expect(scale == 1.3)
+        #expect(Metrics.steppedFontScale(scale, by: -3) == 1.0)
+    }
+
+    @Test("Stepping stops at the ends of the range")
+    func steppingClamps() {
+        #expect(Metrics.steppedFontScale(Metrics.fontScaleRange.upperBound, by: 1)
+            == Metrics.fontScaleRange.upperBound)
+        #expect(Metrics.steppedFontScale(Metrics.fontScaleRange.lowerBound, by: -1)
+            == Metrics.fontScaleRange.lowerBound)
+    }
+
+    @Test("Headings step up off the body, largest first")
+    func headingRatios() {
+        #expect(Metrics.headingLevel1Ratio > Metrics.headingLevel2Ratio)
+        #expect(Metrics.headingLevel2Ratio > 1)
     }
 }
 

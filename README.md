@@ -35,9 +35,12 @@ first leaves a dangling login item.
 - **⌃⌥.** to summon from anywhere (rebindable)
 - **Light / dark / system** appearance — one-click cycle, follows macOS by default
 - **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
+- **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item
 - **Headings** — `#`, `##`, `###` render styled with click-to-jump navigation
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic** — ⌘B / ⌘I
+- **Line editing** — ⌘D duplicates the line or selection; ⌘C / ⌘X take the whole line when nothing is selected
+- **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
 - **Launch at Login** — toggle in the menu bar menu
 - **Refresh** — ⌘R re-reads the config and the note from disk
 - **Live reload** — changes to either from another app, Mac, or sync client appear on their own
@@ -45,7 +48,7 @@ first leaves a dangling login item.
 - **Sync across Macs** — point at any folder via the menu bar menu (iCloud Drive, Dropbox, Syncthing all work)
 - **Hand-editable config** at `~/.config/wisp/wisp.jsonc` — see below
 
-Click the `?` in the footer for the full keyboard shortcut list.
+Press ⌘/ — or click the `?` in the footer — for the full keyboard shortcut list.
 
 ## Configuration
 
@@ -61,8 +64,10 @@ ignored.
 | `theme`                 | `"system"`                | `light`, `dark`, or follow macOS                                                                                             |
 | `fonts.notes`           | `"Inter Nerd Font"`       | The notes body face                                                                                                          |
 | `fonts.ui`              | `"Inter Nerd Font Propo"` | Header, footer, and overlays                                                                                                 |
-| `fontSize`              | `"medium"`                | `small` / `medium` / `large` — the ⌘1 / ⌘2 / ⌘3 cycle                                                                        |
-| `fontScale`             | `1.0`                     | Multiplies every type size. Clamped to 0.6–2.5                                                                               |
+| `fontScale`             | `1.0`                     | Multiplies every type size, body and chrome. ⌘= / ⌘- step it by 0.1. Clamped to 0.6–2.5                                     |
+| `defaultFontScale`      | `1.0`                     | What ⌘0 resets `fontScale` to                                                                                                |
+| `indent.style`          | `"spaces"`                | `spaces` or `tabs` — what Tab writes                                                                                         |
+| `indent.size`           | `2`                       | Spaces per level. Ignored under `tabs`                                                                                       |
 | `vibrancy`              | `true`                    | Blurs whatever is behind the panel                                                                                           |
 | `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on                                                                        |
 | `dismissOnOutsideClick` | `true`                    | Clicking another app closes the panel                                                                                        |

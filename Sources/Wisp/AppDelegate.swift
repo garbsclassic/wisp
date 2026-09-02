@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import SwiftUI
 import WispCore
 
 @MainActor
@@ -75,13 +76,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return "\(hk.displayString) is already used by another app or macOS. Try another combo."
         }
 
-        // Open the panel for user-initiated launches (clicked from
-        // Applications, Spotlight, Finder). When macOS auto-launches us
-        // at login the key is false — we stay quiet in the menu bar so
-        // login isn't noisy.
-        if LaunchSource.isUserInitiated(launchUserInfo: notification.userInfo) {
-            presentForUserAction()
-        }
+        // Nothing is shown at launch. AppKit's
+        // NSApplicationLaunchIsDefaultLaunchKey was meant to tell a user
+        // launch from a login-item one, but it isn't reliably false for an
+        // SMAppService login item, so the panel popped out on login
+        // anyway. The hotkey, the menu bar item, and a re-launch all still
+        // open it — see applicationShouldHandleReopen.
     }
 
     /// Re-launching the app while it's already running (Spotlight,
@@ -91,10 +91,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    /// Bring Wisp to the front and show the panel. Used on first
-    /// user-initiated launch and on re-activation. The hotkey-summon
-    /// path stays separate (toggle()) so it doesn't steal focus from
-    /// whatever app the user was in when they pressed ⌥Space.
+    /// Bring Wisp to the front and show the panel — the re-launch path,
+    /// which is the only launch-adjacent one that opens anything now. The
+    /// hotkey summon stays separate (toggle()) so it doesn't steal focus
+    /// from whatever app the user was in when they pressed the chord.
     private func presentForUserAction() {
         NSApp.activate(ignoringOtherApps: true)
         panelController?.openIfNeeded()
@@ -112,12 +112,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.openFind()
     }
 
-    @objc func setSmallFont(_ sender: Any?) { model.fontSize = .small }
-    @objc func setMediumFont(_ sender: Any?) { model.fontSize = .medium }
-    @objc func setLargeFont(_ sender: Any?) { model.fontSize = .large }
+    @objc func increaseFontScale(_ sender: Any?) { model.stepFontScale(by: 1) }
+    @objc func decreaseFontScale(_ sender: Any?) { model.stepFontScale(by: -1) }
+    @objc func resetFontScale(_ sender: Any?) { model.resetFontScale() }
 
     @objc func toggleBold(_ sender: Any?) { model.toggleBold() }
     @objc func toggleItalic(_ sender: Any?) { model.toggleItalic() }
+    @objc func duplicateSelection(_ sender: Any?) { model.duplicateSelection() }
+
+    @objc func toggleHelp(_ sender: Any?) {
+        withAnimation(.easeInOut(duration: 0.18)) { model.showHelp.toggle() }
+    }
+
+    /// Gates every chord that only means something with the panel in
+    /// front of the user.
+    ///
+    /// Without this a main-menu key equivalent fires whenever Wisp is
+    /// merely *active* — which it can be with no panel on screen at all,
+    /// or while a storage picker is up. ⌘D would then quietly bump a token
+    /// nothing is listening to, and ⌘= would rewrite the config from
+    /// under a modal. ⌘F, ⌘R, and ⌘, are deliberately absent: each opens
+    /// the panel when it is closed, which is the point of them.
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        let panelScoped: Set<Selector> = [
+            #selector(duplicateSelection(_:)),
+            #selector(increaseFontScale(_:)),
+            #selector(decreaseFontScale(_:)),
+            #selector(resetFontScale(_:)),
+            #selector(toggleHelp(_:)),
+            #selector(toggleBold(_:)),
+            #selector(toggleItalic(_:)),
+        ]
+        guard let action = menuItem.action, panelScoped.contains(action) else { return true }
+        return panelController?.isPanelFocused ?? false
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         // Flush any pending debounced save so quitting never loses the

@@ -2,6 +2,17 @@ import AppKit
 
 @MainActor
 enum MainMenuBuilder {
+    /// Builds one item wired to `target`, so `validateMenuItem` on the
+    /// delegate gets a say in whether it fires. An item left targeting nil
+    /// goes to the first responder and is never offered for validation.
+    private static func item(
+        _ title: String, _ action: Selector, _ key: String, target: AnyObject
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.target = target
+        return item
+    }
+
     static func make(target: AnyObject) -> NSMenu {
         let mainMenu = NSMenu()
 
@@ -64,6 +75,13 @@ enum MainMenuBuilder {
             keyEquivalent: "v"
         )
         editMenu.addItem(NSMenuItem.separator())
+        // ⌘C and ⌘X above fall back to the whole line when nothing is
+        // selected — see NotesTextView. ⌘D goes through the delegate
+        // because it needs the panel-focus gate the others get for free
+        // from the responder chain.
+        editMenu.addItem(
+            item("Duplicate", #selector(AppDelegate.duplicateSelection(_:)), "d", target: target))
+        editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(
             withTitle: "Select All",
             action: #selector(NSText.selectAll(_:)),
@@ -101,29 +119,33 @@ enum MainMenuBuilder {
 
         let viewMenuItem = NSMenuItem()
         let viewMenu = NSMenu(title: "View")
-        let smallItem = NSMenuItem(
-            title: "Smaller Text",
-            action: #selector(AppDelegate.setSmallFont(_:)),
-            keyEquivalent: "1"
-        )
-        smallItem.target = target
-        viewMenu.addItem(smallItem)
-        let mediumItem = NSMenuItem(
-            title: "Default Text Size",
-            action: #selector(AppDelegate.setMediumFont(_:)),
-            keyEquivalent: "2"
-        )
-        mediumItem.target = target
-        viewMenu.addItem(mediumItem)
-        let largeItem = NSMenuItem(
-            title: "Larger Text",
-            action: #selector(AppDelegate.setLargeFont(_:)),
-            keyEquivalent: "3"
-        )
-        largeItem.target = target
-        viewMenu.addItem(largeItem)
+        // One continuous scale replaces the old small/medium/large trio,
+        // so these are the standard zoom chords rather than ⌘1 / ⌘2 / ⌘3.
+        // ⌘= is bound to the unshifted key even though it reads as ⌘+,
+        // which is the platform convention.
+        viewMenu.addItem(
+            item("Increase Text Size", #selector(AppDelegate.increaseFontScale(_:)), "=",
+                 target: target))
+        viewMenu.addItem(
+            item("Decrease Text Size", #selector(AppDelegate.decreaseFontScale(_:)), "-",
+                 target: target))
+        viewMenu.addItem(
+            item("Actual Size", #selector(AppDelegate.resetFontScale(_:)), "0", target: target))
         viewMenuItem.submenu = viewMenu
         mainMenu.addItem(viewMenuItem)
+
+        // Titled "Shortcuts" rather than "Help" so AppKit doesn't claim it
+        // as *the* help menu and graft its search field on. Invisible
+        // either way — the app is `.accessory`, so this whole menu bar
+        // exists only to carry key equivalents.
+        let helpMenuItem = NSMenuItem()
+        let helpMenu = NSMenu(title: "Shortcuts")
+        // ⌘/ rather than the more obvious ⌘?: macOS reserves ⇧⌘/ for the
+        // help menu's own search field.
+        helpMenu.addItem(
+            item("Keyboard Shortcuts", #selector(AppDelegate.toggleHelp(_:)), "/", target: target))
+        helpMenuItem.submenu = helpMenu
+        mainMenu.addItem(helpMenuItem)
 
         return mainMenu
     }

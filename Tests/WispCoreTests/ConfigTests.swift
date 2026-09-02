@@ -174,3 +174,76 @@ struct ConfigDerivedTests {
         )
     }
 }
+
+@Suite("Indent")
+struct IndentConfigTests {
+    private func decode(_ json: String) throws -> WispConfig {
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
+    }
+
+    @Test("Defaults to two spaces")
+    func defaults() throws {
+        let config = try decode("{}")
+        #expect(config.indent == Indent())
+        #expect(config.indent.unit == "  ")
+        #expect(config.indent.width == 2)
+    }
+
+    @Test("Tabs ignore the size")
+    func tabs() throws {
+        let config = try decode(#"{ "indent": { "style": "tabs", "size": 8 } }"#)
+        #expect(config.indent.unit == "\t")
+        // One tab is one level, however wide the reader renders it.
+        #expect(config.indent.width == 1)
+    }
+
+    @Test("A size is decoded and used")
+    func size() throws {
+        #expect(try decode(#"{ "indent": { "size": 4 } }"#).indent.unit == "    ")
+    }
+
+    @Test("An absurd size is bounded on the way out, not on the way in")
+    func bounded() {
+        // The written value stays as typed so it is recoverable by editing
+        // the file back; only what the Tab key inserts is clamped.
+        #expect(Indent(style: .spaces, size: 400).size == 400)
+        #expect(Indent(style: .spaces, size: 400).unit.count == 16)
+        #expect(Indent(style: .spaces, size: 0).unit == " ")
+    }
+
+    @Test("A malformed style is named rather than swallowed")
+    func malformed() throws {
+        let diagnostics = ConfigDiagnostics()
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        decoder.userInfo[.configDiagnostics] = diagnostics
+        let config = try decoder.decode(
+            WispConfig.self, from: Data(#"{ "indent": { "style": 7 } }"#.utf8))
+        #expect(config.indent.style == .spaces)
+        #expect(diagnostics.malformedKeys == ["indent.style"])
+    }
+}
+
+@Suite("Default font scale")
+struct DefaultFontScaleTests {
+    @Test("Defaults to 1.0 and is clamped like the live value")
+    func clamped() {
+        #expect(WispConfig().defaultFontScale == 1.0)
+        #expect(WispConfig(defaultFontScale: 9).clampedDefaultFontScale
+            == Metrics.fontScaleRange.upperBound)
+    }
+
+    @Test("A removed fontSize key is ignored without a warning")
+    func retiredKeyIsQuiet() throws {
+        let diagnostics = ConfigDiagnostics()
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        decoder.userInfo[.configDiagnostics] = diagnostics
+        let config = try decoder.decode(
+            WispConfig.self, from: Data(#"{ "fontSize": "large", "fontScale": 1.2 }"#.utf8))
+        #expect(config.fontScale == 1.2)
+        #expect(diagnostics.malformedKeys.isEmpty)
+    }
+}

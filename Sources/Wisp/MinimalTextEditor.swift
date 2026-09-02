@@ -24,36 +24,33 @@ struct MinimalTextEditor: NSViewRepresentable {
     var scrollTarget: Int
     var wrapToken: Int
     var wrapMarker: String
+    var duplicateToken: Int
     var findHighlightToken: Int
     var findHighlightRange: NSRange
-    var fontSize: FontSize
+    /// The live text scale. Compared in `updateNSView` rather than assumed
+    /// constant: the body's font lives in `NSTextStorage` as a resolved
+    /// `NSFont`, so unlike the SwiftUI chrome nothing re-resolves it when
+    /// the scale moves. Before this was the compared value, a scale change
+    /// left the body at its old size until the next keystroke restyled it.
+    var fontScale: Double
+    var indent: Indent
     var theme: Theme
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSTextView.scrollableTextView()
+        let (scrollView, textView) = NotesTextView.makeScrollView()
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = false
         scrollView.hasHorizontalScroller = false
         scrollView.borderType = .noBorder
         scrollView.contentView.drawsBackground = false
 
-        guard let textView = scrollView.documentView as? NSTextView else { return scrollView }
-
-        // Swap in the HR-aware layout manager so HR-only lines render
-        // as a full-width horizontal line that tracks panel width.
-        // The replacement keeps the same text container and storage.
-        if let textContainer = textView.textContainer {
-            textContainer.replaceLayoutManager(HorizontalRuleLayoutManager())
-        }
-
-        let font = Typography.notesFont(fontSize.pointSize)
-        let paragraph = Self.makeParagraphStyle()
+        let font = Typography.notesFont(Metrics.bodySize)
 
         textView.delegate = context.coordinator
         textView.drawsBackground = false
         textView.backgroundColor = .clear
         textView.font = font
-        textView.defaultParagraphStyle = paragraph
+        textView.defaultParagraphStyle = Self.makeParagraphStyle()
         textView.allowsUndo = true
         textView.isRichText = false
         textView.importsGraphics = false
@@ -63,29 +60,43 @@ struct MinimalTextEditor: NSViewRepresentable {
         textView.isAutomaticTextReplacementEnabled = false
         textView.textContainerInset = .zero
         textView.textContainer?.lineFragmentPadding = 0
+        textView.indentUnit = indent.unit
         textView.string = text
 
-        Self.applyPalette(Palette.for(theme), to: textView, font: font, paragraph: paragraph, headings: headings)
+        Self.applyPalette(
+            Palette.for(theme), to: textView, font: font, headings: headings, indent: indent)
 
-        context.coordinator.lastFontSize = fontSize
+        context.coordinator.lastFontScale = fontScale
+        context.coordinator.lastIndent = indent
         context.coordinator.lastTheme = theme
         return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let textView = scrollView.documentView as? NSTextView else { return }
+        guard let textView = scrollView.documentView as? NotesTextView else { return }
         if textView.string != text {
+            // Assigning `.string` throws away every attribute in the
+            // storage, so the incoming text arrives unstyled. The layout
+            // manager draws rules and bullets from the *text*, but what
+            // hides the characters they stand in for is the styling pass —
+            // without this a note reloaded from disk showed a `-` sitting
+            // under its own bullet, and `---` under its own rule.
             textView.string = text
+            restyle(textView)
         }
-        if context.coordinator.lastFontSize != fontSize {
-            context.coordinator.lastFontSize = fontSize
-            applyFont(to: textView)
+        // Both change what the storage's attributes have to say, and both
+        // re-run the same full restyle, so they share one branch.
+        if context.coordinator.lastFontScale != fontScale
+            || context.coordinator.lastIndent != indent
+        {
+            context.coordinator.lastFontScale = fontScale
+            context.coordinator.lastIndent = indent
+            textView.indentUnit = indent.unit
+            restyle(textView)
         }
         if context.coordinator.lastTheme != theme {
             context.coordinator.lastTheme = theme
-            let font = Typography.notesFont(fontSize.pointSize)
-            let paragraph = Self.makeParagraphStyle()
-            Self.applyPalette(Palette.for(theme), to: textView, font: font, paragraph: paragraph, headings: headings)
+            restyle(textView)
             // The match background is a storage attribute and applyPalette
             // merges rather than replaces, so repaint it in the incoming
             // theme's color instead of leaving the outgoing one behind.
@@ -119,11 +130,23 @@ struct MinimalTextEditor: NSViewRepresentable {
                 MarkdownWrap.toggle(in: textView, marker: wrapMarker)
             }
         }
+        if context.coordinator.lastDuplicateToken != duplicateToken {
+            context.coordinator.lastDuplicateToken = duplicateToken
+            if textView.window?.firstResponder === textView {
+                textView.duplicateSelection()
+            }
+        }
+    }
+
+    private func restyle(_ textView: NotesTextView) {
+        Self.applyPalette(
+            Palette.for(theme), to: textView, font: Typography.notesFont(Metrics.bodySize),
+            headings: headings, indent: indent)
     }
 
     private static func makeParagraphStyle() -> NSMutableParagraphStyle {
         let paragraph = NSMutableParagraphStyle()
-        paragraph.lineHeightMultiple = 1.45
+        paragraph.lineHeightMultiple = Metrics.bodyLineHeightMultiple
         return paragraph
     }
 
@@ -147,27 +170,14 @@ struct MinimalTextEditor: NSViewRepresentable {
         if scroll { textView.scrollRangeToVisible(range) }
     }
 
-    private func applyFont(to textView: NSTextView) {
-        let font = Typography.notesFont(fontSize.pointSize)
-        textView.font = font
-        var attrs = textView.typingAttributes
-        attrs[.font] = font
-        textView.typingAttributes = attrs
-        if let storage = textView.textStorage {
-            let range = NSRange(location: 0, length: storage.length)
-            storage.addAttributes([.font: font], range: range)
-            Self.styleHeadings(in: storage, baseFont: font, headings: headings)
-            Self.styleBoldItalic(in: storage, baseFont: font)
-        }
-    }
-
     private static func applyPalette(
         _ palette: Palette,
-        to textView: NSTextView,
+        to textView: NotesTextView,
         font: NSFont,
-        paragraph: NSParagraphStyle,
-        headings: [Heading]
+        headings: [Heading],
+        indent: Indent
     ) {
+        let paragraph = makeParagraphStyle()
         textView.textColor = palette.text
         textView.insertionPointColor = palette.accent
         textView.selectedTextAttributes = [
@@ -178,16 +188,49 @@ struct MinimalTextEditor: NSViewRepresentable {
             .foregroundColor: palette.text,
             .paragraphStyle: paragraph,
         ]
-        if let lm = textView.layoutManager as? HorizontalRuleLayoutManager {
+        if let lm = textView.layoutManager as? NotesLayoutManager {
             lm.ruleColor = palette.rule
+            lm.bulletColor = palette.text
+            lm.bulletFont = font
+            lm.indentWidth = indent.width
         }
         if let storage = textView.textStorage {
-            let range = NSRange(location: 0, length: storage.length)
-            storage.addAttributes([.foregroundColor: palette.text], range: range)
-            styleHorizontalRules(in: storage)
-            styleHeadings(in: storage, baseFont: font, headings: headings)
-            styleBoldItalic(in: storage, baseFont: font)
+            resetBaseAttributes(
+                in: storage, font: font, color: palette.text, paragraph: paragraph)
+            restyleContent(in: storage, baseFont: font, headings: headings, indent: indent)
         }
+    }
+
+    /// Wipes the whole storage back to plain body text, so a content pass
+    /// can run against a known state.
+    ///
+    /// `.kern` is *removed* rather than overwritten: it is set only on list
+    /// markers, and it is the one attribute here with no base value to
+    /// reset it to. Left behind, a marker's kern would stay on whatever
+    /// character ends up at that offset once the line is edited.
+    static func resetBaseAttributes(
+        in storage: NSTextStorage, font: NSFont, color: NSColor, paragraph: NSParagraphStyle
+    ) {
+        let range = NSRange(location: 0, length: storage.length)
+        storage.removeAttribute(.kern, range: range)
+        storage.addAttributes(
+            [.font: font, .foregroundColor: color, .paragraphStyle: paragraph], range: range)
+    }
+
+    /// Everything that depends on the text's own content, in the order the
+    /// attributes have to land: structural passes first, then the inline
+    /// ones that read whatever font the structure left behind.
+    ///
+    /// Always run over the whole storage against a freshly reset base, so a
+    /// line that *stopped* being a rule or a list item loses the styling it
+    /// had. Cheap at scratchpad sizes.
+    static func restyleContent(
+        in storage: NSTextStorage, baseFont: NSFont, headings: [Heading], indent: Indent
+    ) {
+        styleHorizontalRules(in: storage)
+        styleLists(in: storage, baseFont: baseFont, indent: indent)
+        styleHeadings(in: storage, baseFont: baseFont, headings: headings)
+        styleBoldItalic(in: storage, baseFont: baseFont)
     }
 
     /// Apply bold + scaled font to lines that begin with a markdown heading
@@ -211,12 +254,72 @@ struct MinimalTextEditor: NSViewRepresentable {
         let baseSize = baseFont.pointSize
         let scaledSize: CGFloat
         switch level {
-        case 1: scaledSize = baseSize * 1.20
-        case 2: scaledSize = baseSize * 1.10
+        case 1: scaledSize = baseSize * Metrics.headingLevel1Ratio
+        case 2: scaledSize = baseSize * Metrics.headingLevel2Ratio
         default: scaledSize = baseSize
         }
         let boldDescriptor = baseFont.fontDescriptor.withSymbolicTraits(.bold)
         return NSFont(descriptor: boldDescriptor, size: scaledSize) ?? baseFont
+    }
+
+    /// Give every list line a hanging indent, and hide the `-` / `*` / `+`
+    /// so `NotesLayoutManager` can draw a bullet in the space it reserved.
+    ///
+    /// The measurements come from the rendered text rather than from a
+    /// points-per-character guess: the head indent has to land exactly
+    /// where the content starts, or a wrapped line sits a hair off the one
+    /// above it. Ordered markers stay visible — `1.` is its own content.
+    private static func styleLists(
+        in storage: NSTextStorage, baseFont: NSFont, indent: Indent
+    ) {
+        let ns = storage.string as NSString
+        let total = ns.length
+        var lineStart = 0
+        while lineStart < total {
+            let lineRange = ns.lineRange(for: NSRange(location: lineStart, length: 0))
+            defer { lineStart = lineRange.location + lineRange.length }
+            guard let item = SmartEditing.listItem(lineRange: lineRange, in: ns) else { continue }
+
+            var contentOffset = width(
+                of: ns.substring(with: NSRange(
+                    location: lineRange.location,
+                    length: item.contentStart - lineRange.location)),
+                font: baseFont)
+
+            if item.marker == .bullet {
+                storage.addAttribute(
+                    .foregroundColor, value: NSColor.clear, range: item.markerRange)
+                // `-`, `*`, and `+` have three different advances, and the
+                // hidden character still reserves its own. Left alone, the
+                // text after a `+` starts a hair right of the text after a
+                // `-` — visible as a ragged left edge down a mixed list.
+                // Kerning the marker out to the width of the glyph that
+                // replaces it makes every bullet line start at the same x.
+                let glyph = SmartEditing.bulletGlyph(depth: item.depth(indentWidth: indent.width))
+                let markerWidth = width(
+                    of: ns.substring(with: item.markerRange), font: baseFont)
+                let kern = width(of: glyph, font: baseFont) - markerWidth
+                storage.addAttribute(.kern, value: kern, range: item.markerRange)
+                contentOffset += kern
+            }
+
+            let paragraph = makeParagraphStyle()
+            paragraph.firstLineHeadIndent = width(
+                of: ns.substring(with: NSRange(
+                    location: lineRange.location,
+                    length: item.markerRange.location - lineRange.location)),
+                font: baseFont)
+            // Wrapped lines hang to where the content starts, so a long
+            // item reads as one block rather than sliding back under its
+            // own bullet.
+            paragraph.headIndent = contentOffset
+            storage.addAttribute(.paragraphStyle, value: paragraph, range: lineRange)
+        }
+    }
+
+    private static func width(of text: String, font: NSFont) -> CGFloat {
+        guard !text.isEmpty else { return 0 }
+        return NSAttributedString(string: text, attributes: [.font: font]).size().width
     }
 
     /// Render `**bold**` and `*italic*` markdown runs with bold / italic
@@ -263,7 +366,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// content is HR markers (the new `---` form, or the legacy
     /// `─` x N form from pre-0.1.38 files), set the foreground to
     /// `.clear` so the characters are invisible. The full-width
-    /// rule is then drawn by `HorizontalRuleLayoutManager`.
+    /// rule is then drawn by `NotesLayoutManager`.
     private static func styleHorizontalRules(in storage: NSTextStorage) {
         let ns = storage.string as NSString
         let total = ns.length
@@ -308,8 +411,10 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lastFocusToken: Int = 0
         var lastScrollToken: Int = 0
         var lastWrapToken: Int = 0
+        var lastDuplicateToken: Int = 0
         var lastFindHighlightToken: Int = 0
-        var lastFontSize: FontSize = .medium
+        var lastFontScale: Double = 1
+        var lastIndent: Indent = Indent()
         var lastTheme: Theme = .dark
 
         init(text: Binding<String>, headings: Binding<[Heading]>) {
@@ -325,27 +430,37 @@ struct MinimalTextEditor: NSViewRepresentable {
             // chunk of text, after which we restyle against the result.
             EmojiReplace.replaceIfMatched(in: textView)
 
-            // Live-restyle: reset font and foreground to base across
-            // the storage, then re-apply heading + bold/italic + HR
-            // styling. Resetting foreground first means lines that
-            // *stopped* being HRs (e.g., the user added a non-HR char)
-            // get their visible text color back. Cheap at scratchpad
-            // sizes.
+            // Live-restyle: reset font, foreground, and paragraph style to
+            // base across the storage, then re-apply the content passes.
+            // Resetting first is what lets a line that stopped being an HR
+            // or a list item lose the styling it had.
             if let storage = textView.textStorage {
-                let baseFont = Typography.notesFont(lastFontSize.pointSize)
+                let baseFont = Typography.notesFont(Metrics.bodySize)
                 let palette = Palette.for(lastTheme)
-                let total = NSRange(location: 0, length: storage.length)
-                storage.addAttribute(.font, value: baseFont, range: total)
-                storage.addAttribute(.foregroundColor, value: palette.text, range: total)
-                MinimalTextEditor.styleHorizontalRules(in: storage)
-                MinimalTextEditor.styleHeadings(in: storage, baseFont: baseFont, headings: headings.wrappedValue)
-                MinimalTextEditor.styleBoldItalic(in: storage, baseFont: baseFont)
+                MinimalTextEditor.resetBaseAttributes(
+                    in: storage, font: baseFont, color: palette.text,
+                    paragraph: MinimalTextEditor.makeParagraphStyle())
+                MinimalTextEditor.restyleContent(
+                    in: storage, baseFont: baseFont, headings: headings.wrappedValue,
+                    indent: lastIndent)
             }
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
             if commandSelector == #selector(NSResponder.insertNewline(_:)) {
                 return handleEnter(in: textView)
+            }
+            // Tab and ⇧Tab: indent/outdent a list item or a selected block,
+            // rather than moving focus out of the editor.
+            if let notes = textView as? NotesTextView {
+                if commandSelector == #selector(NSResponder.insertTab(_:)) {
+                    notes.handleTab()
+                    return true
+                }
+                if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
+                    notes.handleBacktab()
+                    return true
+                }
             }
             return false
         }
@@ -435,7 +550,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         /// Replace `range` with the horizontal-rule string + newline and
         /// move the cursor past it. The HR characters are stored as
         /// plain `---` (markdown standard); the visible full-width
-        /// line is drawn by HorizontalRuleLayoutManager, while the
+        /// line is drawn by NotesLayoutManager, while the
         /// `---` characters themselves are rendered with a clear
         /// foreground so only the line shows.
         private func replaceWithHorizontalRule(in textView: NSTextView, range: NSRange) {

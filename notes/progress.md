@@ -91,3 +91,16 @@
   its lifetime; and a folder changed by hand in the config adopts that folder's note, since the
   mtime baseline describes a file in the old one. A stream that won't start is a sticky footer
   warning rather than silent staleness
+- 2026-09-02 — [editing-and-scale](plan-editing-and-scale.md): merged `fontSize` and `fontScale` into
+  one continuous scale (⌘= / ⌘- / ⌘0, two footer glyph buttons, new `defaultFontScale` key), which
+  also fixed the body text not resizing until the next keystroke — `MinimalTextEditor` now compares
+  the scale rather than the retired three-step enum. Type sizes moved into `Theme.Metrics` following
+  Clef. The panel no longer opens at launch at all (`NSApplicationLaunchIsDefaultLaunchKey` wasn't
+  reliably false for an `SMAppService` login item), so `LaunchSource` is gone. New editing: ⌘D
+  duplicates the line or selection, ⌘C / ⌘X take the whole line when nothing is selected, ⇥ / ⇧⇥
+  indent and outdent list items and selected blocks against a new `indent` config, and `- ` renders
+  as a `•` / `◦` / `▪` glyph with a hanging indent — all range math as pure `WispCore.LineEdits` and
+  `SmartEditing.listItem`. ⌘/ toggles the help page, and `validateMenuItem` gates every panel-scoped
+  chord on the panel actually holding focus. Two bugs found while verifying: a note reloaded from
+  disk lost its styling and showed the raw `-` under its own bullet, and `.kern` on list markers was
+  never cleared. 144 tests

@@ -21,17 +21,17 @@ struct FindBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(Typography.ui(12))
+                .font(Typography.ui(Metrics.labelSize))
                 .foregroundStyle(Color(palette.muted))
 
             TextField("Find", text: $query)
                 .textFieldStyle(.plain)
-                .font(Typography.ui(13))
+                .font(Typography.ui(Metrics.rowSize))
                 .focused($focused)
                 .frame(width: 160)
 
             Text(countLabel)
-                .font(Typography.ui(11, tabularDigits: true))
+                .font(Typography.ui(Metrics.chromeSize, tabularDigits: true))
                 .foregroundStyle(Color(palette.muted))
                 .frame(minWidth: 58, alignment: .trailing)
 
@@ -83,7 +83,7 @@ struct FindBar: View {
     private func iconButton(_ name: String, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: name)
-                .font(Typography.ui(11, weight: .medium))
+                .font(Typography.ui(Metrics.chromeSize, weight: .medium))
                 .frame(width: 22, height: 18)
                 .contentShape(Rectangle())
         }

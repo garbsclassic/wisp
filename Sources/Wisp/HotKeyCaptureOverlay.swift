@@ -28,14 +28,14 @@ struct HotKeyCaptureOverlay: View {
 
             VStack(spacing: 14) {
                 Text("Press your shortcut")
-                    .font(Typography.ui(18, weight: .medium))
+                    .font(Typography.ui(Metrics.titleSize, weight: .medium))
                     .foregroundStyle(Color(palette.text))
                 Text("must include ⌘, ⌥, ⌃, or ⇧ — Esc to cancel")
-                    .font(Typography.ui(11))
+                    .font(Typography.ui(Metrics.chromeSize))
                     .foregroundStyle(Color(palette.muted))
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(Typography.ui(12))
+                        .font(Typography.ui(Metrics.labelSize))
                         .foregroundStyle(Color(palette.danger))
                         .multilineTextAlignment(.center)
                         .padding(.top, 6)

@@ -14,6 +14,7 @@ final class EditorModel: ObservableObject {
     @Published var focusToken: Int = 0
     @Published var scrollToken: Int = 0
     @Published var wrapToken: Int = 0
+    @Published var duplicateToken: Int = 0
     private(set) var scrollTarget: Int = 0
     private(set) var wrapMarker: String = "**"
     @Published private(set) var placeholder: String = ""
@@ -65,10 +66,19 @@ final class EditorModel: ObservableObject {
         "Capture it before you forget.",
         "Anything to remember?",
     ]
-    @Published var fontSize: FontSize = .medium {
+    /// The one text-size control, replacing the old small/medium/large
+    /// cycle. Mirrors the config rather than owning it — `Settings` is
+    /// what persists it and what reconfigures `Typography`; this exists
+    /// to be a `@Published` SwiftUI can observe.
+    ///
+    /// Every writer clamps before assigning (`Metrics.steppedFontScale`,
+    /// `clampedFontScale`, `clampedDefaultFontScale`), so this setter does
+    /// not read the clamped value back — `didSet` fires on an equal write
+    /// too, and a write-back would recurse without end.
+    @Published var fontScale: Double = 1.0 {
         didSet {
             guard didLoad else { return }
-            settings.setFontSize(fontSize)
+            settings.setFontScale(fontScale)
         }
     }
     /// User-facing choice: light, dark, or follow-system. Persisted.
@@ -135,7 +145,7 @@ final class EditorModel: ObservableObject {
         ) { [weak self] _, _ in
             Task { @MainActor in self?.systemAppearanceMaybeChanged() }
         }
-        fontSize = settings.config.fontSize
+        fontScale = settings.config.clampedFontScale
         let chord = settings.config.summonChord
         hotKey = HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers)
         let url = scratchpadURL
@@ -202,8 +212,17 @@ final class EditorModel: ObservableObject {
         focusToken &+= 1
     }
 
-    func cycleFontSize() {
-        fontSize = fontSize.next
+    /// ⌘= / ⌘- and the footer's two glyph buttons. One step each way,
+    /// clamped at both ends by `Metrics`.
+    func stepFontScale(by steps: Int) {
+        fontScale = Metrics.steppedFontScale(fontScale, by: steps)
+        requestFocus()
+    }
+
+    /// ⌘0. Returns to `defaultFontScale` rather than to a constant 1.0,
+    /// so "reset" means the size this user considers normal.
+    func resetFontScale() {
+        fontScale = settings.config.clampedDefaultFontScale
         requestFocus()
     }
 
@@ -226,6 +245,11 @@ final class EditorModel: ObservableObject {
     /// parameterized by the marker string.
     func toggleBold() { wrapMarker = "**"; wrapToken &+= 1 }
     func toggleItalic() { wrapMarker = "*"; wrapToken &+= 1 }
+
+    /// ⌘D. Same token arrangement as ⌘B / ⌘I, for the same reason: the
+    /// edit needs the text view's live selection, which only
+    /// `MinimalTextEditor` has a handle on.
+    func duplicateSelection() { duplicateToken &+= 1 }
 
     func jumpTo(_ heading: Heading) {
         scrollTarget = heading.lineStart
@@ -317,7 +341,7 @@ final class EditorModel: ObservableObject {
 
         themePreference = settings.config.theme
         theme = themePreference.resolve()
-        fontSize = settings.config.fontSize
+        fontScale = settings.config.clampedFontScale
 
         let chord = settings.config.summonChord
         let reloaded = HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers)
@@ -397,9 +421,11 @@ struct EditorView: View {
                         scrollTarget: model.scrollTarget,
                         wrapToken: model.wrapToken,
                         wrapMarker: model.wrapMarker,
+                        duplicateToken: model.duplicateToken,
                         findHighlightToken: model.findHighlightToken,
                         findHighlightRange: model.findHighlightRange,
-                        fontSize: model.fontSize,
+                        fontScale: model.fontScale,
+                        indent: model.settings.config.indent,
                         theme: model.theme
                     )
                     .padding(.horizontal, 28)
@@ -407,7 +433,7 @@ struct EditorView: View {
                     .padding(.bottom, 4)
                     if model.text.isEmpty {
                         Text(model.placeholder)
-                            .font(Typography.notes(model.fontSize.pointSize))
+                            .font(Typography.notes(Metrics.bodySize))
                             .foregroundStyle(Color(palette.muted))
                             .allowsHitTesting(false)
                             .padding(.horizontal, 28)
@@ -416,8 +442,8 @@ struct EditorView: View {
                 }
                 BottomBar(
                     wordCount: wordCount,
-                    fontSize: model.fontSize,
-                    onCycleFontSize: { model.cycleFontSize() },
+                    onDecreaseFontScale: { model.stepFontScale(by: -1) },
+                    onIncreaseFontScale: { model.stepFontScale(by: 1) },
                     themePreference: model.themePreference,
                     onCycleTheme: { model.cycleTheme() },
                     onHelpClick: {

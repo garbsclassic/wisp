@@ -161,3 +161,66 @@ extension EnvironmentValues {
         set { self[PaletteKey.self] = newValue }
     }
 }
+
+/// Every type size Wisp draws with, plus the geometry that derives from
+/// one. Sizes are *design* sizes: `Typography` multiplies them by the
+/// live font scale on the way out, so nothing here is pre-scaled.
+///
+/// Named by role rather than by value — `chromeSize` survives 11 becoming
+/// 12, `size11` renames itself the first time that happens.
+public enum Metrics {
+    // MARK: Notes body
+
+    /// The notes body at scale 1.0. Was `FontSize.medium` before the
+    /// three-step enum and the continuous scale were merged into one
+    /// control, so a default config renders exactly as it used to.
+    public static let bodySize: CGFloat = 20
+    /// `#` and `##` step up off the body; `###` and below are bold at
+    /// body size, which is enough to read as a heading without a
+    /// six-level ramp that runs out of headroom.
+    public static let headingLevel1Ratio: CGFloat = 1.20
+    public static let headingLevel2Ratio: CGFloat = 1.10
+    /// Generous leading — this is a writing surface, not a dense list.
+    public static let bodyLineHeightMultiple: CGFloat = 1.45
+
+    // MARK: Chrome
+
+    /// Header, footer, and the incidental hint lines in the overlays.
+    public static let chromeSize: CGFloat = 11
+    /// Secondary labels inside an overlay — chord names, the find field's
+    /// leading glyph.
+    public static let labelSize: CGFloat = 12
+    /// Overlay row text and the find field itself: the one chrome size
+    /// meant to be read rather than glanced at.
+    public static let rowSize: CGFloat = 13
+    /// The single large string in the hotkey-capture overlay.
+    public static let titleSize: CGFloat = 18
+
+    /// Footer buttons are pinned to a fixed box rather than sized by
+    /// their glyph, so the row's spacing doesn't rag as icons change.
+    public static let footerButtonWidth: CGFloat = 24
+    public static let footerButtonHeight: CGFloat = 20
+
+    // MARK: Font scale
+
+    /// One press of ⌘= / ⌘- or one click of a footer button.
+    public static let fontScaleStep: Double = 0.1
+    /// Bounded so a typo in the config — or a key held down — can't leave
+    /// the app unreadable at either end.
+    public static let fontScaleRange: ClosedRange<Double> = 0.6...2.5
+
+    /// The scale clamped into range. A hand-edited value is kept as
+    /// written — only stepping snaps to `fontScaleStep`.
+    public static func clampFontScale(_ scale: Double) -> Double {
+        min(max(scale, fontScaleRange.lowerBound), fontScaleRange.upperBound)
+    }
+
+    /// `scale` moved by `steps` increments. Rounded onto the step grid
+    /// rather than added to: repeated `+= 0.1` in binary floating point
+    /// accumulates into values like 1.0999999999999999, and this one gets
+    /// written to the config where a person has to read it.
+    public static func steppedFontScale(_ scale: Double, by steps: Int) -> Double {
+        let grid = (scale / fontScaleStep).rounded() + Double(steps)
+        return clampFontScale(grid * fontScaleStep)
+    }
+}

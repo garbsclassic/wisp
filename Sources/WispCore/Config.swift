@@ -111,6 +111,55 @@ public struct FontSet: Codable, Equatable, Sendable {
     }
 }
 
+/// Whether the Tab key — and the smart list indentation built on it —
+/// writes spaces or a tab character.
+public enum IndentStyle: String, Codable, CaseIterable, Sendable {
+    case spaces
+    case tabs
+}
+
+/// How one level of indentation is spelled.
+public struct Indent: Codable, Equatable, Sendable {
+    public var style: IndentStyle
+    /// Spaces per level. Ignored under `.tabs`, where the width is the
+    /// reader's tab stop rather than ours.
+    public var size: Int
+
+    public init(style: IndentStyle = .spaces, size: Int = 2) {
+        self.style = style
+        self.size = size
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let diagnostics = decoder.configDiagnostics
+        let defaults = Indent()
+        style = container.lenientValue(
+            forKey: .style, default: defaults.style, diagnostics: diagnostics,
+            pathPrefix: "indent.")
+        size = container.lenientValue(
+            forKey: .size, default: defaults.size, diagnostics: diagnostics,
+            pathPrefix: "indent.")
+    }
+
+    /// The text one level of indentation inserts. `size` is bounded here
+    /// rather than at decode time so a typo stays visible in the file and
+    /// is recoverable by editing it back, the same bargain `fontScale`
+    /// makes.
+    public var unit: String {
+        switch style {
+        case .tabs: return "\t"
+        case .spaces: return String(repeating: " ", count: min(max(size, 1), 16))
+        }
+    }
+
+    /// Columns one level occupies, for working out a list item's nesting
+    /// depth from its leading whitespace. A tab counts as one level.
+    public var width: Int {
+        style == .tabs ? 1 : min(max(size, 1), 16)
+    }
+}
+
 /// Every chord Wisp binds. Only one so far, but it keeps the shape of the
 /// file stable if a second ever arrives, and it matches Clef's `keymap`.
 public struct Keymap: Codable, Equatable, Sendable {
@@ -203,12 +252,15 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// system option.
     public var theme: ThemePreference
     public var fonts: FontSet
-    /// The small/medium/large cycle behind ⌘1 / ⌘2 / ⌘3.
-    public var fontSize: FontSize
-    /// A continuous multiplier on top of `fontSize`, for a display that
-    /// needs everything a notch bigger. Clamped on the way out, not on the
-    /// way in, so a typo is recoverable by editing the file back.
+    /// The one text-size control: a multiplier on every design size in
+    /// `Metrics`, body and chrome alike. Moved by ⌘= / ⌘- and the footer
+    /// buttons, and persisted, so a size you set survives a relaunch.
+    /// Clamped on the way out, not on the way in, so a typo is
+    /// recoverable by editing the file back.
     public var fontScale: Double
+    /// What ⌘0 returns `fontScale` to. Separate from the live value so
+    /// "reset" means *your* normal size rather than a constant 1.0.
+    public var defaultFontScale: Double
     /// Blurs whatever is behind the panel. On by default in both themes —
     /// the tints are translucent so the blur is the panel's whole substance.
     public var vibrancy: Bool
@@ -221,32 +273,36 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// Folder holding `scratchpad.md`. Empty means the default, `~/Documents`.
     public var scratchpadPath: String
     public var keymap: Keymap
+    /// What the Tab key writes, and the step smart list indentation moves by.
+    public var indent: Indent
     /// Absent until the panel has been shown and hidden once.
     public var panel: PanelFrame?
 
     public init(
         theme: ThemePreference = .system,
         fonts: FontSet = FontSet(),
-        fontSize: FontSize = .medium,
         fontScale: Double = 1.0,
+        defaultFontScale: Double = 1.0,
         vibrancy: Bool = true,
         monitor: MonitorTarget = .primary,
         position: PanelPosition = .auto,
         dismissOnOutsideClick: Bool = true,
         scratchpadPath: String = "",
         keymap: Keymap = Keymap(),
+        indent: Indent = Indent(),
         panel: PanelFrame? = nil
     ) {
         self.theme = theme
         self.fonts = fonts
-        self.fontSize = fontSize
         self.fontScale = fontScale
+        self.defaultFontScale = defaultFontScale
         self.vibrancy = vibrancy
         self.monitor = monitor
         self.position = position
         self.dismissOnOutsideClick = dismissOnOutsideClick
         self.scratchpadPath = scratchpadPath
         self.keymap = keymap
+        self.indent = indent
         self.panel = panel
     }
 
@@ -261,10 +317,11 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .theme, default: defaults.theme, diagnostics: diagnostics)
         fonts = container.lenientValue(
             forKey: .fonts, default: defaults.fonts, diagnostics: diagnostics)
-        fontSize = container.lenientValue(
-            forKey: .fontSize, default: defaults.fontSize, diagnostics: diagnostics)
         fontScale = container.lenientValue(
             forKey: .fontScale, default: defaults.fontScale, diagnostics: diagnostics)
+        defaultFontScale = container.lenientValue(
+            forKey: .defaultFontScale, default: defaults.defaultFontScale,
+            diagnostics: diagnostics)
         vibrancy = container.lenientValue(
             forKey: .vibrancy, default: defaults.vibrancy, diagnostics: diagnostics)
         monitor = container.lenientValue(
@@ -278,6 +335,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .scratchpadPath, default: defaults.scratchpadPath, diagnostics: diagnostics)
         keymap = container.lenientValue(
             forKey: .keymap, default: defaults.keymap, diagnostics: diagnostics)
+        indent = container.lenientValue(
+            forKey: .indent, default: defaults.indent, diagnostics: diagnostics)
         // `T` is `PanelFrame?` here, so a missing key and an explicit null
         // both land on "no remembered frame".
         panel = container.lenientValue(
@@ -285,7 +344,12 @@ public struct WispConfig: Codable, Equatable, Sendable {
     }
 
     /// Bounded so a typo can't render the app unreadable or unusable.
-    public var clampedFontScale: Double { min(max(fontScale, 0.6), 2.5) }
+    public var clampedFontScale: Double { Metrics.clampFontScale(fontScale) }
+
+    /// The ⌘0 target, bounded the same way — a `defaultFontScale` outside
+    /// the range would otherwise make reset the one way to reach an
+    /// unreadable size.
+    public var clampedDefaultFontScale: Double { Metrics.clampFontScale(defaultFontScale) }
 
     /// The summon chord, or the default when the configured string doesn't
     /// parse — an unusable chord would otherwise leave the app with no way

@@ -98,3 +98,72 @@ struct ListMarkerTests {
         #expect(SmartEditing.nextListMarker(for: line) == nil)
     }
 }
+
+@Suite("List items")
+struct ListItemTests {
+    private func parse(_ line: String) -> SmartEditing.ListItem? {
+        let ns = line as NSString
+        return SmartEditing.listItem(
+            lineRange: NSRange(location: 0, length: ns.length), in: ns)
+    }
+
+    @Test("Bullet markers", arguments: ["- item", "* item", "+ item"])
+    func bullets(line: String) {
+        let item = parse(line)
+        #expect(item?.marker == .bullet)
+        #expect(item?.markerRange == NSRange(location: 0, length: 1))
+        #expect(item?.contentStart == 2)
+    }
+
+    @Test("Ordered markers", arguments: ["1. item", "12. item", "A. item", "a. item"])
+    func ordered(line: String) {
+        #expect(parse(line)?.marker == .ordered)
+    }
+
+    @Test("The marker range covers the digits and the dot")
+    func orderedMarkerRange() {
+        #expect(parse("12. item")?.markerRange == NSRange(location: 0, length: 3))
+    }
+
+    @Test("Leading whitespace is measured, not consumed")
+    func indentWidth() {
+        let item = parse("    - item")
+        #expect(item?.indentWidth == 4)
+        #expect(item?.markerRange == NSRange(location: 4, length: 1))
+        #expect(item?.contentStart == 6)
+    }
+
+    @Test("Depth counts levels against the configured indent width")
+    func depth() {
+        #expect(parse("- a")?.depth(indentWidth: 2) == 0)
+        #expect(parse("  - a")?.depth(indentWidth: 2) == 1)
+        #expect(parse("    - a")?.depth(indentWidth: 2) == 2)
+        // A hand-typed odd indent rounds down rather than resetting.
+        #expect(parse("   - a")?.depth(indentWidth: 2) == 1)
+    }
+
+    @Test("Not list items", arguments: [
+        "-word", "plain text", "1.item", "ab. item", "*bold*", "", "-", "#  heading",
+    ])
+    func rejected(line: String) {
+        #expect(parse(line) == nil)
+    }
+
+    @Test("A horizontal rule is not a bullet whose content is dashes")
+    func horizontalRule() {
+        #expect(parse("---") == nil)
+        #expect(parse("-----") == nil)
+    }
+
+    @Test("A trailing newline doesn't change the parse")
+    func trailingNewline() {
+        #expect(parse("- item\n")?.contentStart == 2)
+    }
+
+    @Test("Deeper nesting than there are glyphs reuses the last one")
+    func glyphs() {
+        #expect(SmartEditing.bulletGlyph(depth: 0) == "•")
+        #expect(SmartEditing.bulletGlyph(depth: 2) == "▪")
+        #expect(SmartEditing.bulletGlyph(depth: 9) == SmartEditing.bulletGlyph(depth: 2))
+    }
+}

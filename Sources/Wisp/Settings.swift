@@ -24,7 +24,7 @@ final class Settings: ObservableObject {
         config = load.config
         configWarning = load.error
         if load.seeded { migrateLegacyDefaults() }
-        Typography.configure(fonts: config.fonts, scale: config.clampedFontScale)
+        applyTypography()
     }
 
     /// The one warning worth showing, most severe first.
@@ -59,9 +59,16 @@ final class Settings: ObservableObject {
         write(["theme"], preference)
     }
 
-    func setFontSize(_ size: FontSize) {
-        config.fontSize = size
-        write(["fontSize"], size)
+    /// The one text-size control. `Typography` is reconfigured in the same
+    /// call rather than by the caller: the chrome re-resolves its fonts on
+    /// the next SwiftUI pass and would otherwise render at a scale the
+    /// config has already moved past.
+    func setFontScale(_ scale: Double) {
+        let clamped = Metrics.clampFontScale(scale)
+        guard clamped != config.fontScale else { return }
+        config.fontScale = clamped
+        applyTypography()
+        write(["fontScale"], clamped)
     }
 
     /// Stores the chord as the text a person would have typed. A capture
@@ -97,6 +104,13 @@ final class Settings: ObservableObject {
         let load = ConfigStore.loadOrSeed()
         config = load.config
         configWarning = load.error
+        applyTypography()
+    }
+
+    /// The single place the live config reaches `Typography`. Both the
+    /// launch path and every later change go through it, so the resolved
+    /// families and the scale can't drift apart from the file.
+    private func applyTypography() {
         Typography.configure(fonts: config.fonts, scale: config.clampedFontScale)
     }
 
@@ -129,9 +143,6 @@ final class Settings: ObservableObject {
 
         if let raw = defaults.string(forKey: "Theme"), let pref = ThemePreference(rawValue: raw) {
             migrated.theme = pref
-        }
-        if let raw = defaults.string(forKey: "FontSize"), let size = FontSize(rawValue: raw) {
-            migrated.fontSize = size
         }
         if defaults.object(forKey: "HotKeyCode") != nil {
             let keyCode = UInt32(defaults.integer(forKey: "HotKeyCode"))

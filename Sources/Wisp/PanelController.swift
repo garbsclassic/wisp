@@ -172,6 +172,12 @@ final class PanelController {
         }
     }
 
+    /// On screen *and* holding keyboard focus. The gate for every chord
+    /// that only means something with the panel in front of the user —
+    /// visibility alone isn't enough, since an app-modal picker leaves the
+    /// panel showing but not accepting input.
+    var isPanelFocused: Bool { panel.isVisible && panel.isKeyWindow }
+
     func openIfNeeded() {
         if !panel.isVisible {
             toggle()
