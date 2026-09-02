@@ -160,10 +160,14 @@ struct ListItemTests {
         #expect(parse("- item\n")?.contentStart == 2)
     }
 
-    @Test("Deeper nesting than there are glyphs reuses the last one")
+    @Test("Glyphs cycle rather than clamping past the last one")
     func glyphs() {
         #expect(SmartEditing.bulletGlyph(depth: 0) == "•")
+        #expect(SmartEditing.bulletGlyph(depth: 1) == "◦")
         #expect(SmartEditing.bulletGlyph(depth: 2) == "▪")
-        #expect(SmartEditing.bulletGlyph(depth: 9) == SmartEditing.bulletGlyph(depth: 2))
+        #expect(SmartEditing.bulletGlyph(depth: 3) == "•")
+        #expect(SmartEditing.bulletGlyph(depth: 7) == "◦")
+        // Never traps, however the depth was arrived at.
+        #expect(SmartEditing.bulletGlyph(depth: -1) == "▪")
     }
 }

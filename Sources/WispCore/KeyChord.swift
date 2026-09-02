@@ -1,3 +1,4 @@
+import AppKit
 import Carbon.HIToolbox
 import Foundation
 
@@ -130,6 +131,58 @@ public struct KeyChord: Equatable, Sendable {
         }
         for (token, code) in keyCodes where names[code] == nil { names[code] = token }
         return names
+    }()
+
+    /// The `(character, modifiers)` pair `NSMenuItem` wants for a key
+    /// equivalent.
+    ///
+    /// AppKit matches a menu equivalent on the *character*, not the key
+    /// code, which is why this is a second mapping rather than a cast of
+    /// `keyCode`. Arrows and the like have no printable character, so they
+    /// use the `NSxxxFunctionKey` constants AppKit reserves for exactly
+    /// this. A key with no menu spelling returns nil, and the item is built
+    /// without an equivalent rather than with a wrong one.
+    public var menuEquivalent: (character: String, modifiers: NSEvent.ModifierFlags)? {
+        guard let character = Self.menuCharacters[keyCode] else { return nil }
+        var flags: NSEvent.ModifierFlags = []
+        if carbonModifiers & UInt32(cmdKey) != 0 { flags.insert(.command) }
+        if carbonModifiers & UInt32(optionKey) != 0 { flags.insert(.option) }
+        if carbonModifiers & UInt32(controlKey) != 0 { flags.insert(.control) }
+        // Shift goes in the mask, never in the character: an uppercase
+        // keyEquivalent makes AppKit draw a second ⇧ in the menu.
+        if carbonModifiers & UInt32(shiftKey) != 0 { flags.insert(.shift) }
+        return (character, flags)
+    }
+
+    /// Key code → the character a menu equivalent matches on. Built from
+    /// `keyCodes` for everything printable, then overlaid with the function
+    /// keys AppKit spells with private-use scalars.
+    private static let menuCharacters: [UInt32: String] = {
+        var map: [UInt32: String] = [:]
+        for token in preferredKeyTokens where token.count == 1 {
+            if let code = keyCodes[token] { map[code] = token }
+        }
+        for (token, code) in keyCodes where token.count == 1 && map[code] == nil {
+            map[code] = token
+        }
+        let functionKeys: [(Int, Int)] = [
+            (kVK_UpArrow, NSUpArrowFunctionKey), (kVK_DownArrow, NSDownArrowFunctionKey),
+            (kVK_LeftArrow, NSLeftArrowFunctionKey), (kVK_RightArrow, NSRightArrowFunctionKey),
+            (kVK_Home, NSHomeFunctionKey), (kVK_End, NSEndFunctionKey),
+            (kVK_PageUp, NSPageUpFunctionKey), (kVK_PageDown, NSPageDownFunctionKey),
+            (kVK_F1, NSF1FunctionKey), (kVK_F2, NSF2FunctionKey), (kVK_F3, NSF3FunctionKey),
+            (kVK_F4, NSF4FunctionKey), (kVK_F5, NSF5FunctionKey), (kVK_F6, NSF6FunctionKey),
+            (kVK_F7, NSF7FunctionKey), (kVK_F8, NSF8FunctionKey), (kVK_F9, NSF9FunctionKey),
+            (kVK_F10, NSF10FunctionKey), (kVK_F11, NSF11FunctionKey), (kVK_F12, NSF12FunctionKey),
+        ]
+        for (code, scalar) in functionKeys {
+            map[UInt32(code)] = String(UnicodeScalar(UInt32(scalar))!)
+        }
+        map[UInt32(kVK_Space)] = " "
+        map[UInt32(kVK_Return)] = "\r"
+        map[UInt32(kVK_Tab)] = "\t"
+        map[UInt32(kVK_Delete)] = String(UnicodeScalar(UInt32(NSBackspaceCharacter))!)
+        return map
     }()
 
     private static let preferredKeyTokens: [String] = [

@@ -160,24 +160,6 @@ public struct Indent: Codable, Equatable, Sendable {
     }
 }
 
-/// Every chord Wisp binds. Only one so far, but it keeps the shape of the
-/// file stable if a second ever arrives, and it matches Clef's `keymap`.
-public struct Keymap: Codable, Equatable, Sendable {
-    /// The global summon chord, registered with Carbon at launch.
-    public var summon: String
-
-    public init(summon: String = "ctrl+opt+.") {
-        self.summon = summon
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        summon = container.lenientValue(
-            forKey: .summon, default: Keymap().summon, diagnostics: decoder.configDiagnostics,
-            pathPrefix: "keymap.")
-    }
-}
-
 /// Where the panel opens.
 public enum PanelPosition: String, Codable, CaseIterable, Sendable {
     /// Centred horizontally, top edge a tenth of the way down the screen.
@@ -270,6 +252,10 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// Clicking another app dismisses the panel outright. Switchable here so
     /// turning it off doesn't need a rebuild.
     public var dismissOnOutsideClick: Bool
+    /// Flashes a dot in the panel's top corner each time the note is
+    /// written to disk. On by default — the save is debounced and silent
+    /// otherwise, so there is nothing else that says it happened.
+    public var saveIndicator: Bool
     /// Folder holding `scratchpad.md`. Empty means the default, `~/Documents`.
     public var scratchpadPath: String
     public var keymap: Keymap
@@ -287,6 +273,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         monitor: MonitorTarget = .primary,
         position: PanelPosition = .auto,
         dismissOnOutsideClick: Bool = true,
+        saveIndicator: Bool = true,
         scratchpadPath: String = "",
         keymap: Keymap = Keymap(),
         indent: Indent = Indent(),
@@ -300,6 +287,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.monitor = monitor
         self.position = position
         self.dismissOnOutsideClick = dismissOnOutsideClick
+        self.saveIndicator = saveIndicator
         self.scratchpadPath = scratchpadPath
         self.keymap = keymap
         self.indent = indent
@@ -331,6 +319,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
         dismissOnOutsideClick = container.lenientValue(
             forKey: .dismissOnOutsideClick, default: defaults.dismissOnOutsideClick,
             diagnostics: diagnostics)
+        saveIndicator = container.lenientValue(
+            forKey: .saveIndicator, default: defaults.saveIndicator, diagnostics: diagnostics)
         scratchpadPath = container.lenientValue(
             forKey: .scratchpadPath, default: defaults.scratchpadPath, diagnostics: diagnostics)
         keymap = container.lenientValue(
@@ -355,12 +345,13 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// parse — an unusable chord would otherwise leave the app with no way
     /// to open at all.
     public var summonChord: KeyChord {
-        KeyChord.parse(keymap.summon) ?? KeyChord.parse(Keymap().summon)!
+        keymap.parsed(.summon) ?? KeyChord.parse(KeymapAction.summon.defaultChord)!
     }
 
-    /// True when the configured chord didn't parse, so the footer can say so
-    /// rather than leaving the user wondering why their chord does nothing.
-    public var summonChordIsValid: Bool { KeyChord.parse(keymap.summon) != nil }
+    /// True when the configured summon chord didn't parse, so the footer can
+    /// say so rather than leaving the user wondering why their chord does
+    /// nothing. Every other action reports through `unparseableActions`.
+    public var summonChordIsValid: Bool { keymap.parsed(.summon) != nil }
 
     public var scratchpadFolder: URL {
         StorageLocation.folder(forConfiguredPath: scratchpadPath)

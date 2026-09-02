@@ -77,6 +77,13 @@ public struct Palette {
     /// Background behind the current Find match. Amber in both themes so
     /// it stays distinguishable from an accent-tinted selection.
     public let findHighlight: NSColor
+    /// Background behind `==marked==` text. A marker-pen yellow, and a
+    /// token of its own rather than a reuse of `findHighlight`: one is
+    /// content the user wrote and the other is transient UI state, so
+    /// they should be free to diverge. They read alike today, which is
+    /// survivable because only the *current* find match is painted and
+    /// the view scrolls to it.
+    public let highlight: NSColor
 
     public static func `for`(_ theme: Theme) -> Palette {
         switch theme {
@@ -92,7 +99,8 @@ public struct Palette {
                 rule: rgb(0xCECDC3, 0.32),
                 border: rgb(0xCECDC3, 0.10),
                 selection: rgb(0x4ECBDF, 0.20),
-                findHighlight: rgb(0xD0A215, 0.38)
+                findHighlight: rgb(0xD0A215, 0.38),
+                highlight: rgb(0xD0A215, 0.24)
             )
         case .light:
             // Modernist Light — near-black ink on warm paper, vermilion
@@ -107,7 +115,8 @@ public struct Palette {
                 rule: rgb(0x201E1D, 0.18),
                 border: rgb(0x201E1D, 0.12),
                 selection: rgb(0xEC3013, 0.14),
-                findHighlight: rgb(0xD0A215, 0.50)
+                findHighlight: rgb(0xD0A215, 0.50),
+                highlight: rgb(0xD0A215, 0.34)
             )
         }
     }
@@ -186,18 +195,23 @@ public enum Metrics {
     // MARK: Chrome
 
     /// Header, footer, and the incidental hint lines in the overlays.
-    public static let chromeSize: CGFloat = 11
+    public static let chromeSize: CGFloat = 13
     /// Secondary labels inside an overlay — chord names, the find field's
     /// leading glyph.
-    public static let labelSize: CGFloat = 12
+    public static let labelSize: CGFloat = 14
     /// Overlay row text and the find field itself: the one chrome size
     /// meant to be read rather than glanced at.
-    public static let rowSize: CGFloat = 13
+    public static let rowSize: CGFloat = 15
     /// The single large string in the hotkey-capture overlay.
-    public static let titleSize: CGFloat = 18
+    public static let titleSize: CGFloat = 20
 
     /// Footer buttons are pinned to a fixed box rather than sized by
     /// their glyph, so the row's spacing doesn't rag as icons change.
+    /// The save dot. Small enough to read as a status light rather than a
+    /// control — the fork's original dot at this spot was clickable, and
+    /// anything larger invites the same reading.
+    public static let saveIndicatorSize: CGFloat = 6
+
     public static let footerButtonWidth: CGFloat = 24
     public static let footerButtonHeight: CGFloat = 20
 
@@ -215,12 +229,21 @@ public enum Metrics {
         min(max(scale, fontScaleRange.lowerBound), fontScaleRange.upperBound)
     }
 
-    /// `scale` moved by `steps` increments. Rounded onto the step grid
-    /// rather than added to: repeated `+= 0.1` in binary floating point
-    /// accumulates into values like 1.0999999999999999, and this one gets
-    /// written to the config where a person has to read it.
+    /// How many steps make up a scale of 1.0. The step is expressed as a
+    /// whole number of these rather than as `fontScaleStep` so the
+    /// arithmetic below can stay in integers until the last moment.
+    private static let stepsPerUnit: Double = 1 / fontScaleStep
+
+    /// `scale` moved by `steps` increments.
+    ///
+    /// Counts in whole steps and *divides* at the end. Adding 0.1 repeatedly
+    /// drifts (1.0999999999999999); so does snapping to the grid and then
+    /// multiplying back, which is what this did first — `12 * 0.1` is
+    /// 1.2000000000000002, a different double from `12 / 10`. Only the
+    /// division lands on the double that prints as "1.2", and this value is
+    /// written into a config a person has to read.
     public static func steppedFontScale(_ scale: Double, by steps: Int) -> Double {
-        let grid = (scale / fontScaleStep).rounded() + Double(steps)
-        return clampFontScale(grid * fontScaleStep)
+        let grid = (scale * stepsPerUnit).rounded() + Double(steps)
+        return clampFontScale(grid / stepsPerUnit)
     }
 }

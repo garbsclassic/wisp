@@ -104,3 +104,16 @@
   chord on the panel actually holding focus. Two bugs found while verifying: a note reloaded from
   disk lost its styling and showed the raw `-` under its own bullet, and `.kern` on list markers was
   never cleared. 144 tests
+- 2026-09-02 — [configurable-keymap](plan-configurable-keymap.md): every shortcut moved into
+  `keymap` as an action → chord table, generated from a new `KeymapAction` so the config file, the
+  menu, and the panel-focus gate all read off one list. Dispatch is a `KeyBindingMonitor` matching
+  key *codes*, not `NSMenuItem.keyEquivalent`, which cannot carry an Option-modified letter — ⌥L
+  typed `¬` instead of firing. Also found that `NSTextView` disables Cut and Copy on an empty
+  selection, so last pass's whole-line overrides had never once been called. New verbs: ⌥↑/⌥↓ move
+  the line or selection, ⌥L toggles a list item, ⌥H highlights `==text==`; ⌘I now writes `_text_`,
+  and `_x_`/`__x__` render with a word-boundary guard so `foo_bar_baz` stays plain. Fixed
+  `steppedFontScale` writing `1.2000000000000002` — it snapped to the grid then multiplied by 0.1
+  instead of dividing by 10. Bullet glyphs cycle past depth 3 rather than clamping, chrome type is
+  +2pt, the help page scrolls (wheel, arrows, page, ⌘↑/⌘↓) in a real NSScrollView, and the fork's
+  old first-run dot is back as a save indicator with a `saveIndicator` toggle. 173 tests
+

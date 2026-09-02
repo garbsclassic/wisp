@@ -41,7 +41,7 @@ struct ConfigDecodingTests {
                 "vibrancy": false,
             }
             """)
-        #expect(config.keymap.summon == "cmd+opt+w")
+        #expect(config.keymap.chord(for: .summon) == "cmd+opt+w")
         #expect(!config.vibrancy)
     }
 
@@ -160,7 +160,7 @@ struct ConfigDerivedTests {
     /// at all, so the default stands in and the footer says why.
     @Test("A broken summon chord falls back to the default and is flagged")
     func brokenChord() {
-        let config = WispConfig(keymap: Keymap(summon: "ctrl+opt+nosuchkey"))
+        let config = WispConfig(keymap: Keymap([.summon: "ctrl+opt+nosuchkey"]))
         #expect(!config.summonChordIsValid)
         #expect(config.summonChord == WispConfig().summonChord)
     }

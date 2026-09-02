@@ -44,6 +44,20 @@ final class NotesTextView: NSTextView {
 
     // MARK: Whole-line copy and cut
 
+    /// Keeps Cut and Copy enabled with an empty selection.
+    ///
+    /// `NSTextView` validates both against having a selection, and a
+    /// disabled menu item's key equivalent never fires — so without this
+    /// the overrides below are simply never called, and ⌘C silently does
+    /// nothing rather than taking the line. Everything else is left to
+    /// `super`.
+    override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(copy(_:)) || item.action == #selector(cut(_:)) {
+            return true
+        }
+        return super.validateUserInterfaceItem(item)
+    }
+
     /// ⌘C with nothing selected copies the whole line, newline included,
     /// so the paste lands as a line rather than in the middle of one.
     override func copy(_ sender: Any?) {
@@ -79,6 +93,19 @@ final class NotesTextView: NSTextView {
     /// ⌘D, routed here from the Edit menu through the model's token.
     func duplicateSelection() {
         apply(LineEdits.duplicate(in: string as NSString, selection: selectedRange()))
+    }
+
+    /// ⌥↑ / ⌥↓.
+    func moveLines(by delta: Int) {
+        let edit = LineEdits.moveLines(
+            in: string as NSString, selection: selectedRange(), by: delta)
+        guard !edit.isNoOp else { return }
+        apply(edit)
+    }
+
+    /// ⌥L.
+    func toggleListItem() {
+        apply(LineEdits.toggleListItem(in: string as NSString, selection: selectedRange()))
     }
 
     /// Tab. On a list item — or anywhere a selection spans — this shifts

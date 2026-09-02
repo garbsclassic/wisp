@@ -36,7 +36,14 @@ final class Settings: ObservableObject {
         if let configWarning { return configWarning }
         if let watcherWarning { return watcherWarning }
         if !config.summonChordIsValid {
-            return "Unreadable summon chord \"\(config.keymap.summon)\" — using the default"
+            return "Unreadable summon chord \"\(config.keymap.chord(for: .summon))\" — using the default"
+        }
+        let unbound = config.keymap.unparseableActions.filter { $0 != .summon }
+        if !unbound.isEmpty {
+            let names = unbound.map(\.rawValue).joined(separator: ", ")
+            return unbound.count == 1
+                ? "Unreadable keymap chord: \(names)"
+                : "Unreadable keymap chords: \(names)"
         }
         let missing = Typography.missingFamilies
         if !missing.isEmpty {
@@ -78,8 +85,8 @@ final class Settings: ObservableObject {
     func setSummon(keyCode: UInt32, carbonModifiers: UInt32) {
         guard let chord = KeyChord.string(keyCode: keyCode, carbonModifiers: carbonModifiers)
         else { return }
-        config.keymap.summon = chord
-        write(["keymap", "summon"], chord)
+        config.keymap.setChord(chord, for: .summon)
+        write(["keymap", KeymapAction.summon.rawValue], chord)
     }
 
     func setScratchpadPath(_ path: String) {
@@ -148,7 +155,7 @@ final class Settings: ObservableObject {
             let keyCode = UInt32(defaults.integer(forKey: "HotKeyCode"))
             let modifiers = UInt32(defaults.integer(forKey: "HotKeyMods"))
             if let chord = KeyChord.string(keyCode: keyCode, carbonModifiers: modifiers) {
-                migrated.keymap.summon = chord
+                migrated.keymap.setChord(chord, for: .summon)
             }
         }
         if let path = defaults.string(forKey: StorageLocation.legacyFolderKey), !path.isEmpty {

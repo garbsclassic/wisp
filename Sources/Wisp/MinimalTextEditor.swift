@@ -25,6 +25,9 @@ struct MinimalTextEditor: NSViewRepresentable {
     var wrapToken: Int
     var wrapMarker: String
     var duplicateToken: Int
+    var listItemToken: Int
+    var moveLineToken: Int
+    var moveLineDelta: Int
     var findHighlightToken: Int
     var findHighlightRange: NSRange
     /// The live text scale. Compared in `updateNSView` rather than assumed
@@ -136,6 +139,18 @@ struct MinimalTextEditor: NSViewRepresentable {
                 textView.duplicateSelection()
             }
         }
+        if context.coordinator.lastListItemToken != listItemToken {
+            context.coordinator.lastListItemToken = listItemToken
+            if textView.window?.firstResponder === textView {
+                textView.toggleListItem()
+            }
+        }
+        if context.coordinator.lastMoveLineToken != moveLineToken {
+            context.coordinator.lastMoveLineToken = moveLineToken
+            if textView.window?.firstResponder === textView {
+                textView.moveLines(by: moveLineDelta)
+            }
+        }
     }
 
     private func restyle(_ textView: NotesTextView) {
@@ -156,17 +171,20 @@ struct MinimalTextEditor: NSViewRepresentable {
     private func applyFindHighlight(to textView: NSTextView, scroll: Bool) {
         guard let storage = textView.textStorage else { return }
         let full = NSRange(location: 0, length: storage.length)
-        let range = findHighlightRange
+        let palette = Palette.for(theme)
         // Use a real storage background attribute (not a temporary layout
         // attribute): storage mutations always trigger a redraw, so the
-        // highlight clears deterministically. Nothing else touches
-        // .backgroundColor during a find session, and it's never written
-        // to disk (we save .string).
+        // highlight clears deterministically. It is never written to disk —
+        // we save `.string`.
         storage.removeAttribute(.backgroundColor, range: full)
+        // `==marked==` shares the attribute, so it is repainted before the
+        // match goes on top. Without this, opening Find erases every
+        // highlight in the note.
+        Self.styleHighlights(in: storage, palette: palette)
+
+        let range = findHighlightRange
         guard range.length > 0, NSMaxRange(range) <= full.length else { return }
-        storage.addAttribute(
-            .backgroundColor, value: Palette.for(theme).findHighlight, range: range
-        )
+        storage.addAttribute(.backgroundColor, value: palette.findHighlight, range: range)
         if scroll { textView.scrollRangeToVisible(range) }
     }
 
@@ -197,17 +215,19 @@ struct MinimalTextEditor: NSViewRepresentable {
         if let storage = textView.textStorage {
             resetBaseAttributes(
                 in: storage, font: font, color: palette.text, paragraph: paragraph)
-            restyleContent(in: storage, baseFont: font, headings: headings, indent: indent)
+            restyleContent(
+                in: storage, baseFont: font, headings: headings, indent: indent, palette: palette)
         }
     }
 
     /// Wipes the whole storage back to plain body text, so a content pass
     /// can run against a known state.
     ///
-    /// `.kern` is *removed* rather than overwritten: it is set only on list
-    /// markers, and it is the one attribute here with no base value to
-    /// reset it to. Left behind, a marker's kern would stay on whatever
-    /// character ends up at that offset once the line is edited.
+    /// `.kern` and `.backgroundColor` are *removed* rather than
+    /// overwritten: neither has a base value to reset to, and both are set
+    /// on ranges that move as the text is edited — a marker's kern would
+    /// otherwise stay on whatever character ends up at that offset, and a
+    /// `==` highlight would outlive the markers that asked for it.
     static func resetBaseAttributes(
         in storage: NSTextStorage, font: NSFont, color: NSColor, paragraph: NSParagraphStyle
     ) {
@@ -225,12 +245,13 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// line that *stopped* being a rule or a list item loses the styling it
     /// had. Cheap at scratchpad sizes.
     static func restyleContent(
-        in storage: NSTextStorage, baseFont: NSFont, headings: [Heading], indent: Indent
+        in storage: NSTextStorage, baseFont: NSFont, headings: [Heading], indent: Indent,
+        palette: Palette
     ) {
         styleHorizontalRules(in: storage)
         styleLists(in: storage, baseFont: baseFont, indent: indent)
         styleHeadings(in: storage, baseFont: baseFont, headings: headings)
-        styleBoldItalic(in: storage, baseFont: baseFont)
+        styleInlineMarkup(in: storage, baseFont: baseFont, palette: palette)
     }
 
     /// Apply bold + scaled font to lines that begin with a markdown heading
@@ -322,33 +343,95 @@ struct MinimalTextEditor: NSViewRepresentable {
         return NSAttributedString(string: text, attributes: [.font: font]).size().width
     }
 
-    /// Render `**bold**` and `*italic*` markdown runs with bold / italic
-    /// font traits added to whatever font is currently at that range.
-    /// Stays plain on disk; the asterisks remain visible to the user.
-    private static func styleBoldItalic(in storage: NSTextStorage, baseFont: NSFont) {
+    /// Render markdown emphasis with font traits, and `==marked==` with a
+    /// background. Stays plain on disk — the markers remain visible, the
+    /// same bargain the rest of the rendering makes.
+    ///
+    /// Both spellings of each form are read (`**`/`__`, `*`/`_`) even
+    /// though ⌘B and ⌘I only ever *write* one, so a note pasted in from
+    /// anywhere renders the way its author meant.
+    private static func styleInlineMarkup(
+        in storage: NSTextStorage, baseFont: NSFont, palette: Palette
+    ) {
         let text = storage.string
         for match in text.matches(of: /\*\*([^*\n]+)\*\*/) {
-            let nsRange = NSRange(match.range, in: text)
-            let current = currentFont(in: storage, at: nsRange.location, fallback: baseFont)
-            storage.addAttribute(.font, value: traitFont(current, traits: .bold), range: nsRange)
+            applyTrait(.bold, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
-        // Italic: *content*, skipping matches that touch another `*` on
-        // either side (which would mean the match is part of a **bold**).
-        // Swift Regex literals don't support lookbehind, so we filter
-        // post-match instead.
-        for match in text.matches(of: /\*([^*\n]+)\*/) {
-            let r = match.range
-            if r.lowerBound > text.startIndex,
-               text[text.index(before: r.lowerBound)] == "*" {
-                continue
-            }
-            if r.upperBound < text.endIndex, text[r.upperBound] == "*" {
-                continue
-            }
-            let nsRange = NSRange(r, in: text)
-            let current = currentFont(in: storage, at: nsRange.location, fallback: baseFont)
-            storage.addAttribute(.font, value: traitFont(current, traits: .italic), range: nsRange)
+        for match in text.matches(of: /__([^_\n]+)__/) where isFreestanding(match.range, in: text) {
+            applyTrait(.bold, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
+        // Italic: a single marker, skipping any match that touches another
+        // of the same marker on either side — that would mean the match is
+        // the inside of a bold run. Swift Regex literals have no lookbehind,
+        // so this filters after matching instead.
+        for match in text.matches(of: /\*([^*\n]+)\*/)
+        where !isAdjacent(to: "*", match.range, in: text) {
+            applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
+        }
+        for match in text.matches(of: /_([^_\n]+)_/)
+        where !isAdjacent(to: "_", match.range, in: text) && isFreestanding(match.range, in: text) {
+            applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
+        }
+        styleHighlights(in: storage, palette: palette)
+    }
+
+    /// `==marked==` runs, painted with a background.
+    ///
+    /// Separate from the rest of the inline pass because the find bar has
+    /// to be able to re-run just this: both features want
+    /// `.backgroundColor` and there is no second background attribute to
+    /// keep them apart.
+    static func styleHighlights(in storage: NSTextStorage, palette: Palette) {
+        let text = storage.string
+        for match in text.matches(of: /==([^=\n]+)==/) {
+            storage.addAttribute(
+                .backgroundColor, value: palette.highlight,
+                range: NSRange(match.range, in: text))
+        }
+    }
+
+    /// True when the run isn't butted against a word character on either
+    /// side.
+    ///
+    /// This is what keeps `foo_bar_baz` from rendering `_bar_` in italics —
+    /// a real hazard in a notes app that ends up holding identifiers and
+    /// file names. CommonMark draws the same distinction for `_` and not
+    /// for `*`, which is why only the underscore forms consult it.
+    private static func isFreestanding(_ range: Range<String.Index>, in text: String) -> Bool {
+        if range.lowerBound > text.startIndex {
+            let before = text[text.index(before: range.lowerBound)]
+            if before.isLetter || before.isNumber { return false }
+        }
+        if range.upperBound < text.endIndex {
+            let after = text[range.upperBound]
+            if after.isLetter || after.isNumber { return false }
+        }
+        return true
+    }
+
+    /// True when `marker` sits immediately outside either end of the run,
+    /// which means this match is the inside of a doubled (bold) one.
+    private static func isAdjacent(
+        to marker: Character, _ range: Range<String.Index>, in text: String
+    ) -> Bool {
+        if range.lowerBound > text.startIndex,
+            text[text.index(before: range.lowerBound)] == marker {
+            return true
+        }
+        if range.upperBound < text.endIndex, text[range.upperBound] == marker { return true }
+        return false
+    }
+
+    private static func applyTrait(
+        _ traits: NSFontDescriptor.SymbolicTraits,
+        over range: Range<String.Index>,
+        in storage: NSTextStorage,
+        text: String,
+        baseFont: NSFont
+    ) {
+        let nsRange = NSRange(range, in: text)
+        let current = currentFont(in: storage, at: nsRange.location, fallback: baseFont)
+        storage.addAttribute(.font, value: traitFont(current, traits: traits), range: nsRange)
     }
 
     private static func currentFont(in storage: NSTextStorage, at location: Int, fallback: NSFont) -> NSFont {
@@ -412,6 +495,8 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lastScrollToken: Int = 0
         var lastWrapToken: Int = 0
         var lastDuplicateToken: Int = 0
+        var lastListItemToken: Int = 0
+        var lastMoveLineToken: Int = 0
         var lastFindHighlightToken: Int = 0
         var lastFontScale: Double = 1
         var lastIndent: Indent = Indent()
@@ -442,7 +527,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                     paragraph: MinimalTextEditor.makeParagraphStyle())
                 MinimalTextEditor.restyleContent(
                     in: storage, baseFont: baseFont, headings: headings.wrappedValue,
-                    indent: lastIndent)
+                    indent: lastIndent, palette: palette)
             }
         }
 

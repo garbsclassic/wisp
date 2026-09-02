@@ -10,6 +10,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
     private var panelController: PanelController?
     private let hotKey = HotKeyMonitor()
+    /// Every configurable chord except `summon`, which Carbon owns because
+    /// it has to fire while another app is frontmost.
+    private var keyBindings: KeyBindingMonitor?
     /// Live reload: wisp.jsonc changed by hand or by a chezmoi apply, and
     /// scratchpad.md changed by another Mac through iCloud Drive, Dropbox,
     /// or Syncthing. The note watcher is rebuilt whenever the scratchpad
@@ -18,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var noteWatcher: DirectoryWatcher?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.mainMenu = MainMenuBuilder.make(target: self)
+        NSApp.mainMenu = MainMenuBuilder.make(target: self, keymap: settings.config.keymap)
         let panel = PanelController(model: model, settings: settings)
         panelController = panel
         menuBarController = MenuBarController(
@@ -43,6 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onRevealNote: { [weak self] in self?.revealNoteInFinder() }
         )
+
+        let bindings = KeyBindingMonitor(
+            isPanelFocused: { [weak panel] in panel?.isPanelFocused ?? false },
+            perform: { [weak self] action in self?.perform(action) })
+        bindings.apply(settings.config.keymap)
+        keyBindings = bindings
 
         configWatcher = DirectoryWatcher(directoryURL: ConfigStore.directory) { [weak self] in
             self?.reloadConfig()
@@ -118,7 +127,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func toggleBold(_ sender: Any?) { model.toggleBold() }
     @objc func toggleItalic(_ sender: Any?) { model.toggleItalic() }
+    @objc func toggleHighlight(_ sender: Any?) { model.toggleHighlight() }
     @objc func duplicateSelection(_ sender: Any?) { model.duplicateSelection() }
+    @objc func toggleListItem(_ sender: Any?) { model.toggleListItem() }
+    @objc func moveLineUp(_ sender: Any?) { model.moveLine(by: -1) }
+    @objc func moveLineDown(_ sender: Any?) { model.moveLine(by: 1) }
+
+    /// The one place a keymap action turns into work. Both the monitor and
+    /// the menu items land here, so a chord and its menu item can't drift.
+    private func perform(_ action: KeymapAction) {
+        switch action {
+        case .summon: panelController?.toggle()
+        case .find: showFind(nil)
+        case .settings: openSettings(nil)
+        case .refresh: refresh(nil)
+        case .help: toggleHelp(nil)
+        case .bold: model.toggleBold()
+        case .italic: model.toggleItalic()
+        case .highlight: model.toggleHighlight()
+        case .duplicateLine: model.duplicateSelection()
+        case .toggleListItem: model.toggleListItem()
+        case .moveLineUp: model.moveLine(by: -1)
+        case .moveLineDown: model.moveLine(by: 1)
+        case .increaseFontScale: model.stepFontScale(by: 1)
+        case .decreaseFontScale: model.stepFontScale(by: -1)
+        case .resetFontScale: model.resetFontScale()
+        }
+    }
 
     @objc func toggleHelp(_ sender: Any?) {
         withAnimation(.easeInOut(duration: 0.18)) { model.showHelp.toggle() }
@@ -131,19 +166,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// merely *active* — which it can be with no panel on screen at all,
     /// or while a storage picker is up. ⌘D would then quietly bump a token
     /// nothing is listening to, and ⌘= would rewrite the config from
-    /// under a modal. ⌘F, ⌘R, and ⌘, are deliberately absent: each opens
-    /// the panel when it is closed, which is the point of them.
+    /// under a modal.
+    ///
+    /// Which actions are scoped is read off `KeymapAction`, the same table
+    /// the bindings come from, so the gate can't drift away from the menu.
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        let panelScoped: Set<Selector> = [
-            #selector(duplicateSelection(_:)),
-            #selector(increaseFontScale(_:)),
-            #selector(decreaseFontScale(_:)),
-            #selector(resetFontScale(_:)),
-            #selector(toggleHelp(_:)),
-            #selector(toggleBold(_:)),
-            #selector(toggleItalic(_:)),
-        ]
-        guard let action = menuItem.action, panelScoped.contains(action) else { return true }
+        guard let selector = menuItem.action,
+            let action = MainMenuBuilder.action(for: selector),
+            action.isPanelScoped
+        else { return true }
         return panelController?.isPanelFocused ?? false
     }
 
@@ -280,6 +311,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard settings.config != previous else { return }
 
         model.adoptSettings()
+        // Both the menu and the binding table are pure functions of the
+        // keymap, so a changed one means rebuilding both. Microseconds
+        // either way, and far less delicate than patching in place.
+        if settings.config.keymap != previous.keymap {
+            NSApp.mainMenu = MainMenuBuilder.make(target: self, keymap: settings.config.keymap)
+            keyBindings?.apply(settings.config.keymap)
+        }
         // A reloaded `position` decides whether the panel can be dragged.
         // Only the movability, not the placement: re-placing would jerk
         // the panel out from under someone mid-sentence.

@@ -15,6 +15,13 @@ final class EditorModel: ObservableObject {
     @Published var scrollToken: Int = 0
     @Published var wrapToken: Int = 0
     @Published var duplicateToken: Int = 0
+    @Published var listItemToken: Int = 0
+    @Published var moveLineToken: Int = 0
+    private(set) var moveLineDelta: Int = 0
+    /// Flashed for a moment each time a save lands on disk. Nil-cost when
+    /// `saveIndicator` is off — nothing schedules the flash at all.
+    @Published private(set) var isShowingSaveFlash = false
+    private var saveFlashTask: Task<Void, Never>?
     private(set) var scrollTarget: Int = 0
     private(set) var wrapMarker: String = "**"
     @Published private(set) var placeholder: String = ""
@@ -244,12 +251,23 @@ final class EditorModel: ObservableObject {
     /// rather than each getting its own, since they're the same operation
     /// parameterized by the marker string.
     func toggleBold() { wrapMarker = "**"; wrapToken &+= 1 }
-    func toggleItalic() { wrapMarker = "*"; wrapToken &+= 1 }
+    /// `_word_` rather than `*word*`. Both still *render* as italic — this
+    /// is only what the key inserts.
+    func toggleItalic() { wrapMarker = "_"; wrapToken &+= 1 }
+    func toggleHighlight() { wrapMarker = "=="; wrapToken &+= 1 }
 
     /// ⌘D. Same token arrangement as ⌘B / ⌘I, for the same reason: the
     /// edit needs the text view's live selection, which only
     /// `MinimalTextEditor` has a handle on.
     func duplicateSelection() { duplicateToken &+= 1 }
+    func toggleListItem() { listItemToken &+= 1 }
+
+    /// ⌥↑ / ⌥↓. The delta rides alongside the token, the same pairing
+    /// `scrollTarget` has with `scrollToken`.
+    func moveLine(by delta: Int) {
+        moveLineDelta = delta
+        moveLineToken &+= 1
+    }
 
     func jumpTo(_ heading: Heading) {
         scrollTarget = heading.lineStart
@@ -392,6 +410,23 @@ final class EditorModel: ObservableObject {
         hasPendingSave = false
         guard url == scratchpadURL else { return }
         lastLoadedMTime = mtime
+        flashSaveIndicator()
+    }
+
+    /// Shows the dot, then hides it again a moment later.
+    ///
+    /// A fresh task per save, cancelling the last: saving twice in quick
+    /// succession should leave the dot up until the *second* one has had
+    /// its moment, not blink out on the first one's timer.
+    private func flashSaveIndicator() {
+        guard settings.config.saveIndicator else { return }
+        saveFlashTask?.cancel()
+        isShowingSaveFlash = true
+        saveFlashTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            guard !Task.isCancelled else { return }
+            self?.isShowingSaveFlash = false
+        }
     }
 
     nonisolated private static func write(_ text: String, to url: URL) throws {
@@ -422,6 +457,9 @@ struct EditorView: View {
                         wrapToken: model.wrapToken,
                         wrapMarker: model.wrapMarker,
                         duplicateToken: model.duplicateToken,
+                        listItemToken: model.listItemToken,
+                        moveLineToken: model.moveLineToken,
+                        moveLineDelta: model.moveLineDelta,
                         findHighlightToken: model.findHighlightToken,
                         findHighlightRange: model.findHighlightRange,
                         fontScale: model.fontScale,
@@ -454,8 +492,13 @@ struct EditorView: View {
                     warning: model.settings.warning
                 )
             }
+            // Above the editor but under every overlay: a status light has
+            // no business showing through a modal page.
+            if model.settings.config.saveIndicator, !model.showFind {
+                SaveIndicator(isVisible: model.isShowingSaveFlash)
+            }
             if model.showHelp {
-                HelpOverlay(summonChord: model.hotKey.displayString) {
+                HelpOverlay(keymap: model.settings.config.keymap) {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         model.showHelp = false
                     }

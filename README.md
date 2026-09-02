@@ -38,14 +38,16 @@ first leaves a dangling login item.
 - **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item
 - **Headings** — `#`, `##`, `###` render styled with click-to-jump navigation
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
-- **Bold / Italic** — ⌘B / ⌘I
-- **Line editing** — ⌘D duplicates the line or selection; ⌘C / ⌘X take the whole line when nothing is selected
+- **Bold / Italic / Highlight** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`)
+- **Line editing** — ⌘D duplicates the line or selection; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected
+- **⌥L** makes the line a list item, or unmakes it
 - **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
 - **Launch at Login** — toggle in the menu bar menu
 - **Refresh** — ⌘R re-reads the config and the note from disk
 - **Live reload** — changes to either from another app, Mac, or sync client appear on their own
 - **Plain markdown on disk** at `~/Documents/scratchpad.md`
 - **Sync across Macs** — point at any folder via the menu bar menu (iCloud Drive, Dropbox, Syncthing all work)
+- **Every shortcut rebindable** in the config
 - **Hand-editable config** at `~/.config/wisp/wisp.jsonc` — see below
 
 Press ⌘/ — or click the `?` in the footer — for the full keyboard shortcut list.
@@ -65,6 +67,7 @@ ignored.
 | `fonts.notes`           | `"Inter Nerd Font"`       | The notes body face                                                                                                          |
 | `fonts.ui`              | `"Inter Nerd Font Propo"` | Header, footer, and overlays                                                                                                 |
 | `fontScale`             | `1.0`                     | Multiplies every type size, body and chrome. ⌘= / ⌘- step it by 0.1. Clamped to 0.6–2.5                                     |
+| `saveIndicator`         | `true`                    | Flashes a dot in the top corner each time the note is written                                                                 |
 | `defaultFontScale`      | `1.0`                     | What ⌘0 resets `fontScale` to                                                                                                |
 | `indent.style`          | `"spaces"`                | `spaces` or `tabs` — what Tab writes                                                                                         |
 | `indent.size`           | `2`                       | Spaces per level. Ignored under `tabs`                                                                                       |
@@ -73,8 +76,26 @@ ignored.
 | `dismissOnOutsideClick` | `true`                    | Clicking another app closes the panel                                                                                        |
 | `position`              | `"auto"`                  | `auto` opens the panel centred, top edge a tenth down the screen, and pins it there; `manual` leaves it wherever you drag it |
 | `scratchpadPath`        | `""`                      | Folder for `scratchpad.md`; empty means `~/Documents`                                                                        |
-| `keymap.summon`         | `"ctrl+opt+."`            | The global chord, e.g. `cmd+shift+space`                                                                                     |
+| `keymap.*`              | _(see below)_             | Every shortcut, rebindable. `keymap.summon` is the global chord, e.g. `cmd+shift+space`                                      |
 | `panel`                 | _(written on first hide)_ | Remembered `width` / `height`, plus `x` / `y` once the panel has been dragged under `manual`                                 |
+
+### Keymap
+
+Every binding lives under `keymap`, written out in full on first run. A chord
+is modifiers plus a key, in any order — `cmd+shift+d`, `opt+up`, `ctrl+opt+.`.
+
+| Action                                    | Default    |
+| ----------------------------------------- | ---------- |
+| `summon`                                  | `ctrl+opt+.` |
+| `find` / `settings` / `refresh` / `help`  | `cmd+f` / `cmd+,` / `cmd+r` / `cmd+/` |
+| `bold` / `italic` / `highlight`           | `cmd+b` / `cmd+i` / `opt+h` |
+| `duplicateLine` / `toggleListItem`        | `cmd+d` / `opt+l` |
+| `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
+| `increaseFontScale` / `decreaseFontScale` / `resetFontScale` | `cmd+=` / `cmd+-` / `cmd+0` |
+
+`summon` is the only global one — the rest need Wisp's panel in front of you,
+except `find`, `settings`, and `refresh`, which open it. A chord that doesn't
+parse leaves that one action unbound and is named in the footer.
 
 Neither font is bundled — both are referenced by name, and Wisp falls back to
 the system face (and says so in the footer) when one isn't installed.

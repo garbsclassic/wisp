@@ -1,152 +1,138 @@
 import AppKit
+import WispCore
 
+/// Builds the main menu from the config's keymap.
+///
+/// The app is `.accessory`, so this menu bar is never drawn — it exists
+/// purely to carry key equivalents. That is also why every item is wired to
+/// the delegate rather than to the responder chain: an item with a target is
+/// offered to `validateMenuItem`, which is what scopes a chord to the
+/// focused panel.
 @MainActor
 enum MainMenuBuilder {
-    /// Builds one item wired to `target`, so `validateMenuItem` on the
-    /// delegate gets a say in whether it fires. An item left targeting nil
-    /// goes to the first responder and is never offered for validation.
+    /// Actions that dispatch to the delegate. `NSText`'s own editing items
+    /// (cut/copy/paste/undo) stay on the responder chain, since the notes
+    /// view overrides them directly.
+    private static let selectors: [KeymapAction: Selector] = [
+        .find: #selector(AppDelegate.showFind(_:)),
+        .settings: #selector(AppDelegate.openSettings(_:)),
+        .refresh: #selector(AppDelegate.refresh(_:)),
+        .help: #selector(AppDelegate.toggleHelp(_:)),
+        .bold: #selector(AppDelegate.toggleBold(_:)),
+        .italic: #selector(AppDelegate.toggleItalic(_:)),
+        .highlight: #selector(AppDelegate.toggleHighlight(_:)),
+        .duplicateLine: #selector(AppDelegate.duplicateSelection(_:)),
+        .toggleListItem: #selector(AppDelegate.toggleListItem(_:)),
+        .moveLineUp: #selector(AppDelegate.moveLineUp(_:)),
+        .moveLineDown: #selector(AppDelegate.moveLineDown(_:)),
+        .increaseFontScale: #selector(AppDelegate.increaseFontScale(_:)),
+        .decreaseFontScale: #selector(AppDelegate.decreaseFontScale(_:)),
+        .resetFontScale: #selector(AppDelegate.resetFontScale(_:)),
+    ]
+
+    /// The action a menu item stands for, recovered from its selector.
+    /// `validateMenuItem` uses this to reach `isPanelScoped`, so the gate
+    /// and the binding are read off the same table.
+    static func action(for selector: Selector) -> KeymapAction? {
+        selectors.first { $0.value == selector }?.key
+    }
+
+    static func make(target: AnyObject, keymap: Keymap) -> NSMenu {
+        let mainMenu = NSMenu()
+
+        mainMenu.addItem(
+            submenu: "Wisp",
+            items: [
+                item(.settings, target: target, keymap: keymap),
+                item(.refresh, target: target, keymap: keymap),
+                .separator(),
+                NSMenuItem(
+                    title: "Quit Wisp", action: #selector(NSApplication.terminate(_:)),
+                    keyEquivalent: "q"),
+            ])
+
+        let redo = NSMenuItem(
+            title: "Redo", action: NSSelectorFromString("redo:"), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        mainMenu.addItem(
+            submenu: "Edit",
+            items: [
+                NSMenuItem(
+                    title: "Undo", action: NSSelectorFromString("undo:"), keyEquivalent: "z"),
+                redo,
+                .separator(),
+                // Cut and Copy fall back to the whole line when nothing is
+                // selected — see NotesTextView, which overrides them.
+                NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"),
+                NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"),
+                NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"),
+                .separator(),
+                item(.duplicateLine, target: target, keymap: keymap),
+                item(.moveLineUp, target: target, keymap: keymap),
+                item(.moveLineDown, target: target, keymap: keymap),
+                .separator(),
+                NSMenuItem(
+                    title: "Select All", action: #selector(NSText.selectAll(_:)),
+                    keyEquivalent: "a"),
+                .separator(),
+                item(.find, target: target, keymap: keymap),
+            ])
+
+        mainMenu.addItem(
+            submenu: "Format",
+            items: [
+                item(.bold, target: target, keymap: keymap),
+                item(.italic, target: target, keymap: keymap),
+                item(.highlight, target: target, keymap: keymap),
+                .separator(),
+                item(.toggleListItem, target: target, keymap: keymap),
+            ])
+
+        mainMenu.addItem(
+            submenu: "View",
+            items: [
+                item(.increaseFontScale, target: target, keymap: keymap),
+                item(.decreaseFontScale, target: target, keymap: keymap),
+                item(.resetFontScale, target: target, keymap: keymap),
+            ])
+
+        // Titled "Shortcuts" rather than "Help" so AppKit doesn't claim it
+        // as *the* help menu and graft its search field on.
+        mainMenu.addItem(
+            submenu: "Shortcuts", items: [item(.help, target: target, keymap: keymap)])
+
+        return mainMenu
+    }
+
+    /// One item for a keymap action — deliberately with *no* key
+    /// equivalent.
+    ///
+    /// `KeyBindingMonitor` dispatches every configurable chord, because
+    /// `keyEquivalent` cannot express an Option-modified letter (macOS
+    /// composes `⌥L` into `¬` before AppKit compares characters). Leaving
+    /// the equivalent off is what stops a ⌘-chord firing twice — once from
+    /// the menu and once from the monitor.
+    ///
+    /// The items themselves stay: the app is `.accessory`, so this is not
+    /// about a menu anyone reads, but `validateMenuItem` and the selector
+    /// table both key off them.
     private static func item(
-        _ title: String, _ action: Selector, _ key: String, target: AnyObject
+        _ action: KeymapAction, target: AnyObject, keymap: Keymap
     ) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        let item = NSMenuItem(title: action.title, action: selectors[action], keyEquivalent: "")
         item.target = target
         return item
     }
+}
 
-    static func make(target: AnyObject) -> NSMenu {
-        let mainMenu = NSMenu()
-
-        let appMenuItem = NSMenuItem()
-        let appMenu = NSMenu()
-        let settingsItem = NSMenuItem(
-            title: "Settings…",
-            action: #selector(AppDelegate.openSettings(_:)),
-            keyEquivalent: ","
-        )
-        settingsItem.target = target
-        appMenu.addItem(settingsItem)
-        // Re-reads wisp.jsonc and the note. Here as well as in the
-        // menu-bar menu so ⌘R works while the panel has focus, which is
-        // where the reloaded note actually shows up.
-        let refreshItem = NSMenuItem(
-            title: "Refresh",
-            action: #selector(AppDelegate.refresh(_:)),
-            keyEquivalent: "r"
-        )
-        refreshItem.target = target
-        appMenu.addItem(refreshItem)
-        appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(
-            withTitle: "Quit Wisp",
-            action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q"
-        )
-        appMenuItem.submenu = appMenu
-        mainMenu.addItem(appMenuItem)
-
-        let editMenuItem = NSMenuItem()
-        let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(
-            withTitle: "Undo",
-            action: NSSelectorFromString("undo:"),
-            keyEquivalent: "z"
-        )
-        let redoItem = NSMenuItem(
-            title: "Redo",
-            action: NSSelectorFromString("redo:"),
-            keyEquivalent: "z"
-        )
-        redoItem.keyEquivalentModifierMask = [.command, .shift]
-        editMenu.addItem(redoItem)
-        editMenu.addItem(NSMenuItem.separator())
-        editMenu.addItem(
-            withTitle: "Cut",
-            action: #selector(NSText.cut(_:)),
-            keyEquivalent: "x"
-        )
-        editMenu.addItem(
-            withTitle: "Copy",
-            action: #selector(NSText.copy(_:)),
-            keyEquivalent: "c"
-        )
-        editMenu.addItem(
-            withTitle: "Paste",
-            action: #selector(NSText.paste(_:)),
-            keyEquivalent: "v"
-        )
-        editMenu.addItem(NSMenuItem.separator())
-        // ⌘C and ⌘X above fall back to the whole line when nothing is
-        // selected — see NotesTextView. ⌘D goes through the delegate
-        // because it needs the panel-focus gate the others get for free
-        // from the responder chain.
-        editMenu.addItem(
-            item("Duplicate", #selector(AppDelegate.duplicateSelection(_:)), "d", target: target))
-        editMenu.addItem(NSMenuItem.separator())
-        editMenu.addItem(
-            withTitle: "Select All",
-            action: #selector(NSText.selectAll(_:)),
-            keyEquivalent: "a"
-        )
-        editMenu.addItem(NSMenuItem.separator())
-        let findItem = NSMenuItem(
-            title: "Find",
-            action: #selector(AppDelegate.showFind(_:)),
-            keyEquivalent: "f"
-        )
-        findItem.target = target
-        editMenu.addItem(findItem)
-        editMenuItem.submenu = editMenu
-        mainMenu.addItem(editMenuItem)
-
-        let formatMenuItem = NSMenuItem()
-        let formatMenu = NSMenu(title: "Format")
-        let boldItem = NSMenuItem(
-            title: "Bold",
-            action: #selector(AppDelegate.toggleBold(_:)),
-            keyEquivalent: "b"
-        )
-        boldItem.target = target
-        formatMenu.addItem(boldItem)
-        let italicItem = NSMenuItem(
-            title: "Italic",
-            action: #selector(AppDelegate.toggleItalic(_:)),
-            keyEquivalent: "i"
-        )
-        italicItem.target = target
-        formatMenu.addItem(italicItem)
-        formatMenuItem.submenu = formatMenu
-        mainMenu.addItem(formatMenuItem)
-
-        let viewMenuItem = NSMenuItem()
-        let viewMenu = NSMenu(title: "View")
-        // One continuous scale replaces the old small/medium/large trio,
-        // so these are the standard zoom chords rather than ⌘1 / ⌘2 / ⌘3.
-        // ⌘= is bound to the unshifted key even though it reads as ⌘+,
-        // which is the platform convention.
-        viewMenu.addItem(
-            item("Increase Text Size", #selector(AppDelegate.increaseFontScale(_:)), "=",
-                 target: target))
-        viewMenu.addItem(
-            item("Decrease Text Size", #selector(AppDelegate.decreaseFontScale(_:)), "-",
-                 target: target))
-        viewMenu.addItem(
-            item("Actual Size", #selector(AppDelegate.resetFontScale(_:)), "0", target: target))
-        viewMenuItem.submenu = viewMenu
-        mainMenu.addItem(viewMenuItem)
-
-        // Titled "Shortcuts" rather than "Help" so AppKit doesn't claim it
-        // as *the* help menu and graft its search field on. Invisible
-        // either way — the app is `.accessory`, so this whole menu bar
-        // exists only to carry key equivalents.
-        let helpMenuItem = NSMenuItem()
-        let helpMenu = NSMenu(title: "Shortcuts")
-        // ⌘/ rather than the more obvious ⌘?: macOS reserves ⇧⌘/ for the
-        // help menu's own search field.
-        helpMenu.addItem(
-            item("Keyboard Shortcuts", #selector(AppDelegate.toggleHelp(_:)), "/", target: target))
-        helpMenuItem.submenu = helpMenu
-        mainMenu.addItem(helpMenuItem)
-
-        return mainMenu
+extension NSMenu {
+    /// Adds a submenu in the one shape this menu bar uses: a titled menu
+    /// under an otherwise-empty parent item.
+    fileprivate func addItem(submenu title: String, items: [NSMenuItem]) {
+        let parent = NSMenuItem()
+        let menu = NSMenu(title: title)
+        for item in items { menu.addItem(item) }
+        parent.submenu = menu
+        addItem(parent)
     }
 }

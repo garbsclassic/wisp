@@ -121,6 +121,124 @@ public enum LineEdits {
         }
     }
 
+    // MARK: Move and toggle
+
+    /// ⌥↑ / ⌥↓. Swaps the block of lines the selection touches with its
+    /// neighbour one line above (`steps` -1) or below (+1).
+    ///
+    /// Returns a no-op at either end of the note rather than wrapping —
+    /// carrying the top line to the bottom is never what the keypress
+    /// meant, and a no-op leaves the undo stack alone.
+    public static func moveLines(in text: NSString, selection: NSRange, by steps: Int) -> Edit {
+        let noOp = Edit(
+            range: NSRange(location: selection.location, length: 0), replacement: "",
+            selection: selection)
+        let block = lineBlock(in: text, covering: selection)
+
+        let neighbour: NSRange
+        if steps < 0 {
+            guard block.location > 0 else { return noOp }
+            neighbour = lineRange(in: text, at: block.location - 1)
+        } else {
+            guard NSMaxRange(block) < text.length else { return noOp }
+            neighbour = lineRange(in: text, at: NSMaxRange(block))
+        }
+
+        let combined = NSUnionRange(block, neighbour)
+        let trailingNewline = endsWithNewline(combined, in: text)
+        var lines = contentLines(of: combined, in: text)
+        guard lines.count > 1 else { return noOp }
+
+        // The neighbour is whichever end the move came from; putting it on
+        // the other end is the whole operation.
+        if steps < 0 {
+            lines.append(lines.removeFirst())
+        } else {
+            lines.insert(lines.removeLast(), at: 0)
+        }
+        let joined = lines.joined(separator: "\n") + (trailingNewline ? "\n" : "")
+
+        // Where the moved block starts afterwards: at the top of the
+        // combined range going up, and one whole neighbour line further
+        // down going down.
+        let blockStart =
+            steps < 0
+            ? combined.location
+            : combined.location + (contentLength(of: neighbour, in: text) + 1)
+        let offset = selection.location - block.location
+        return Edit(
+            range: combined,
+            replacement: joined,
+            selection: NSRange(location: blockStart + offset, length: selection.length))
+    }
+
+    /// ⌥L. Makes every line the selection touches a bullet item, or strips
+    /// the marker if they all already are.
+    ///
+    /// Mixed blocks become a list rather than losing their markers: "make
+    /// this a list" is what the key is usually reaching for, and unsetting
+    /// a half-list would silently discard the half that was already right.
+    /// Leading whitespace survives either way, so toggling doesn't flatten
+    /// a nested item.
+    public static func toggleListItem(
+        in text: NSString, selection: NSRange, marker: String = "- "
+    ) -> Edit {
+        let block = lineBlock(in: text, covering: selection)
+        let allItems = everyLine(of: block, in: text) { line in
+            SmartEditing.listItem(lineRange: line, in: text)?.marker == .bullet
+        }
+
+        return rewriteLines(in: text, selection: selection) { body in
+            let indent = body.prefix { $0 == " " || $0 == "\t" }
+            let ns = body as NSString
+            if allItems {
+                // Everything from the line start through the whitespace
+                // after the marker goes; the indent is put straight back.
+                let lineRange = NSRange(location: 0, length: ns.length)
+                guard let item = SmartEditing.listItem(lineRange: lineRange, in: ns) else {
+                    return (inserted: "", removed: 0)
+                }
+                return (inserted: String(indent), removed: item.contentStart)
+            }
+            return (inserted: indent + marker, removed: indent.count)
+        }
+    }
+
+    /// True when `predicate` holds for every line in `range`. An empty
+    /// range has no lines, so it is false — nothing to unset.
+    private static func everyLine(
+        of range: NSRange, in text: NSString, _ predicate: (NSRange) -> Bool
+    ) -> Bool {
+        var cursor = range.location
+        var sawOne = false
+        while cursor < NSMaxRange(range) {
+            let line = text.lineRange(for: NSRange(location: cursor, length: 0))
+            if !predicate(line) { return false }
+            sawOne = true
+            cursor = NSMaxRange(line)
+        }
+        return sawOne
+    }
+
+    /// The lines in `range`, each without its trailing newline.
+    private static func contentLines(of range: NSRange, in text: NSString) -> [String] {
+        var lines: [String] = []
+        var cursor = range.location
+        while cursor < NSMaxRange(range) {
+            let line = text.lineRange(for: NSRange(location: cursor, length: 0))
+            lines.append(
+                text.substring(with: NSRange(
+                    location: line.location, length: contentLength(of: line, in: text))))
+            cursor = NSMaxRange(line)
+        }
+        return lines
+    }
+
+    /// A line's length without its trailing newline.
+    private static func contentLength(of line: NSRange, in text: NSString) -> Int {
+        endsWithNewline(line, in: text) ? line.length - 1 : line.length
+    }
+
     /// Shared engine for indent and outdent: applies `change` to the head
     /// of every line the selection touches and maps the selection through
     /// the resulting width changes.

@@ -205,3 +205,145 @@ struct IndentEditTests {
         #expect(apply(outdented, to: once) == text)
     }
 }
+
+@Suite("LineEdits — move lines")
+struct MoveLinesTests {
+    @Test("Moving up swaps with the line above")
+    func up() {
+        let text = "one\ntwo\nthree\n"
+        let edit = LineEdits.moveLines(
+            in: text as NSString, selection: NSRange(location: 5, length: 0), by: -1)
+        #expect(apply(edit, to: text) == "two\none\nthree\n")
+    }
+
+    @Test("Moving down swaps with the line below")
+    func down() {
+        let text = "one\ntwo\nthree\n"
+        let edit = LineEdits.moveLines(
+            in: text as NSString, selection: NSRange(location: 1, length: 0), by: 1)
+        #expect(apply(edit, to: text) == "two\none\nthree\n")
+    }
+
+    @Test("The cursor rides the line it moved")
+    func cursorRides() {
+        let text = "one\ntwo\nthree\n"
+        // Column 1 of "two".
+        let edit = LineEdits.moveLines(
+            in: text as NSString, selection: NSRange(location: 5, length: 0), by: -1)
+        // "two" is now first, so column 1 of it is offset 1.
+        #expect(edit.selection == NSRange(location: 1, length: 0))
+    }
+
+    @Test("A multi-line selection moves as a block")
+    func block() {
+        let text = "one\ntwo\nthree\nfour\n"
+        let edit = LineEdits.moveLines(
+            in: text as NSString, selection: NSRange(location: 4, length: 8), by: 1)
+        #expect(apply(edit, to: text) == "one\nfour\ntwo\nthree\n")
+    }
+
+    @Test("A last line with no trailing newline still moves")
+    func lastLineWithoutNewline() {
+        let text = "one\ntwo"
+        let edit = LineEdits.moveLines(
+            in: text as NSString, selection: NSRange(location: 5, length: 0), by: -1)
+        #expect(apply(edit, to: text) == "two\none")
+    }
+
+    @Test("Moving into a line with no trailing newline keeps the document shape")
+    func intoLastLine() {
+        let text = "one\ntwo"
+        let edit = LineEdits.moveLines(
+            in: text as NSString, selection: NSRange(location: 0, length: 0), by: 1)
+        #expect(apply(edit, to: text) == "two\none")
+    }
+
+    @Test("At either edge it is a no-op, not a wrap-around")
+    func edges() {
+        let text = "one\ntwo\n"
+        let atTop = LineEdits.moveLines(
+            in: text as NSString, selection: NSRange(location: 0, length: 0), by: -1)
+        #expect(atTop.isNoOp)
+        #expect(apply(atTop, to: text) == text)
+
+        let atBottom = LineEdits.moveLines(
+            in: text as NSString, selection: NSRange(location: 5, length: 0), by: 1)
+        #expect(atBottom.isNoOp)
+        #expect(apply(atBottom, to: text) == text)
+    }
+
+    @Test("Up then down returns the document to where it started")
+    func roundTrip() {
+        let text = "one\ntwo\nthree\n"
+        let up = LineEdits.moveLines(
+            in: text as NSString, selection: NSRange(location: 9, length: 0), by: -1)
+        let once = apply(up, to: text)
+        let down = LineEdits.moveLines(in: once as NSString, selection: up.selection, by: 1)
+        #expect(apply(down, to: once) == text)
+    }
+}
+
+@Suite("LineEdits — toggle list item")
+struct ToggleListItemTests {
+    @Test("A plain line becomes a bullet")
+    func setOne() {
+        let text = "alpha\n"
+        let edit = LineEdits.toggleListItem(
+            in: text as NSString, selection: NSRange(location: 2, length: 0))
+        #expect(apply(edit, to: text) == "- alpha\n")
+    }
+
+    @Test("A bullet line loses its marker")
+    func unsetOne() {
+        let text = "- alpha\n"
+        let edit = LineEdits.toggleListItem(
+            in: text as NSString, selection: NSRange(location: 4, length: 0))
+        #expect(apply(edit, to: text) == "alpha\n")
+    }
+
+    @Test("Indentation survives in both directions")
+    func keepsIndent() {
+        let set = LineEdits.toggleListItem(
+            in: "    alpha\n" as NSString, selection: NSRange(location: 6, length: 0))
+        #expect(apply(set, to: "    alpha\n") == "    - alpha\n")
+
+        let unset = LineEdits.toggleListItem(
+            in: "    - alpha\n" as NSString, selection: NSRange(location: 8, length: 0))
+        #expect(apply(unset, to: "    - alpha\n") == "    alpha\n")
+    }
+
+    @Test("A block that is entirely bullets is unset")
+    func unsetBlock() {
+        let text = "- one\n- two\n"
+        let edit = LineEdits.toggleListItem(
+            in: text as NSString, selection: NSRange(location: 0, length: 11))
+        #expect(apply(edit, to: text) == "one\ntwo\n")
+    }
+
+    @Test("A mixed block becomes a list rather than losing its markers")
+    func mixedBlockBecomesList() {
+        let text = "- one\ntwo\n"
+        let edit = LineEdits.toggleListItem(
+            in: text as NSString, selection: NSRange(location: 0, length: 9))
+        #expect(apply(edit, to: text) == "- - one\n- two\n")
+    }
+
+    @Test("Set then unset is a round trip")
+    func roundTrip() {
+        let text = "alpha\nbeta\n"
+        let selection = NSRange(location: 0, length: 10)
+        let set = LineEdits.toggleListItem(in: text as NSString, selection: selection)
+        let once = apply(set, to: text)
+        #expect(once == "- alpha\n- beta\n")
+        let unset = LineEdits.toggleListItem(in: once as NSString, selection: set.selection)
+        #expect(apply(unset, to: once) == text)
+    }
+
+    @Test("An ordered item is left alone — it is not a bullet")
+    func ordered() {
+        let text = "1. alpha\n"
+        let edit = LineEdits.toggleListItem(
+            in: text as NSString, selection: NSRange(location: 4, length: 0))
+        #expect(apply(edit, to: text) == "- 1. alpha\n")
+    }
+}

@@ -196,8 +196,8 @@ final class ConfigStoreTests {
             """.write(to: ConfigStore.fileURL, atomically: true, encoding: .utf8)
 
         var config = ConfigStore.loadOrSeed().config
-        config.keymap.summon = "cmd+opt+w"
-        try ConfigStore.update(["keymap", "summon"], to: config.keymap.summon, in: config)
+        config.keymap.setChord("cmd+opt+w", for: .summon)
+        try ConfigStore.update(["keymap", "summon"], to: config.keymap.chord(for: .summon), in: config)
 
         let after = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
         #expect(after.contains("// my summon chord"))

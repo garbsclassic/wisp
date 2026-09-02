@@ -139,13 +139,16 @@ public enum SmartEditing {
     }
 
     /// The glyph drawn in place of a hidden bullet marker at each nesting
-    /// level. Deeper than the last entry reuses it — a fourth ring of
-    /// distinct symbols reads as noise, and the indent already carries the
-    /// depth by then.
+    /// level.
     public static let bulletGlyphs = ["•", "◦", "▪"]
 
+    /// Cycles rather than clamping past the last glyph, the way Word and
+    /// Docs do. The indent already states the absolute depth, so what a
+    /// fourth level needs from its glyph is to look different from its
+    /// parent — not to be a fourth distinct symbol.
     public static func bulletGlyph(depth: Int) -> String {
-        bulletGlyphs[min(max(depth, 0), bulletGlyphs.count - 1)]
+        let count = bulletGlyphs.count
+        return bulletGlyphs[((depth % count) + count) % count]
     }
 
     private static func isSpaceOrTab(_ c: unichar) -> Bool { c == 0x20 || c == 0x09 }
