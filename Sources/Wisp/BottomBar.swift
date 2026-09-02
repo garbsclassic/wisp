@@ -6,6 +6,9 @@ struct BottomBar: View {
     let onDecreaseFontScale: () -> Void
     let onIncreaseFontScale: () -> Void
     let themePreference: ThemePreference
+    /// Tooltips name their own chord, so a rebind shows up here without
+    /// anyone remembering to edit a string.
+    let keymap: Keymap
     let onCycleTheme: () -> Void
     let onHelpClick: () -> Void
     /// A bad config key, an unparseable chord, or a font that isn't
@@ -28,17 +31,18 @@ struct BottomBar: View {
             }
             Spacer()
             glyphButton(
-                "questionmark", help: "Keyboard shortcuts and formatting (⌘/)",
+                "questionmark", help: hint("Keyboard shortcuts and formatting", .help),
                 action: onHelpClick)
-            glyphButton(themeIconName, help: themeButtonHelp, action: onCycleTheme)
+            glyphButton(
+                themeIconName, help: hint(themeButtonHelp, .toggleTheme), action: onCycleTheme)
             // Two buttons rather than the old "Aa" cycle: the scale is
             // continuous now, and a single button can't express a range
             // you can move in both directions.
             glyphButton(
-                "textformat.size.smaller", help: "Smaller text (⌘-)",
+                "textformat.size.smaller", help: hint("Smaller text", .decreaseFontScale),
                 action: onDecreaseFontScale)
             glyphButton(
-                "textformat.size.larger", help: "Larger text (⌘=)",
+                "textformat.size.larger", help: hint("Larger text", .increaseFontScale),
                 action: onIncreaseFontScale)
             Text("esc to close")
         }
@@ -46,6 +50,16 @@ struct BottomBar: View {
         .foregroundStyle(Color(palette.muted))
         .padding(.horizontal, 28)
         .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+        .background(Color(palette.chrome))
+    }
+
+    /// A tooltip and the chord that does the same thing, separated by
+    /// spaces rather than wrapped in parentheses — the chord is a second
+    /// label, not an aside. AppKit renders tooltips itself, so this cannot
+    /// be two colors however much the chord wants to be muted.
+    private func hint(_ label: String, _ action: KeymapAction) -> String {
+        "\(label)   \(keymap.display(action))"
     }
 
     /// Footer buttons share one shape: an SF Symbol in a fixed box, so

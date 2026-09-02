@@ -34,6 +34,7 @@ struct HeaderBar: View {
             }
             .font(Typography.ui(Metrics.chromeSize))
             .foregroundStyle(Color(palette.muted))
+            .background(Color(palette.chrome))
         }
     }
 }

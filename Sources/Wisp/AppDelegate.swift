@@ -142,6 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .settings: openSettings(nil)
         case .refresh: refresh(nil)
         case .help: toggleHelp(nil)
+        case .toggleTheme: cycleTheme(nil)
         case .bold: model.toggleBold()
         case .italic: model.toggleItalic()
         case .highlight: model.toggleHighlight()
@@ -154,6 +155,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .resetFontScale: model.resetFontScale()
         }
     }
+
+    @objc func cycleTheme(_ sender: Any?) { model.cycleTheme() }
 
     @objc func toggleHelp(_ sender: Any?) {
         withAnimation(.easeInOut(duration: 0.18)) { model.showHelp.toggle() }

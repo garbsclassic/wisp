@@ -160,7 +160,7 @@ struct ConfigDerivedTests {
     /// at all, so the default stands in and the footer says why.
     @Test("A broken summon chord falls back to the default and is flagged")
     func brokenChord() {
-        let config = WispConfig(keymap: Keymap([.summon: "ctrl+opt+nosuchkey"]))
+        let config = WispConfig(keymap: Keymap([.summon: ChordSet(["ctrl+opt+nosuchkey"])]))
         #expect(!config.summonChordIsValid)
         #expect(config.summonChord == WispConfig().summonChord)
     }

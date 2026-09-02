@@ -116,4 +116,15 @@
   instead of dividing by 10. Bullet glyphs cycle past depth 3 rather than clamping, chrome type is
   +2pt, the help page scrolls (wheel, arrows, page, ⌘↑/⌘↓) in a real NSScrollView, and the fork's
   old first-run dot is back as a save indicator with a `saveIndicator` toggle. 173 tests
+- 2026-09-02 — [configurable-keymap](plan-configurable-keymap.md): keymap entries take a list as
+  well as a string (`"help": ["f1", "cmd+/"]`), via a `ChordSet` ported from Clef that encodes back
+  in whichever form fits; every chord in a set binds, and one bad entry no longer costs the aliases
+  beside it. Help defaults to F1 with ⌘/ as the alias — F1 only reaches the app when the Mac is set
+  to standard function keys, which is exactly what the alias is for. New `toggleTheme` action on
+  ⌘T. Chrome type +1 and body −1; the header and footer now sit on their own Flexoki `bg-2`
+  surface via a new `Palette.chrome`; panel corner radius 18 → 10, the standard-window value, since
+  a borderless panel gets no system corners and AppKit exposes no API for the real one. Tooltips
+  drop the parentheses around their chord, read it from the live keymap, and appear after 1s
+  instead of AppKit's much longer default (`NSInitialToolTipDelay`, registered per-process). 178
+  tests
 

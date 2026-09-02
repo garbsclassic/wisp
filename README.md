@@ -84,18 +84,28 @@ ignored.
 Every binding lives under `keymap`, written out in full on first run. A chord
 is modifiers plus a key, in any order — `cmd+shift+d`, `opt+up`, `ctrl+opt+.`.
 
+An action can take a list instead of a single chord, and every entry binds —
+`"help": ["f1", "cmd+/"]` reaches the same page two ways.
+
 | Action                                    | Default    |
 | ----------------------------------------- | ---------- |
 | `summon`                                  | `ctrl+opt+.` |
-| `find` / `settings` / `refresh` / `help`  | `cmd+f` / `cmd+,` / `cmd+r` / `cmd+/` |
+| `find` / `settings` / `refresh`           | `cmd+f` / `cmd+,` / `cmd+r` |
+| `help`                                    | `["f1", "cmd+/"]` |
 | `bold` / `italic` / `highlight`           | `cmd+b` / `cmd+i` / `opt+h` |
+| `toggleTheme`                             | `cmd+t` |
 | `duplicateLine` / `toggleListItem`        | `cmd+d` / `opt+l` |
 | `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
 | `increaseFontScale` / `decreaseFontScale` / `resetFontScale` | `cmd+=` / `cmd+-` / `cmd+0` |
 
+**F1 only reaches Wisp if your Mac is set to "Use F1, F2, etc. as standard
+function keys"** (Keyboard settings). Otherwise F1 dims the display and the
+app never sees it — press fn+F1, or use the `cmd+/` alias.
+
 `summon` is the only global one — the rest need Wisp's panel in front of you,
 except `find`, `settings`, and `refresh`, which open it. A chord that doesn't
-parse leaves that one action unbound and is named in the footer.
+parse is dropped; an action left with no working chord at all is named in the
+footer.
 
 Neither font is bundled — both are referenced by name, and Wisp falls back to
 the system face (and says so in the footer) when one isn't installed.

@@ -345,7 +345,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// parse — an unusable chord would otherwise leave the app with no way
     /// to open at all.
     public var summonChord: KeyChord {
-        keymap.parsed(.summon) ?? KeyChord.parse(KeymapAction.summon.defaultChord)!
+        keymap.parsed(.summon) ?? KeyChord.parse(KeymapAction.summon.defaultChords.chords[0])!
     }
 
     /// True when the configured summon chord didn't parse, so the footer can

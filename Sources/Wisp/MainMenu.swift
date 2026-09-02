@@ -18,6 +18,7 @@ enum MainMenuBuilder {
         .settings: #selector(AppDelegate.openSettings(_:)),
         .refresh: #selector(AppDelegate.refresh(_:)),
         .help: #selector(AppDelegate.toggleHelp(_:)),
+        .toggleTheme: #selector(AppDelegate.cycleTheme(_:)),
         .bold: #selector(AppDelegate.toggleBold(_:)),
         .italic: #selector(AppDelegate.toggleItalic(_:)),
         .highlight: #selector(AppDelegate.toggleHighlight(_:)),
@@ -94,6 +95,8 @@ enum MainMenuBuilder {
                 item(.increaseFontScale, target: target, keymap: keymap),
                 item(.decreaseFontScale, target: target, keymap: keymap),
                 item(.resetFontScale, target: target, keymap: keymap),
+                .separator(),
+                item(.toggleTheme, target: target, keymap: keymap),
             ])
 
         // Titled "Shortcuts" rather than "Help" so AppKit doesn't claim it

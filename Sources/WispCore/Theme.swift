@@ -63,6 +63,10 @@ public struct Palette {
     /// Raised chips: find bar, update card. Always lighter than `panel`
     /// in both themes, or a chip reads as a recess.
     public let surface: NSColor
+    /// The header and footer bars. Flexoki `bg-2`, whose whole job in that
+    /// palette is "surfaces: cards, sidebars, modals" — which is what the
+    /// chrome bars are relative to the writing area they frame.
+    public let chrome: NSColor
     /// The single accent, used sparingly — caret and selection only.
     /// Flexoki cyan / Modernist vermilion.
     public let accent: NSColor
@@ -95,6 +99,7 @@ public struct Palette {
                 danger: rgb(0xD14D41),
                 panel: rgb(0x1C1B1A),
                 surface: rgb(0x282726),
+                chrome: rgb(0x1C1B1A),
                 accent: rgb(0x4ECBDF),
                 rule: rgb(0xCECDC3, 0.32),
                 border: rgb(0xCECDC3, 0.10),
@@ -111,6 +116,7 @@ public struct Palette {
                 danger: rgb(0xAF3029),
                 panel: rgb(0xF0EFEF),
                 surface: rgb(0xF7F6F6),
+                chrome: rgb(0xE6E4E1),
                 accent: rgb(0xEC3013),
                 rule: rgb(0x201E1D, 0.18),
                 border: rgb(0x201E1D, 0.12),
@@ -183,7 +189,7 @@ public enum Metrics {
     /// The notes body at scale 1.0. Was `FontSize.medium` before the
     /// three-step enum and the continuous scale were merged into one
     /// control, so a default config renders exactly as it used to.
-    public static let bodySize: CGFloat = 20
+    public static let bodySize: CGFloat = 19
     /// `#` and `##` step up off the body; `###` and below are bold at
     /// body size, which is enough to read as a heading without a
     /// six-level ramp that runs out of headroom.
@@ -195,15 +201,15 @@ public enum Metrics {
     // MARK: Chrome
 
     /// Header, footer, and the incidental hint lines in the overlays.
-    public static let chromeSize: CGFloat = 13
+    public static let chromeSize: CGFloat = 14
     /// Secondary labels inside an overlay — chord names, the find field's
     /// leading glyph.
-    public static let labelSize: CGFloat = 14
+    public static let labelSize: CGFloat = 15
     /// Overlay row text and the find field itself: the one chrome size
     /// meant to be read rather than glanced at.
-    public static let rowSize: CGFloat = 15
+    public static let rowSize: CGFloat = 16
     /// The single large string in the hotkey-capture overlay.
-    public static let titleSize: CGFloat = 20
+    public static let titleSize: CGFloat = 21
 
     /// Footer buttons are pinned to a fixed box rather than sized by
     /// their glyph, so the row's spacing doesn't rag as icons change.

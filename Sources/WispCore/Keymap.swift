@@ -1,6 +1,45 @@
 import AppKit
 import Carbon.HIToolbox
 
+/// The chords bound to one action. A single string or a list — `"cmd+/"`
+/// and `["f1", "cmd+/"]` both decode — since most actions want one chord and
+/// wrapping every one of those in an array would be noise to read and to
+/// write. It encodes back in whichever of the two forms fits, so a seeded
+/// config doesn't sprout one-element arrays.
+///
+/// Aliasing is the point: F1 and ⌘/ are the same action reached two ways,
+/// and this is what lets the config say so. Follows Clef's `ChordSet`.
+public struct ChordSet: Codable, Equatable, Sendable, ExpressibleByStringLiteral,
+    ExpressibleByArrayLiteral
+{
+    public var chords: [String]
+
+    public init(_ chords: [String]) { self.chords = chords }
+    public init(stringLiteral value: String) { self.chords = [value] }
+    public init(arrayLiteral elements: String...) { self.chords = elements }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let single = try? container.decode(String.self) {
+            chords = [single]
+        } else {
+            // Not `try?`: a value that's neither string nor array of strings
+            // has to throw, or `lenientValue` never hears about it and the
+            // typo goes unreported.
+            chords = try container.decode([String].self)
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if chords.count == 1 {
+            try container.encode(chords[0])
+        } else {
+            try container.encode(chords)
+        }
+    }
+}
+
 /// Every action Wisp binds a key to.
 ///
 /// One case per binding, carrying its own default chord and its own scope,
@@ -16,6 +55,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case settings
     case refresh
     case help
+
+    case toggleTheme
 
     case bold
     case italic
@@ -39,6 +80,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .settings: return "Settings…"
         case .refresh: return "Refresh"
         case .help: return "Keyboard Shortcuts"
+        case .toggleTheme: return "Cycle Theme"
         case .bold: return "Bold"
         case .italic: return "Italic"
         case .highlight: return "Highlight"
@@ -52,15 +94,18 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    public var defaultChord: String {
+    public var defaultChords: ChordSet {
         switch self {
         case .summon: return "ctrl+opt+."
         case .find: return "cmd+f"
         case .settings: return "cmd+,"
         case .refresh: return "cmd+r"
-        case .help: return "cmd+/"
+        // F1 first, since that is what the key is for; ⌘/ is the alias
+        // people reach for without thinking.
+        case .help: return ["f1", "cmd+/"]
         case .bold: return "cmd+b"
         case .italic: return "cmd+i"
+        case .toggleTheme: return "cmd+t"
         case .highlight: return "opt+h"
         case .duplicateLine: return "cmd+d"
         case .toggleListItem: return "opt+l"
@@ -95,27 +140,27 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
 /// `keymap` object naming only one action still works — the same bargain
 /// every other key in the config makes.
 public struct Keymap: Codable, Equatable, Sendable {
-    private var chords: [String: String]
+    private var bindings: [String: ChordSet]
 
-    public init(_ overrides: [KeymapAction: String] = [:]) {
-        var table: [String: String] = [:]
+    public init(_ overrides: [KeymapAction: ChordSet] = [:]) {
+        var table: [String: ChordSet] = [:]
         for action in KeymapAction.allCases {
-            table[action.rawValue] = overrides[action] ?? action.defaultChord
+            table[action.rawValue] = overrides[action] ?? action.defaultChords
         }
-        chords = table
+        bindings = table
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: DynamicKey.self)
         let diagnostics = decoder.configDiagnostics
-        var table: [String: String] = [:]
+        var table: [String: ChordSet] = [:]
         for action in KeymapAction.allCases {
             let key = DynamicKey(stringValue: action.rawValue)!
             table[action.rawValue] = container.lenientValue(
-                forKey: key, default: action.defaultChord, diagnostics: diagnostics,
+                forKey: key, default: action.defaultChords, diagnostics: diagnostics,
                 pathPrefix: "keymap.")
         }
-        chords = table
+        bindings = table
     }
 
     /// Written back in full, so a seeded config lists every binding there
@@ -124,39 +169,55 @@ public struct Keymap: Codable, Equatable, Sendable {
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: DynamicKey.self)
         for action in KeymapAction.allCases {
-            try container.encode(chord(for: action), forKey: DynamicKey(stringValue: action.rawValue)!)
+            try container.encode(
+                chordSet(for: action), forKey: DynamicKey(stringValue: action.rawValue)!)
         }
     }
 
+    public func chordSet(for action: KeymapAction) -> ChordSet {
+        bindings[action.rawValue] ?? action.defaultChords
+    }
+
+    /// The first chord bound to the action — what the Set Shortcut… overlay
+    /// rewrites, and what the help page prints when there is only one.
     public func chord(for action: KeymapAction) -> String {
-        chords[action.rawValue] ?? action.defaultChord
+        chordSet(for: action).chords.first ?? ""
     }
 
+    /// Replaces every chord on the action. The capture overlay binds one
+    /// key at a time, so an alias list it rewrites collapses to that key —
+    /// which is what picking a shortcut in a UI means.
     public mutating func setChord(_ chord: String, for action: KeymapAction) {
-        chords[action.rawValue] = chord
+        bindings[action.rawValue] = ChordSet([chord])
     }
 
-    /// The parsed chord, or nil when the configured text doesn't parse.
-    /// Nil rather than a silent fallback: an action bound to nothing is
-    /// visibly missing its shortcut, which is a better clue than one that
-    /// works but isn't the chord you wrote.
+    /// Every chord on the action that parses. Unparseable ones are dropped
+    /// rather than failing the whole set, so one typo in an alias list
+    /// doesn't cost you the alias that was fine.
+    public func parsedChords(for action: KeymapAction) -> [KeyChord] {
+        chordSet(for: action).chords.compactMap(KeyChord.parse)
+    }
+
+    /// The first parsed chord, for the places that can only show one.
     public func parsed(_ action: KeymapAction) -> KeyChord? {
-        KeyChord.parse(chord(for: action))
+        parsedChords(for: action).first
     }
 
-    /// The chord as a person reads it — "⌘B", "⌥↑". Falls back to the raw
-    /// configured text when it doesn't parse, so the help page shows what
-    /// is actually in the file rather than a blank.
+    /// The chords as a person reads them — "⌘B", or "F1 / ⌘/" for an alias
+    /// list. Falls back to the raw configured text when nothing parses, so
+    /// the help page shows what is actually in the file rather than a blank.
     public func display(_ action: KeymapAction) -> String {
-        guard let parsedChord = parsed(action) else { return chord(for: action) }
-        return HotKey(
-            keyCode: parsedChord.keyCode, modifiers: parsedChord.carbonModifiers).displayString
+        let parsed = parsedChords(for: action)
+        guard !parsed.isEmpty else { return chordSet(for: action).chords.joined(separator: " / ") }
+        return parsed
+            .map { HotKey(keyCode: $0.keyCode, modifiers: $0.carbonModifiers).displayString }
+            .joined(separator: " / ")
     }
 
-    /// Actions whose configured chord doesn't parse, for the footer
-    /// warning. In `allCases` order so the message reads consistently.
+    /// Actions left with no working chord at all, for the footer warning.
+    /// In `allCases` order so the message reads consistently.
     public var unparseableActions: [KeymapAction] {
-        KeymapAction.allCases.filter { parsed($0) == nil }
+        KeymapAction.allCases.filter { parsedChords(for: $0).isEmpty }
     }
 }
 

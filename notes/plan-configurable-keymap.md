@@ -112,3 +112,12 @@ Neither was reachable by reading the code, and neither was covered by a unit tes
 - [x] Save dot measured appearing ~800ms after a keystroke, 6pt wide as specced, gone when idle, and absent across 12 frames with `saveIndicator: false`
 - [x] `_italic_`, `__bold__`, `*star*`, `**double**`, `==highlight==` and the `foo_bar_baz` guard screenshotted in both themes
 - [x] Bullet cycling screenshotted at five depths — `•` `◦` `▪` `•` `◦`
+
+## Follow-up pass
+
+Six smaller asks landed on the same files, plus two that needed a decision.
+
+- **`bg-2` for chrome** was ambiguous — Flexoki's `bg-2` is already `Palette.panel`, and `Chrome.tintColor` is a different thing again. Asked; the answer was the header and footer bars, which now have a `Palette.chrome` surface of their own. Measured after: chrome composites to `#252322` against a `#21211F` body in dark — a real separation, and subtle by design.
+- **Corner radius** has no API. `NSThemeFrame` carries no layer radius (macOS draws window corners in the window server), and a `.borderless` panel gets no system corners at all — every rounded edge is ours. Measuring a real window off the screen kept catching its shadow rather than its edge. Asked rather than guessed; settled on 10pt, the standard-window value since Big Sur.
+- **Tooltip colour is not reachable.** AppKit renders `.help()` tooltips itself, so the chord in one cannot be muted while the label stays full-strength. The parentheses are gone and the chord is separated by spaces instead, which is as far as a system tooltip goes. A custom tooltip view would get the rest, and is not worth it for four buttons.
+- **F1 is a trap on a default Mac.** It dims the display, and the app never sees the key — verified here with `defaults read -g com.apple.keyboard.fnState`. The synthetic events used for testing bypass that translation, so it passed under test and would have failed in the hand. This is the case the alias list exists for, and `cmd+/` stays bound.

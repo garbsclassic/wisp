@@ -483,6 +483,7 @@ struct EditorView: View {
                     onDecreaseFontScale: { model.stepFontScale(by: -1) },
                     onIncreaseFontScale: { model.stepFontScale(by: 1) },
                     themePreference: model.themePreference,
+                    keymap: model.settings.config.keymap,
                     onCycleTheme: { model.cycleTheme() },
                     onHelpClick: {
                         withAnimation(.easeInOut(duration: 0.18)) {

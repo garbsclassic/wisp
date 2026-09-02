@@ -43,11 +43,13 @@ final class KeyBindingMonitor {
     /// `Any?`, which a nonisolated deinit may not read off a `@MainActor`
     /// type.
     func apply(_ keymap: Keymap) {
-        bindings = KeymapAction.allCases.compactMap { action in
+        // Flat-mapped, not compact-mapped: an action can carry several
+        // chords (F1 *and* ⌘/), and each of them has to match.
+        bindings = KeymapAction.allCases.flatMap { action in
             // `summon` is Carbon's, and global; it must keep working while
             // another app is frontmost, which a local monitor never sees.
-            guard action != .summon, let chord = keymap.parsed(action) else { return nil }
-            return (chord, action)
+            guard action != .summon else { return [(chord: KeyChord, action: KeymapAction)]() }
+            return keymap.parsedChords(for: action).map { (chord: $0, action: action) }
         }
         start()
     }

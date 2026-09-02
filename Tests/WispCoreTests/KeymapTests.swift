@@ -14,34 +14,36 @@ struct KeymapTests {
         return try decoder.decode(WispConfig.self, from: Data(json.utf8))
     }
 
-    @Test("Every action has a chord that parses")
+    @Test("Every action has at least one chord that parses")
     func defaultsAllParse() {
         let keymap = Keymap()
         for action in KeymapAction.allCases {
-            #expect(keymap.parsed(action) != nil, "\(action.rawValue) has an unparseable default")
+            #expect(
+                !keymap.parsedChords(for: action).isEmpty,
+                "\(action.rawValue) has no parseable default")
         }
         #expect(keymap.unparseableActions.isEmpty)
     }
 
-    @Test("No two actions share a chord")
+    @Test("No chord is bound to two actions")
     func defaultsAreUnique() {
-        let chords = KeymapAction.allCases.map(\.defaultChord)
-        #expect(Set(chords).count == chords.count)
+        let all = KeymapAction.allCases.flatMap(\.defaultChords.chords)
+        #expect(Set(all).count == all.count)
     }
 
     @Test("A partial keymap object keeps the defaults for everything else")
     func partialOverlay() throws {
         let config = try decode(#"{ "keymap": { "bold": "cmd+shift+b" } }"#)
         #expect(config.keymap.chord(for: .bold) == "cmd+shift+b")
-        #expect(config.keymap.chord(for: .italic) == KeymapAction.italic.defaultChord)
-        #expect(config.keymap.chord(for: .summon) == KeymapAction.summon.defaultChord)
+        #expect(config.keymap.chordSet(for: .italic) == KeymapAction.italic.defaultChords)
+        #expect(config.keymap.chordSet(for: .summon) == KeymapAction.summon.defaultChords)
     }
 
     @Test("A malformed chord value is named rather than swallowed")
     func malformedValue() throws {
         let diagnostics = ConfigDiagnostics()
         let config = try decode(#"{ "keymap": { "bold": 7 } }"#, diagnostics: diagnostics)
-        #expect(config.keymap.chord(for: .bold) == KeymapAction.bold.defaultChord)
+        #expect(config.keymap.chordSet(for: .bold) == KeymapAction.bold.defaultChords)
         #expect(diagnostics.malformedKeys == ["keymap.bold"])
     }
 
@@ -57,11 +59,12 @@ struct KeymapTests {
     @Test("Encoding writes every action, so a seeded file lists them all")
     func encodesEveryAction() throws {
         let data = try JSONEncoder().encode(Keymap())
-        let object = try JSONSerialization.jsonObject(with: data) as? [String: String]
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         #expect(object?.count == KeymapAction.allCases.count)
-        for action in KeymapAction.allCases {
-            #expect(object?[action.rawValue] == action.defaultChord)
-        }
+        // Single chords encode as a bare string; only an alias list becomes
+        // an array, so a seeded file has no one-element arrays in it.
+        #expect(object?["bold"] as? String == "cmd+b")
+        #expect(object?["help"] as? [String] == ["f1", "cmd+/"])
     }
 
     @Test("A round trip through JSON preserves an override")
@@ -73,6 +76,42 @@ struct KeymapTests {
         #expect(decoded.chord(for: .highlight) == "ctrl+opt+k")
     }
 
+    @Test("A chord list binds every entry, and one bad entry doesn't cost the others")
+    func aliasList() throws {
+        let config = try decode(#"{ "keymap": { "help": ["f1", "cmd+/", "cmd+nope"] } }"#)
+        let parsed = config.keymap.parsedChords(for: .help)
+        #expect(parsed.count == 2)
+        #expect(config.keymap.unparseableActions.isEmpty)
+        #expect(config.keymap.display(.help) == "F1 / ⌘/")
+    }
+
+    @Test("A bare string still decodes, so old configs keep working")
+    func singleStringForm() throws {
+        let config = try decode(#"{ "keymap": { "help": "cmd+h" } }"#)
+        #expect(config.keymap.chordSet(for: .help) == ChordSet(["cmd+h"]))
+    }
+
+    @Test("A value that is neither a string nor a list is reported")
+    func wrongShape() throws {
+        let diagnostics = ConfigDiagnostics()
+        let config = try decode(#"{ "keymap": { "help": { "key": "f1" } } }"#, diagnostics: diagnostics)
+        #expect(config.keymap.chordSet(for: .help) == KeymapAction.help.defaultChords)
+        #expect(diagnostics.malformedKeys == ["keymap.help"])
+    }
+
+    @Test("Setting a chord from the capture overlay collapses an alias list")
+    func setCollapses() {
+        var keymap = Keymap()
+        #expect(keymap.chordSet(for: .help).chords.count == 2)
+        keymap.setChord("cmd+k", for: .help)
+        #expect(keymap.chordSet(for: .help) == ChordSet(["cmd+k"]))
+    }
+
+    @Test("Help defaults to F1 with ⌘/ as an alias")
+    func helpDefaults() {
+        #expect(KeymapAction.help.defaultChords == ["f1", "cmd+/"])
+    }
+
     @Test("Only the actions that open the panel are unscoped")
     func scoping() {
         #expect(!KeymapAction.find.isPanelScoped)
@@ -82,6 +121,7 @@ struct KeymapTests {
         #expect(KeymapAction.bold.isPanelScoped)
         #expect(KeymapAction.moveLineUp.isPanelScoped)
         #expect(KeymapAction.help.isPanelScoped)
+        #expect(KeymapAction.toggleTheme.isPanelScoped)
     }
 }
 
@@ -131,9 +171,11 @@ struct MenuEquivalentTests {
     func everyDefaultIsBindable() {
         let keymap = Keymap()
         for action in KeymapAction.allCases where action != .summon {
-            #expect(
-                keymap.parsed(action)?.menuEquivalent != nil,
-                "\(action.rawValue) has no menu equivalent")
+            for chord in keymap.parsedChords(for: action) {
+                #expect(
+                    chord.menuEquivalent != nil,
+                    "\(action.rawValue) chord \(chord.raw) has no menu equivalent")
+            }
         }
     }
 }

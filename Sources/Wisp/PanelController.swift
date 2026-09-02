@@ -3,7 +3,13 @@ import SwiftUI
 import WispCore
 
 private let panelSize = CGSize(width: 800, height: 640)
-private let cornerRadius: CGFloat = 18
+/// The radius a standard macOS window has had since Big Sur.
+///
+/// A constant rather than a lookup: AppKit exposes no API for the system
+/// value, and a `.borderless` panel gets no system-drawn corners at all —
+/// every rounded edge here is ours to draw. 18pt read as noticeably rounder
+/// than the windows either side of it.
+private let cornerRadius: CGFloat = 10
 
 @MainActor
 final class PanelController {
