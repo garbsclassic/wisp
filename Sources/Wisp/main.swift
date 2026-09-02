@@ -21,12 +21,6 @@ if CommandLine.arguments.contains("--unregister-login-item") {
     exit(0)
 }
 
-// AppKit's own initial tooltip delay is long enough to read as "no tooltip"
-// on a panel you are only passing through. Registered rather than written:
-// this seeds the default for this process only, so it neither persists nor
-// overrides a value the user has set for themselves.
-UserDefaults.standard.register(defaults: ["NSInitialToolTipDelay": 1000])
-
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

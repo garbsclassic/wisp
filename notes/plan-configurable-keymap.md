@@ -121,3 +121,13 @@ Six smaller asks landed on the same files, plus two that needed a decision.
 - **Corner radius** has no API. `NSThemeFrame` carries no layer radius (macOS draws window corners in the window server), and a `.borderless` panel gets no system corners at all — every rounded edge is ours. Measuring a real window off the screen kept catching its shadow rather than its edge. Asked rather than guessed; settled on 10pt, the standard-window value since Big Sur.
 - **Tooltip colour is not reachable.** AppKit renders `.help()` tooltips itself, so the chord in one cannot be muted while the label stays full-strength. The parentheses are gone and the chord is separated by spaces instead, which is as far as a system tooltip goes. A custom tooltip view would get the rest, and is not worth it for four buttons.
 - **F1 is a trap on a default Mac.** It dims the display, and the app never sees the key — verified here with `defaults read -g com.apple.keyboard.fnState`. The synthetic events used for testing bypass that translation, so it passed under test and would have failed in the hand. This is the case the alias list exists for, and `cmd+/` stays bound.
+
+## Second follow-up: two SwiftUI layout traps
+
+Both cost a build-and-look cycle, and neither is visible in the code.
+
+**`.fixedSize` escapes a clip and resizes the window.** The heading strip was laid out at its natural width and clipped by hand, to truncate rather than scroll. The natural width propagated up through `NSHostingView` and the panel grew to fit it — measured 3952pt wide, from a note with fourteen headings. The scroll view that was there originally is what had been absorbing that, and it went back. It clips, it does not propagate, and long lists stay reachable; the ellipsis is an overlay on top of it.
+
+**One `PreferenceKey` used at two nesting levels reads itself.** Content width and slot width were both reported under the same key. Preferences propagate up, so the outer reader also saw the inner value, and with a `max` reduction the slot silently reported the content's width — `isTruncated` was false forever and no ellipsis ever appeared. Two key types now.
+
+And one measurement worth keeping: aligning the save dot to the header's own `padding(.top, 14)` aligns the top of the *line box*, not the text. Glyphs start below it, so the dot landed 7pt above the text's optical centre. Offsetting by half the leftover line height brings it to within 1.5pt.

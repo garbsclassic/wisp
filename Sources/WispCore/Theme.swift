@@ -218,6 +218,35 @@ public enum Metrics {
     /// anything larger invites the same reading.
     public static let saveIndicatorSize: CGFloat = 6
 
+    /// The header and footer bars' own insets, and the save dot's, so the
+    /// dot lines up with the chrome it sits in rather than with the panel
+    /// edge.
+    public static let chromeInsetX: CGFloat = 28
+    public static let chromeInsetY: CGFloat = 14
+
+    /// Where the save dot's top edge goes, so the dot's centre lands on
+    /// the header text's rather than on its line-box top.
+    ///
+    /// Matching `chromeInsetY` outright looks wrong: padding aligns the top
+    /// of the *line box*, but glyphs start below it, so the dot measured
+    /// 7pt high of the text it was meant to sit beside. Half the leftover
+    /// line height puts it back.
+    public static var saveIndicatorTopInset: CGFloat {
+        chromeInsetY + (chromeLineHeight - saveIndicatorSize) / 2
+    }
+
+    /// A chrome line's rendered height. The 1.2 is the usual ratio for a
+    /// text face at UI sizes — close enough to centre a 6pt dot against,
+    /// and it tracks `chromeSize` where a literal would not.
+    public static var chromeLineHeight: CGFloat { chromeSize * 1.2 }
+
+    /// How far the header stops short of the panel's right edge: the dot's
+    /// own inset, the dot, and a gap. Without it a long heading list runs
+    /// underneath the indicator.
+    public static var headerTrailingInset: CGFloat {
+        chromeInsetX + saveIndicatorSize + 8
+    }
+
     public static let footerButtonWidth: CGFloat = 24
     public static let footerButtonHeight: CGFloat = 20
 

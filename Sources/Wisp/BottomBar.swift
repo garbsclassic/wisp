@@ -48,18 +48,19 @@ struct BottomBar: View {
         }
         .font(Typography.ui(Metrics.chromeSize))
         .foregroundStyle(Color(palette.muted))
-        .padding(.horizontal, 28)
-        .padding(.vertical, 14)
+        .padding(.horizontal, Metrics.chromeInsetX)
+        .padding(.vertical, Metrics.chromeInsetY)
         .frame(maxWidth: .infinity)
         .background(Color(palette.chrome))
     }
 
     /// A tooltip and the chord that does the same thing, separated by
     /// spaces rather than wrapped in parentheses — the chord is a second
-    /// label, not an aside. AppKit renders tooltips itself, so this cannot
-    /// be two colors however much the chord wants to be muted.
+    /// label, not an aside. One chord only: an alias list belongs on the
+    /// help page, not in a hint. AppKit renders tooltips itself, so this
+    /// cannot be two colors however much the chord wants to be muted.
     private func hint(_ label: String, _ action: KeymapAction) -> String {
-        "\(label)   \(keymap.display(action))"
+        "\(label)   \(keymap.primaryDisplay(action))"
     }
 
     /// Footer buttons share one shape: an SF Symbol in a fixed box, so

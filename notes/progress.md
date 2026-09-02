@@ -127,4 +127,14 @@
   drop the parentheses around their chord, read it from the live keymap, and appear after 1s
   instead of AppKit's much longer default (`NSInitialToolTipDelay`, registered per-process). 178
   tests
+- 2026-09-02 — [configurable-keymap](plan-configurable-keymap.md): auto placement moved from a tenth
+  of the visible height to a twentieth (measured: panel top 86.0 against an expected 85.95). The
+  save dot lines up with the header's insets, but *not* by matching its top padding — that aligns
+  line-box tops, and glyphs start lower, so the dot measured 7pt above the text's centre; it now
+  offsets by half the leftover line height and sits 1.5pt off. The heading strip shows an ellipsis
+  once it overflows and stops short of the dot. Two SwiftUI traps on the way there: laying the row
+  out with `.fixedSize` and clipping it by hand propagated the natural width through NSHostingView
+  and grew the panel to 3952pt, and using one PreferenceKey at two nesting levels made the outer
+  reader see the inner value, so the overflow test was permanently false. Tooltip delay back to
+  AppKit's default, and tooltips name only the first chord of an alias list. 178 tests
 

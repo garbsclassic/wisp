@@ -214,6 +214,14 @@ public struct Keymap: Codable, Equatable, Sendable {
             .joined(separator: " / ")
     }
 
+    /// Just the first chord, for places with room for one — a tooltip
+    /// listing "F1 / ⌘/" is naming the feature twice rather than telling
+    /// you the shortcut.
+    public func primaryDisplay(_ action: KeymapAction) -> String {
+        guard let chord = parsed(action) else { return self.chord(for: action) }
+        return HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers).displayString
+    }
+
     /// Actions left with no working chord at all, for the footer warning.
     /// In `allCases` order so the message reads consistently.
     public var unparseableActions: [KeymapAction] {

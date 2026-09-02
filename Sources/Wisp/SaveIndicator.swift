@@ -27,8 +27,11 @@ struct SaveIndicator: View {
             .animation(
                 .easeOut(duration: isVisible ? 0.12 : 0.45), value: isVisible)
             .allowsHitTesting(false)
-            .padding(.top, 14)
-            .padding(.trailing, 16)
+            // The header's own insets, so the dot sits on the chrome's
+            // grid rather than the panel's — vertically nudged to the
+            // text's optical centre, see the token.
+            .padding(.top, Metrics.saveIndicatorTopInset)
+            .padding(.trailing, Metrics.chromeInsetX)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
     }
 }
