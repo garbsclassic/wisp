@@ -52,18 +52,22 @@ struct HelpDocumentTests {
         #expect(row?.key == "⌃⇧K")
     }
 
-    /// Every row that names a chord reads it from the keymap. Reveal and
-    /// underline were literals on the page before the actions existed, so
-    /// these are the two worth pinning.
-    @Test("Reveal and underline follow the keymap like every other row")
+    /// Every row that names a chord reads it from the keymap. Reveal,
+    /// underline and code were literals or absent before their actions
+    /// existed, so these are the ones worth pinning.
+    @Test("Late-added rows follow the keymap like every other one")
     func lateBoundRowsFollowTheKeymap() {
-        let rebound = Keymap([.revealNote: "ctrl+shift+f", .underline: "ctrl+shift+u"])
+        let rebound = Keymap([
+            .revealNote: "ctrl+shift+f", .underline: "ctrl+shift+u", .code: "ctrl+shift+e",
+        ])
         let rows = HelpDocument.make(keymap: rebound).sections.flatMap(\.rows)
 
         #expect(rows.first { $0.detail == "reveal note in finder" }?.key == "⌃⇧F")
-        #expect(
-            rows.first { $0.detail == "bold · highlight · italic · underline" }?
-                .key.hasSuffix("⌃⇧U") == true)
+
+        let format = rows.first { $0.detail == "bold · highlight · italic · underline · code" }?.key
+        #expect(format?.contains("⌃⇧U") == true)
+        // Last in the row, and the row's order is the description's order.
+        #expect(format?.hasSuffix("⌃⇧E") == true)
     }
 
     /// A hyperkey summon is the reason the glyph exists; this is the row it

@@ -92,10 +92,19 @@ public struct FontSet: Codable, Equatable, Sendable {
     /// Chrome — header, footer, overlays. The proportional cut reads more
     /// naturally at UI sizes.
     public var ui: String
+    /// `` `inline code` `` runs. A real monospace, unlike `notes` — that
+    /// family is only fixed-advance for its *icon* glyphs, and Latin text in
+    /// it is proportional like any other sans.
+    public var code: String
 
-    public init(notes: String = "Inter Nerd Font", ui: String = "Inter Nerd Font Propo") {
+    public init(
+        notes: String = "Inter Nerd Font",
+        ui: String = "Inter Nerd Font Propo",
+        code: String = "JetBrainsMono Nerd Font"
+    ) {
         self.notes = notes
         self.ui = ui
+        self.code = code
     }
 
     /// Missing keys fall back per-face, so adding one doesn't reset a font
@@ -108,6 +117,8 @@ public struct FontSet: Codable, Equatable, Sendable {
             forKey: .notes, default: defaults.notes, diagnostics: diagnostics, pathPrefix: "fonts.")
         ui = container.lenientValue(
             forKey: .ui, default: defaults.ui, diagnostics: diagnostics, pathPrefix: "fonts.")
+        code = container.lenientValue(
+            forKey: .code, default: defaults.code, diagnostics: diagnostics, pathPrefix: "fonts.")
     }
 }
 

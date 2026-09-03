@@ -374,6 +374,17 @@ struct MinimalTextEditor: NSViewRepresentable {
         where !isAdjacent(to: "_", match.range, in: text) && isFreestanding(match.range, in: text) {
             applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
+        // `` `code` ``: a whole different family, so it replaces the font
+        // rather than merging a trait into it. Sized off whatever is already
+        // at that offset, which is what lets a span inside a heading keep
+        // the heading's size. Triple-backtick fences are left alone —
+        // `[^`\n]+` can't match across the second backtick of a fence.
+        for match in text.matches(of: /`([^`\n]+)`/) {
+            let range = NSRange(match.range, in: text)
+            let size = currentFont(in: storage, at: range.location, fallback: baseFont).pointSize
+            storage.addAttribute(
+                .font, value: Typography.codeFont(atResolvedSize: size), range: range)
+        }
         // `<u>…</u>`: an attribute rather than a symbolic trait, so it
         // can't go through `applyTrait` with the others.
         for match in text.matches(of: /<u>([^<\n]+)<\/u>/) {

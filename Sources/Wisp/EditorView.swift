@@ -285,6 +285,7 @@ final class EditorModel: ObservableObject {
     /// underline command inserts — which matters, because these notes are
     /// read there too.
     func toggleUnderline() { wrap(.init("<u>", "</u>")) }
+    func toggleCode() { wrap(.init("`")) }
 
     private func wrap(_ markers: MarkdownWrap.Markers) {
         wrapMarkers = markers

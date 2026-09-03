@@ -66,6 +66,7 @@ ignored.
 | `theme`                 | `"system"`                | `light`, `dark`, or follow macOS                                                                                             |
 | `fonts.notes`           | `"Inter Nerd Font"`       | The notes body face                                                                                                          |
 | `fonts.ui`              | `"Inter Nerd Font Propo"` | Header, footer, and overlays                                                                                                 |
+| `fonts.code`            | `"JetBrainsMono Nerd Font"` | `` `inline code` `` runs. A real monospace — `fonts.notes` is only fixed-advance for its icon glyphs                        |
 | `fontScale`             | `1.0`                     | Multiplies every type size, body and chrome. ⌘= / ⌘- step it by 0.1. Clamped to 0.6–2.5                                     |
 | `saveIndicator`         | `true`                    | Flashes a dot in the top corner each time the note is written                                                                 |
 | `defaultFontScale`      | `1.0`                     | What ⌘0 resets `fontScale` to                                                                                                |
@@ -93,7 +94,7 @@ An action can take a list instead of a single chord, and every entry binds —
 | `find` / `settings` / `refresh`           | `cmd+f` / `cmd+,` / `cmd+r` |
 | `revealNote`                              | `opt+cmd+r` |
 | `help`                                    | `["f1", "cmd+/"]` |
-| `bold` / `italic` / `highlight` / `underline` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` |
+| `bold` / `italic` / `highlight` / `underline` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+e` |
 | `toggleTheme`                             | `cmd+t` |
 | `duplicateLine` / `toggleListItem`        | `cmd+d` / `opt+l` |
 | `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
@@ -104,7 +105,9 @@ function keys"** (Keyboard settings). Otherwise F1 dims the display and the
 app never sees it — press fn+F1, or use the `cmd+/` alias.
 
 Underline writes `<u>…</u>`: markdown has none, `__` is already bold here,
-and `<u>` is what Obsidian's own underline command inserts.
+and `<u>` is what Obsidian's own underline command inserts. Code wraps in
+single backticks and renders in `fonts.code`; fenced blocks aren't styled,
+only inline spans.
 
 `summon` is the only global one — the rest need Wisp's panel in front of you,
 except `find`, `settings`, and `refresh`, which open it. The menu bar menu

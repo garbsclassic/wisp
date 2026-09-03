@@ -23,6 +23,7 @@ enum MainMenuBuilder {
         .italic: #selector(AppDelegate.toggleItalic(_:)),
         .highlight: #selector(AppDelegate.toggleHighlight(_:)),
         .underline: #selector(AppDelegate.toggleUnderline(_:)),
+        .code: #selector(AppDelegate.toggleCode(_:)),
         .duplicateLine: #selector(AppDelegate.duplicateSelection(_:)),
         .toggleListItem: #selector(AppDelegate.toggleListItem(_:)),
         .moveLineUp: #selector(AppDelegate.moveLineUp(_:)),
@@ -89,6 +90,7 @@ enum MainMenuBuilder {
                 item(.italic, target: target, keymap: keymap),
                 item(.highlight, target: target, keymap: keymap),
                 item(.underline, target: target, keymap: keymap),
+                item(.code, target: target, keymap: keymap),
                 .separator(),
                 item(.toggleListItem, target: target, keymap: keymap),
             ])

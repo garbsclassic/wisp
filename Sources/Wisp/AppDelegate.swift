@@ -130,6 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleItalic(_ sender: Any?) { model.toggleItalic() }
     @objc func toggleHighlight(_ sender: Any?) { model.toggleHighlight() }
     @objc func toggleUnderline(_ sender: Any?) { model.toggleUnderline() }
+    @objc func toggleCode(_ sender: Any?) { model.toggleCode() }
     @objc func revealNote(_ sender: Any?) { revealNoteInFinder() }
     @objc func duplicateSelection(_ sender: Any?) { model.duplicateSelection() }
     @objc func toggleListItem(_ sender: Any?) { model.toggleListItem() }
@@ -150,6 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .italic: model.toggleItalic()
         case .highlight: model.toggleHighlight()
         case .underline: model.toggleUnderline()
+        case .code: model.toggleCode()
         case .duplicateLine: model.duplicateSelection()
         case .toggleListItem: model.toggleListItem()
         case .moveLineUp: model.moveLine(by: -1)

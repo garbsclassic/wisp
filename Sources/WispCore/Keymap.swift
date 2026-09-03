@@ -62,6 +62,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case italic
     case highlight
     case underline
+    case code
 
     case duplicateLine
     case toggleListItem
@@ -88,6 +89,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .italic: return "Italic"
         case .highlight: return "Highlight"
         case .underline: return "Underline"
+        case .code: return "Code"
         case .duplicateLine: return "Duplicate"
         case .toggleListItem: return "Toggle List Item"
         case .moveLineUp: return "Move Line Up"
@@ -115,6 +117,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         // `<u>` is HTML, not markdown — which is also what Obsidian's own
         // underline command inserts, and this note is read there too.
         case .underline: return "cmd+u"
+        case .code: return "cmd+e"
         case .duplicateLine: return "cmd+d"
         case .toggleListItem: return "opt+l"
         case .moveLineUp: return "opt+up"

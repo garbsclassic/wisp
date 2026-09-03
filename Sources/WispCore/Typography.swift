@@ -18,6 +18,8 @@ public enum Typography {
     public private(set) static var notesFamily = FontSet().notes
     /// Proportional Nerd Font for UI text (`InterNFP-*` faces).
     public private(set) static var uiFamily = FontSet().ui
+    /// Monospace, for `` `inline code` ``.
+    public private(set) static var codeFamily = FontSet().code
 
     // Resolved at configure time rather than per call: `NSFont(name:)`
     // costs ~2µs on a hit and ~12µs on a miss with no negative caching,
@@ -25,6 +27,7 @@ public enum Typography {
     // font activated mid-session needs a relaunch to be picked up.
     public private(set) static var notesInstalled = NSFont(name: notesFamily, size: 12) != nil
     public private(set) static var uiInstalled = NSFont(name: uiFamily, size: 12) != nil
+    public private(set) static var codeInstalled = NSFont(name: codeFamily, size: 12) != nil
 
     /// Multiplies every type size and nothing else — rules, padding, and
     /// the panel's own proportions are untouched, so a dense display can be
@@ -36,6 +39,7 @@ public enum Typography {
     /// case rather than a defensive one.
     public static var missingFamilies: [String] {
         (notesInstalled ? [] : [notesFamily]) + (uiInstalled ? [] : [uiFamily])
+            + (codeInstalled ? [] : [codeFamily])
     }
 
     /// Point sizes at the current scale. The single place the scale is
@@ -45,8 +49,10 @@ public enum Typography {
     public static func configure(fonts: FontSet, scale: Double) {
         notesFamily = fonts.notes
         uiFamily = fonts.ui
+        codeFamily = fonts.code
         notesInstalled = NSFont(name: notesFamily, size: 12) != nil
         uiInstalled = NSFont(name: uiFamily, size: 12) != nil
+        codeInstalled = NSFont(name: codeFamily, size: 12) != nil
         self.scale = CGFloat(scale)
     }
 
@@ -67,6 +73,18 @@ public enum Typography {
     public static func uiFont(_ size: CGFloat) -> NSFont {
         let size = scaled(size)
         return NSFont(name: uiFamily, size: size) ?? .systemFont(ofSize: size)
+    }
+
+    /// The face for a `` `code` `` run, at whatever size the surrounding
+    /// text is already using — a span inside a heading keeps the heading's
+    /// size. Falls back to the system monospace rather than to the body
+    /// face: an unresolved family here would otherwise render code as plain
+    /// prose, which is the one thing the markers are there to deny.
+    ///
+    /// The size arrives already scaled, since it comes off a resolved font
+    /// rather than from a `Metrics` constant.
+    public static func codeFont(atResolvedSize size: CGFloat) -> NSFont {
+        NSFont(name: codeFamily, size: size) ?? .monospacedSystemFont(ofSize: size, weight: .regular)
     }
 
     // MARK: SwiftUI

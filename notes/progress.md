@@ -158,4 +158,11 @@
   `r`; `KeyChord.menuEquivalent` had been sitting there tested and uncalled since the keymap work.
   Verified on screen: ⌘U wraps and underlines, ⌥⌘R reveals with the menu closed, and the menu prints
   ⌘, / ⌘R / ⌥⌘R / ⌘Q. 185 tests
+- 2026-09-03 — [help-screen](plan-help-screen.md): inline code on ⌘E, wrapping in backticks and
+  rendering in a third configurable face (`fonts.code`, defaulting to JetBrainsMono Nerd Font). It
+  replaces the font rather than merging a symbolic trait, so it is sized off whatever is already at
+  that offset — a span inside a heading keeps the heading's size — and it falls back to the system
+  monospace rather than to the body face, since code rendered as prose loses the only thing the
+  backticks were for. Fenced blocks are deliberately untouched: `` `[^`\n]+` `` can't match across
+  the second backtick of a fence, so ``` lines are left alone. 187 tests
 

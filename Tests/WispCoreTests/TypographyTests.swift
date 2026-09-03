@@ -10,6 +10,29 @@ struct TypographyTests {
     func families() {
         #expect(Typography.notesFamily == "Inter Nerd Font")
         #expect(Typography.uiFamily == "Inter Nerd Font Propo")
+        #expect(Typography.codeFamily == "JetBrainsMono Nerd Font")
+    }
+
+    /// The one face with a real fallback of its own: code that quietly
+    /// renders as prose has lost the only thing the backticks were for.
+    @Test("An unresolved code family still lands on a monospace")
+    func codeFallsBackToMonospace() {
+        defer { Typography.configure(fonts: FontSet(), scale: 1) }
+        Typography.configure(fonts: FontSet(code: "No Such Face"), scale: 1)
+
+        let font = Typography.codeFont(atResolvedSize: 16)
+        #expect(font.pointSize == 16)
+        #expect(font.fontDescriptor.symbolicTraits.contains(.monoSpace))
+        #expect(Typography.missingFamilies == ["No Such Face"])
+    }
+
+    /// The size arrives already scaled — it comes off a resolved font, not
+    /// off a `Metrics` constant, so scaling it again would compound.
+    @Test("The code face takes its size as given")
+    func codeSizeIsNotRescaled() {
+        defer { Typography.configure(fonts: FontSet(), scale: 1) }
+        Typography.configure(fonts: FontSet(), scale: 2)
+        #expect(Typography.codeFont(atResolvedSize: 16).pointSize == 16)
     }
 
     /// Every size goes through one multiplier, so a display that needs

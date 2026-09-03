@@ -15,30 +15,29 @@ DEST="$DEST_DIR/${APP_NAME}.app"
 
 WAS_RUNNING=0
 if [[ -d "$DEST" ]]; then
-    if pgrep -f "$DEST/Contents/MacOS/$APP_NAME" >/dev/null 2>&1; then
-        WAS_RUNNING=1
-        # Quit the running copy first, or the replace lands under a live process.
-        osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
-        pkill -f "$DEST/Contents/MacOS/$APP_NAME" 2>/dev/null || true
-        sleep 1
-    fi
-    echo "Replacing existing $DEST"
-    rm -rf "$DEST"
+  if pgrep -f "$DEST/Contents/MacOS/$APP_NAME" >/dev/null 2>&1; then
+    WAS_RUNNING=1
+    # Quit the running copy first, or the replace lands under a live process.
+    osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
+    pkill -f "$DEST/Contents/MacOS/$APP_NAME" 2>/dev/null || true
+    sleep 1
+  fi
+  echo "Replacing existing $DEST"
+  rm -rf "$DEST"
 fi
 
 cp -R "$ROOT_DIR/dist/${APP_NAME}.app" "$DEST"
 
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister \
-    -f "$DEST"
+  -f "$DEST"
 
 echo "Installed $DEST"
 
 if [[ "$WAS_RUNNING" == "1" ]]; then
-    open "$DEST"
-    echo "Restarted $APP_NAME."
+  open "$DEST"
+  echo "Restarted $APP_NAME."
 else
-    echo
-    echo "Next:"
-    echo "  open \"$DEST\""
+  echo
+  echo "Next:"
+  echo "  open \"$DEST\""
 fi
-echo "Enable Launch at Login from the menu bar icon if you want it."

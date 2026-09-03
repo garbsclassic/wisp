@@ -71,8 +71,8 @@ public struct HelpDocument: Equatable, Sendable {
                 Row(chord(.toggleListItem), "toggle bullet list"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
                 Row(
-                    group(.bold, .highlight, .italic, .underline),
-                    "bold · highlight · italic · underline"),
+                    group(.bold, .highlight, .italic, .underline, .code),
+                    "bold · highlight · italic · underline · code"),
                 Row("⇥ · ⇧⇥", "increase · decrease indentation"),
             ]),
             Section("Insert", [
