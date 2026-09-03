@@ -1,4 +1,5 @@
 import AppKit
+import WispCore
 
 /// Owns the single status-bar item. The permanently-assigned menu is
 /// what makes any click open it, and it refreshes its dynamic state —
@@ -23,6 +24,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // weak refs made load-bearing.
     private var launchItem: NSMenuItem?
     private var resetItem: NSMenuItem?
+    /// The items whose chord is configurable, so `apply(_:)` can re-stamp
+    /// them from the live keymap.
+    private var boundItems: [(action: KeymapAction, item: NSMenuItem)] = []
 
     init(
         onSetHotKey: @escaping () -> Void,
@@ -58,21 +62,18 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Opens wisp.jsonc in whatever app owns .jsonc — the same move as
         // Clef's Settings…, and the only way most settings are changed.
-        // ⌘, mirrors Clef's shortcut for it; fires while this menu is open.
         let settings = makeItem(
             "Settings…", symbol: "gearshape", action: #selector(handleOpenConfig)
         )
-        settings.keyEquivalent = ","
+        boundItems.append((.settings, settings))
         menu.addItem(settings)
 
         // Re-reads wisp.jsonc and re-checks scratchpad.md's mtime — for
         // either changing underfoot via iCloud/Dropbox/chezmoi sync.
-        // ⌘R matches the main menu's item and fires while this menu is
-        // open, the same arrangement Settings… above has with ⌘,.
         let refresh = makeItem(
             "Refresh", symbol: "arrow.clockwise", action: #selector(handleRefresh)
         )
-        refresh.keyEquivalent = "r"
+        boundItems.append((.refresh, refresh))
         menu.addItem(refresh)
 
         menu.addItem(makeItem(
@@ -92,10 +93,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        menu.addItem(makeItem(
+        let reveal = makeItem(
             "Reveal Note in Finder", symbol: "doc.text.magnifyingglass",
             action: #selector(handleRevealNote)
-        ))
+        )
+        boundItems.append((.revealNote, reveal))
+        menu.addItem(reveal)
 
         menu.addItem(.separator())
 
@@ -121,6 +124,30 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Assigned permanently so any click — left or right — opens it.
         statusItem.menu = menu
+    }
+
+    /// Stamps each configurable item with the chord actually bound to it.
+    ///
+    /// The chords are not hardcoded here because they are not this menu's to
+    /// decide: the same actions are dispatched by `KeyBindingMonitor` while
+    /// the menu is *closed*, and an item printing `⌘R` next to an action the
+    /// config has moved to `⌘G` is telling the user something untrue.
+    ///
+    /// A key equivalent on a status-item menu only fires while that menu is
+    /// open — it is not the app's main menu — so this can't collide with the
+    /// monitor, which never sees events during a menu tracking loop.
+    func apply(_ keymap: Keymap) {
+        for (action, item) in boundItems {
+            guard let equivalent = keymap.parsed(action)?.menuEquivalent else {
+                // A chord that doesn't parse, or one AppKit has no menu
+                // spelling for. Better a bare item than a wrong one.
+                item.keyEquivalent = ""
+                item.keyEquivalentModifierMask = []
+                continue
+            }
+            item.keyEquivalent = equivalent.character
+            item.keyEquivalentModifierMask = equivalent.modifiers
+        }
     }
 
     // "Veil": the aperture reduced to a ring and a core, with the vapor trail

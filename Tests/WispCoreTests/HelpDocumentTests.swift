@@ -52,6 +52,20 @@ struct HelpDocumentTests {
         #expect(row?.key == "⌃⇧K")
     }
 
+    /// Every row that names a chord reads it from the keymap. Reveal and
+    /// underline were literals on the page before the actions existed, so
+    /// these are the two worth pinning.
+    @Test("Reveal and underline follow the keymap like every other row")
+    func lateBoundRowsFollowTheKeymap() {
+        let rebound = Keymap([.revealNote: "ctrl+shift+f", .underline: "ctrl+shift+u"])
+        let rows = HelpDocument.make(keymap: rebound).sections.flatMap(\.rows)
+
+        #expect(rows.first { $0.detail == "reveal note in finder" }?.key == "⌃⇧F")
+        #expect(
+            rows.first { $0.detail == "bold · highlight · italic · underline" }?
+                .key.hasSuffix("⌃⇧U") == true)
+    }
+
     /// A hyperkey summon is the reason the glyph exists; this is the row it
     /// was added for.
     @Test("A hyperkey summon reaches the page as one glyph")

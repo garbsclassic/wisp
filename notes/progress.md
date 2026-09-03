@@ -149,4 +149,13 @@
   than as a fill in the wrong place; `makeNSView` runs before the view has a window, so focusing
   from there silently does nothing; and `requestFocus()` sent focus to the note even with the page
   in front, which is how ⌘= and ⌘T quietly disarmed ⌘A. 184 tests
+- 2026-09-02 — [help-screen](plan-help-screen.md): underline and revealNote are real keymap actions, so
+  the two rows the page was printing as literals now read from the config like every other row.
+  Underline writes `<u>…</u>` — markdown has none and `__` is already bold here — which needed
+  `MarkdownWrap` to take an open/close pair, and needed `.underlineStyle` removed in
+  `resetBaseAttributes`, since an attribute set on a moving range outlives the markers that asked
+  for it. The status-item menu now stamps its chords from the keymap instead of hardcoding `,` and
+  `r`; `KeyChord.menuEquivalent` had been sitting there tested and uncalled since the keymap work.
+  Verified on screen: ⌘U wraps and underlines, ⌥⌘R reveals with the menu closed, and the menu prints
+  ⌘, / ⌘R / ⌥⌘R / ⌘Q. 185 tests
 

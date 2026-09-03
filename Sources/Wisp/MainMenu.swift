@@ -22,6 +22,7 @@ enum MainMenuBuilder {
         .bold: #selector(AppDelegate.toggleBold(_:)),
         .italic: #selector(AppDelegate.toggleItalic(_:)),
         .highlight: #selector(AppDelegate.toggleHighlight(_:)),
+        .underline: #selector(AppDelegate.toggleUnderline(_:)),
         .duplicateLine: #selector(AppDelegate.duplicateSelection(_:)),
         .toggleListItem: #selector(AppDelegate.toggleListItem(_:)),
         .moveLineUp: #selector(AppDelegate.moveLineUp(_:)),
@@ -29,6 +30,7 @@ enum MainMenuBuilder {
         .increaseFontScale: #selector(AppDelegate.increaseFontScale(_:)),
         .decreaseFontScale: #selector(AppDelegate.decreaseFontScale(_:)),
         .resetFontScale: #selector(AppDelegate.resetFontScale(_:)),
+        .revealNote: #selector(AppDelegate.revealNote(_:)),
     ]
 
     /// The action a menu item stands for, recovered from its selector.
@@ -46,6 +48,7 @@ enum MainMenuBuilder {
             items: [
                 item(.settings, target: target, keymap: keymap),
                 item(.refresh, target: target, keymap: keymap),
+                item(.revealNote, target: target, keymap: keymap),
                 .separator(),
                 NSMenuItem(
                     title: "Quit Wisp", action: #selector(NSApplication.terminate(_:)),
@@ -85,6 +88,7 @@ enum MainMenuBuilder {
                 item(.bold, target: target, keymap: keymap),
                 item(.italic, target: target, keymap: keymap),
                 item(.highlight, target: target, keymap: keymap),
+                item(.underline, target: target, keymap: keymap),
                 .separator(),
                 item(.toggleListItem, target: target, keymap: keymap),
             ])

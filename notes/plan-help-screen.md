@@ -37,9 +37,15 @@ So: rows that map to a `KeymapAction` keep rendering from the live keymap, exact
 
 Deviations to confirm, all flagged rather than silently taken:
 
-- `⌘U · underline` is dropped. There is no underline feature to bind, so it is not a pending binding — it is a row describing something the app cannot do.
+- ~~`⌘U · underline` is dropped — there is no underline feature to bind.~~ **Resolved.** Underline is implemented; see below. Both it and `⌥⌘R` are live keymap actions now, so no row on the page is a literal chord any more.
 - The handoff's key order `⌘B · ⌘I · ⌘H · ⌘U` does not match its own description `bold · highlight · italic · underline`. Keys follow the description.
 - Four real bindings appear nowhere in the handoff's content list: `help` (F1 / ⌘/), `toggleTheme` (⌘T), ⌘Q, and the menu-bar-only items (Set Shortcut…, Scratchpad Folder…, Launch at Login). The current page documents all of them. Following the handoff drops them.
+
+## Follow-up: the two bindings the page was promising
+
+- [x] `underline` (`cmd+u`), writing `<u>…</u>`. Markdown has no underline; `__` is already bold in this editor, and `<u>` is what Obsidian's own underline command inserts — which matters, because the note is read there. `MarkdownWrap` grew an open/close pair for it, since every other marker is its own closer. It styles through `.underlineStyle` rather than `applyTrait`: underline is an attribute, not a symbolic trait, so it also has to be removed in `resetBaseAttributes` alongside `.kern`, or the rule outlives the tags.
+- [x] `revealNote` (`opt+cmd+r`), panel-scoped, so it fires with the menu closed and the panel focused.
+- [x] The status-item menu stamps its own chords from the live keymap rather than hardcoding them. `KeyChord.menuEquivalent` already existed for this and had tests but no caller. A key equivalent on a status-item menu only fires while that menu is open, and `KeyBindingMonitor` never sees events during a menu tracking loop, so the two paths can't double-fire.
 
 ### Padding: the app's tokens, not the handoff's
 

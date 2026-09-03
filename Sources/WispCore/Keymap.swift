@@ -61,6 +61,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case bold
     case italic
     case highlight
+    case underline
 
     case duplicateLine
     case toggleListItem
@@ -70,6 +71,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case increaseFontScale
     case decreaseFontScale
     case resetFontScale
+
+    case revealNote
 
     /// What the menu item reads. Not derived from the case name — "Actual
     /// Size" and "Duplicate" are what these are called on a Mac.
@@ -84,6 +87,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .bold: return "Bold"
         case .italic: return "Italic"
         case .highlight: return "Highlight"
+        case .underline: return "Underline"
         case .duplicateLine: return "Duplicate"
         case .toggleListItem: return "Toggle List Item"
         case .moveLineUp: return "Move Line Up"
@@ -91,6 +95,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .increaseFontScale: return "Increase Text Size"
         case .decreaseFontScale: return "Decrease Text Size"
         case .resetFontScale: return "Actual Size"
+        case .revealNote: return "Reveal Note in Finder"
         }
     }
 
@@ -107,6 +112,9 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .italic: return "cmd+i"
         case .toggleTheme: return "cmd+t"
         case .highlight: return "opt+h"
+        // `<u>` is HTML, not markdown — which is also what Obsidian's own
+        // underline command inserts, and this note is read there too.
+        case .underline: return "cmd+u"
         case .duplicateLine: return "cmd+d"
         case .toggleListItem: return "opt+l"
         case .moveLineUp: return "opt+up"
@@ -114,6 +122,9 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .increaseFontScale: return "cmd+="
         case .decreaseFontScale: return "cmd+-"
         case .resetFontScale: return "cmd+0"
+        // ⌘R with Option, beside the plain ⌘R it is a cousin of: one
+        // re-reads the note, the other goes and looks at it.
+        case .revealNote: return "opt+cmd+r"
         }
     }
 

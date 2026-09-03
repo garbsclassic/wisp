@@ -7,10 +7,10 @@ import AppKit
 /// without a window, and keeps `HelpBody` down to scrolling, selection,
 /// and the sticky header.
 ///
-/// Chords come from the live keymap wherever an action backs the row, so a
-/// rebind shows up on the page without anyone editing a string. The rows
-/// with no action behind them are literals: they describe AppKit's own keys
-/// (⌘↑, ⇥) or Wisp's smart-editing triggers, neither of which is bindable.
+/// Chords come from the live keymap, so a rebind shows up on the page
+/// without anyone editing a string. The rows that are literals are the ones
+/// with nothing to bind: AppKit's own keys (⌘↑, ⇥) and Wisp's smart-editing
+/// triggers.
 public struct HelpDocument: Equatable, Sendable {
     public struct Row: Equatable, Sendable {
         /// Right-aligned in the key gutter. Several alternatives for one
@@ -56,7 +56,7 @@ public struct HelpDocument: Equatable, Sendable {
                 Row(chord(.summon), "summon · dismiss panel"),
                 Row("⌘↑ · ⌘↓", "move to beginning · end"),
                 Row(chord(.refresh), "refresh"),
-                Row("⌥⌘R", "reveal note in finder"),
+                Row(chord(.revealNote), "reveal note in finder"),
                 Row(
                     group(.increaseFontScale, .decreaseFontScale, .resetFontScale),
                     "larger · smaller · reset text"),
@@ -70,7 +70,9 @@ public struct HelpDocument: Equatable, Sendable {
             Section("Format", [
                 Row(chord(.toggleListItem), "toggle bullet list"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
-                Row(group(.bold, .highlight, .italic), "bold · highlight · italic"),
+                Row(
+                    group(.bold, .highlight, .italic, .underline),
+                    "bold · highlight · italic · underline"),
                 Row("⇥ · ⇧⇥", "increase · decrease indentation"),
             ]),
             Section("Insert", [

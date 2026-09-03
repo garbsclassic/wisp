@@ -91,8 +91,9 @@ An action can take a list instead of a single chord, and every entry binds —
 | ----------------------------------------- | ---------- |
 | `summon`                                  | `ctrl+opt+.` |
 | `find` / `settings` / `refresh`           | `cmd+f` / `cmd+,` / `cmd+r` |
+| `revealNote`                              | `opt+cmd+r` |
 | `help`                                    | `["f1", "cmd+/"]` |
-| `bold` / `italic` / `highlight`           | `cmd+b` / `cmd+i` / `opt+h` |
+| `bold` / `italic` / `highlight` / `underline` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` |
 | `toggleTheme`                             | `cmd+t` |
 | `duplicateLine` / `toggleListItem`        | `cmd+d` / `opt+l` |
 | `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
@@ -102,8 +103,13 @@ An action can take a list instead of a single chord, and every entry binds —
 function keys"** (Keyboard settings). Otherwise F1 dims the display and the
 app never sees it — press fn+F1, or use the `cmd+/` alias.
 
+Underline writes `<u>…</u>`: markdown has none, `__` is already bold here,
+and `<u>` is what Obsidian's own underline command inserts.
+
 `summon` is the only global one — the rest need Wisp's panel in front of you,
-except `find`, `settings`, and `refresh`, which open it. A chord that doesn't
+except `find`, `settings`, and `refresh`, which open it. The menu bar menu
+prints each item's chord from this table, and those actions fire with the menu
+closed too. A chord that doesn't
 parse is dropped; an action left with no working chord at all is named in the
 footer.
 

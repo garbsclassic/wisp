@@ -23,7 +23,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     var scrollToken: Int
     var scrollTarget: Int
     var wrapToken: Int
-    var wrapMarker: String
+    var wrapMarkers: MarkdownWrap.Markers
     var duplicateToken: Int
     var listItemToken: Int
     var moveLineToken: Int
@@ -130,7 +130,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         if context.coordinator.lastWrapToken != wrapToken {
             context.coordinator.lastWrapToken = wrapToken
             if textView.window?.firstResponder === textView {
-                MarkdownWrap.toggle(in: textView, marker: wrapMarker)
+                MarkdownWrap.toggle(in: textView, markers: wrapMarkers)
             }
         }
         if context.coordinator.lastDuplicateToken != duplicateToken {
@@ -223,16 +223,18 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// Wipes the whole storage back to plain body text, so a content pass
     /// can run against a known state.
     ///
-    /// `.kern` and `.backgroundColor` are *removed* rather than
-    /// overwritten: neither has a base value to reset to, and both are set
+    /// `.kern`, `.underlineStyle` and `.backgroundColor` are *removed* rather
+    /// than overwritten: none has a base value to reset to, and each is set
     /// on ranges that move as the text is edited — a marker's kern would
     /// otherwise stay on whatever character ends up at that offset, and a
-    /// `==` highlight would outlive the markers that asked for it.
+    /// `==` highlight or a `<u>` rule would outlive the markers that asked
+    /// for it.
     static func resetBaseAttributes(
         in storage: NSTextStorage, font: NSFont, color: NSColor, paragraph: NSParagraphStyle
     ) {
         let range = NSRange(location: 0, length: storage.length)
         storage.removeAttribute(.kern, range: range)
+        storage.removeAttribute(.underlineStyle, range: range)
         storage.addAttributes(
             [.font: font, .foregroundColor: color, .paragraphStyle: paragraph], range: range)
     }
@@ -371,6 +373,13 @@ struct MinimalTextEditor: NSViewRepresentable {
         for match in text.matches(of: /_([^_\n]+)_/)
         where !isAdjacent(to: "_", match.range, in: text) && isFreestanding(match.range, in: text) {
             applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
+        }
+        // `<u>…</u>`: an attribute rather than a symbolic trait, so it
+        // can't go through `applyTrait` with the others.
+        for match in text.matches(of: /<u>([^<\n]+)<\/u>/) {
+            storage.addAttribute(
+                .underlineStyle, value: NSUnderlineStyle.single.rawValue,
+                range: NSRange(match.range, in: text))
         }
         styleHighlights(in: storage, palette: palette)
     }

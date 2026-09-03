@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onRevealNote: { [weak self] in self?.revealNoteInFinder() }
         )
+        menuBarController?.apply(settings.config.keymap)
 
         let bindings = KeyBindingMonitor(
             isPanelFocused: { [weak panel] in panel?.isPanelFocused ?? false },
@@ -128,6 +129,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleBold(_ sender: Any?) { model.toggleBold() }
     @objc func toggleItalic(_ sender: Any?) { model.toggleItalic() }
     @objc func toggleHighlight(_ sender: Any?) { model.toggleHighlight() }
+    @objc func toggleUnderline(_ sender: Any?) { model.toggleUnderline() }
+    @objc func revealNote(_ sender: Any?) { revealNoteInFinder() }
     @objc func duplicateSelection(_ sender: Any?) { model.duplicateSelection() }
     @objc func toggleListItem(_ sender: Any?) { model.toggleListItem() }
     @objc func moveLineUp(_ sender: Any?) { model.moveLine(by: -1) }
@@ -146,6 +149,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .bold: model.toggleBold()
         case .italic: model.toggleItalic()
         case .highlight: model.toggleHighlight()
+        case .underline: model.toggleUnderline()
         case .duplicateLine: model.duplicateSelection()
         case .toggleListItem: model.toggleListItem()
         case .moveLineUp: model.moveLine(by: -1)
@@ -153,6 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .increaseFontScale: model.stepFontScale(by: 1)
         case .decreaseFontScale: model.stepFontScale(by: -1)
         case .resetFontScale: model.resetFontScale()
+        case .revealNote: revealNoteInFinder()
         }
     }
 
@@ -320,6 +325,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settings.config.keymap != previous.keymap {
             NSApp.mainMenu = MainMenuBuilder.make(target: self, keymap: settings.config.keymap)
             keyBindings?.apply(settings.config.keymap)
+            menuBarController?.apply(settings.config.keymap)
         }
         // A reloaded `position` decides whether the panel can be dragged.
         // Only the movability, not the placement: re-placing would jerk

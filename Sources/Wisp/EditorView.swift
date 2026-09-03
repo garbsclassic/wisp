@@ -23,7 +23,7 @@ final class EditorModel: ObservableObject {
     @Published private(set) var isShowingSaveFlash = false
     private var saveFlashTask: Task<Void, Never>?
     private(set) var scrollTarget: Int = 0
-    private(set) var wrapMarker: String = "**"
+    private(set) var wrapMarkers = MarkdownWrap.Markers("**")
     @Published private(set) var placeholder: String = ""
     @Published var showHotKeyCapture: Bool = false
 
@@ -275,18 +275,19 @@ final class EditorModel: ObservableObject {
     /// that actually owns it. Bold and italic share one token/marker pair
     /// rather than each getting its own, since they're the same operation
     /// parameterized by the marker string.
-    func toggleBold() {
-        wrapMarker = "**"
-        wrapToken &+= 1
-    }
+    func toggleBold() { wrap(.init("**")) }
     /// `_word_` rather than `*word*`. Both still *render* as italic — this
     /// is only what the key inserts.
-    func toggleItalic() {
-        wrapMarker = "_"
-        wrapToken &+= 1
-    }
-    func toggleHighlight() {
-        wrapMarker = "=="
+    func toggleItalic() { wrap(.init("_")) }
+    func toggleHighlight() { wrap(.init("==")) }
+    /// The one non-markdown marker Wisp writes. Markdown has no underline,
+    /// `__` is already spoken for by bold, and `<u>` is what Obsidian's own
+    /// underline command inserts — which matters, because these notes are
+    /// read there too.
+    func toggleUnderline() { wrap(.init("<u>", "</u>")) }
+
+    private func wrap(_ markers: MarkdownWrap.Markers) {
+        wrapMarkers = markers
         wrapToken &+= 1
     }
 
@@ -506,7 +507,7 @@ struct EditorView: View {
                         scrollToken: model.scrollToken,
                         scrollTarget: model.scrollTarget,
                         wrapToken: model.wrapToken,
-                        wrapMarker: model.wrapMarker,
+                        wrapMarkers: model.wrapMarkers,
                         duplicateToken: model.duplicateToken,
                         listItemToken: model.listItemToken,
                         moveLineToken: model.moveLineToken,
