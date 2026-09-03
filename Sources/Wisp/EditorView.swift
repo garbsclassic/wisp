@@ -25,8 +25,27 @@ final class EditorModel: ObservableObject {
     private(set) var scrollTarget: Int = 0
     private(set) var wrapMarker: String = "**"
     @Published private(set) var placeholder: String = ""
-    @Published var showHelp: Bool = false
     @Published var showHotKeyCapture: Bool = false
+
+    // MARK: Help
+
+    /// The help page, rebuilt only when the keymap behind it can have moved.
+    /// Held rather than computed: it is the find source while the page is
+    /// up, and re-deriving it per SwiftUI body pass would re-parse every
+    /// chord in the config.
+    @Published private(set) var helpDocument: HelpDocument
+    /// Bumped to hand first responder to the help page — which is what stops
+    /// ⌘A and ⌘C landing on the note underneath it.
+    @Published private(set) var helpFocusToken: Int = 0
+    @Published var showHelp: Bool = false {
+        didSet {
+            guard didLoad, showHelp != oldValue else { return }
+            requestFocus()
+            // Find follows whatever is in front of the user, so opening or
+            // dismissing the page re-searches against the other document.
+            if showFind { recomputeMatches(resetIndex: true) }
+        }
+    }
 
     // MARK: Find
     @Published var showFind: Bool = false
@@ -36,7 +55,7 @@ final class EditorModel: ObservableObject {
             // the text field resigns focus and writes its value back
             // through the binding; Swift's didSet fires even on an equal
             // write, which would otherwise re-highlight the just-cleared
-            // match after closeFind().
+            // match after dismissFind().
             guard didLoad, showFind else { return }
             recomputeMatches(resetIndex: true)
         }
@@ -144,6 +163,7 @@ final class EditorModel: ObservableObject {
 
     init(settings: Settings) {
         self.settings = settings
+        helpDocument = HelpDocument.make(keymap: settings.config.keymap)
         themePreference = settings.config.theme
         theme = themePreference.resolve()
         appearanceObservation = NSApplication.shared.observe(
@@ -215,8 +235,13 @@ final class EditorModel: ObservableObject {
         return attrs?[.modificationDate] as? Date
     }
 
+    /// Puts the keyboard back where the user was. Every caller means that,
+    /// and while the help page is up that is the page, not the note —
+    /// ⌘= / ⌘0 / ⌘T all call this, and each of them used to quietly hand
+    /// first responder back to the note behind the page, taking ⌘A, ⌘F and
+    /// the scroll keys with it.
     func requestFocus() {
-        focusToken &+= 1
+        if showHelp { helpFocusToken &+= 1 } else { focusToken &+= 1 }
     }
 
     /// ⌘= / ⌘- and the footer's two glyph buttons. One step each way,
@@ -290,7 +315,7 @@ final class EditorModel: ObservableObject {
         recomputeMatches(resetIndex: true)
     }
 
-    func closeFind() {
+    func dismissFind() {
         showFind = false
         clearFindHighlight()
         requestFocus()
@@ -308,8 +333,15 @@ final class EditorModel: ObservableObject {
         navigateToCurrentMatch()
     }
 
+    /// What find searches. The help page is a modal over the note, so the
+    /// page in front is the one the query means — anything else searches a
+    /// document the user cannot see.
+    private var findSourceText: String {
+        showHelp ? helpDocument.plainText : text
+    }
+
     private func recomputeMatches(resetIndex: Bool) {
-        findMatches = TextSearch.matches(in: text, query: findQuery)
+        findMatches = TextSearch.matches(in: findSourceText, query: findQuery)
         findMatchCount = findMatches.count
         if resetIndex { findIndex = 0 }
         if findIndex >= findMatches.count { findIndex = max(0, findMatches.count - 1) }
@@ -333,13 +365,13 @@ final class EditorModel: ObservableObject {
         findHighlightToken &+= 1
     }
 
-    /// Closes the topmost open modal overlay, in priority order, and
-    /// reports whether it closed anything — so a caller like Esc can fall
+    /// Dismisses the topmost open modal overlay, in priority order, and
+    /// reports whether it dismissed anything — so a caller like Esc can fall
     /// through to further handling only once nothing is left open.
     @discardableResult
     func dismissTopOverlay() -> Bool {
         if showFind {
-            closeFind()
+            dismissFind()
             return true
         }
         if showHotKeyCapture {
@@ -357,7 +389,7 @@ final class EditorModel: ObservableObject {
     /// panel only orders out, so SwiftUI never unmounts the overlays and
     /// their local key monitors would otherwise stay installed app-wide
     /// with the panel gone.
-    func closeAllOverlays() {
+    func dismissAllOverlays() {
         while dismissTopOverlay() {}
     }
 
@@ -378,6 +410,7 @@ final class EditorModel: ObservableObject {
         themePreference = settings.config.theme
         theme = themePreference.resolve()
         fontScale = settings.config.clampedFontScale
+        helpDocument = HelpDocument.make(keymap: settings.config.keymap)
 
         let chord = settings.config.summonChord
         let reloaded = HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers)
@@ -479,7 +512,11 @@ struct EditorView: View {
                         moveLineToken: model.moveLineToken,
                         moveLineDelta: model.moveLineDelta,
                         findHighlightToken: model.findHighlightToken,
-                        findHighlightRange: model.findHighlightRange,
+                        // Cleared while the help page is up: the query is
+                        // searching the page, and a match left painted on
+                        // the note would be a stale one.
+                        findHighlightRange: model.showHelp
+                            ? NSRange(location: 0, length: 0) : model.findHighlightRange,
                         fontScale: model.fontScale,
                         indent: model.settings.config.indent,
                         theme: model.theme
@@ -517,11 +554,12 @@ struct EditorView: View {
                 SaveIndicator(isVisible: model.isShowingSaveFlash)
             }
             if model.showHelp {
-                HelpOverlay(keymap: model.settings.config.keymap) {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        model.showHelp = false
-                    }
-                }
+                HelpOverlay(
+                    document: model.helpDocument,
+                    findHighlightToken: model.findHighlightToken,
+                    findHighlightRange: model.findHighlightRange,
+                    focusToken: model.helpFocusToken
+                )
                 .transition(.opacity)
             }
             if model.showHotKeyCapture {
@@ -547,9 +585,9 @@ struct EditorView: View {
                     currentIndex: model.findCurrentDisplayIndex,
                     onNext: { model.findNext() },
                     onPrev: { model.findPrevious() },
-                    onClose: {
+                    onDismiss: {
                         withAnimation(.easeInOut(duration: 0.15)) {
-                            model.closeFind()
+                            model.dismissFind()
                         }
                     }
                 )

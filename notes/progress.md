@@ -138,3 +138,15 @@
   reader see the inner value, so the overflow test was permanently false. Tooltip delay back to
   AppKit's default, and tooltips name only the first chord of an alias list. 178 tests
 
+## 2026-09-02 — help screen
+
+- 2026-09-02 — [help-screen](plan-help-screen.md): the help page is now a read-only `NSTextView`, so
+  ⌘F searches it, ⌘A selects it, and neither reaches the note underneath any more. Two-column grid
+  is a right tab stop plus a left one, carried as multiples of the row size so the gutter scales
+  with the text. `❖` replaces `⌃⌥⇧⌘` everywhere a chord is printed. "dismiss" replaces "close"
+  app-wide. Three bugs only the screenshots caught: `NSView.clipsToBounds` defaults to false, so the
+  pinned section header's `dirtyRect.fill()` covered the entire page and read as a washout rather
+  than as a fill in the wrong place; `makeNSView` runs before the view has a window, so focusing
+  from there silently does nothing; and `requestFocus()` sent focus to the note even with the page
+  in front, which is how ⌘= and ⌘T quietly disarmed ⌘A. 184 tests
+

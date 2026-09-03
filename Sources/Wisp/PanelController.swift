@@ -128,7 +128,7 @@ final class PanelController {
             self?.applyTheme(theme)
         }
 
-        // Esc closes any modal overlay first; falls through to the
+        // Esc dismisses any modal overlay first; falls through to the
         // panel's normal dismiss behavior only when nothing is open.
         panel.onCancel = { [weak self] in
             self?.model.dismissTopOverlay() ?? false
@@ -207,7 +207,7 @@ final class PanelController {
         stopOutsideClickMonitor()
         // orderOut leaves the SwiftUI hierarchy mounted, so overlays and
         // their app-wide key monitors survive the hide unless we say so.
-        model.closeAllOverlays()
+        model.dismissAllOverlays()
     }
 
     func toggle() {
@@ -267,7 +267,7 @@ final class PanelController {
     /// Dragging the panel is the exception the two guards below exist for.
     /// AppKit runs the drag inside its own tracking loop, so the mouse-up
     /// that ends it never arrives as a local event and this monitor sees
-    /// it — closing the panel the user was only repositioning. The cursor
+    /// it — dismissing the panel the user was only repositioning. The cursor
     /// is over the panel for the whole drag, which covers it; except when
     /// the window clamps against a screen edge and the cursor keeps going,
     /// which the just-moved window is what covers.

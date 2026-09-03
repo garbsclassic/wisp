@@ -44,7 +44,7 @@ struct BottomBar: View {
             glyphButton(
                 "textformat.size.larger", help: hint("Larger text", .increaseFontScale),
                 action: onIncreaseFontScale)
-            Text("esc to close")
+            Text("esc to dismiss")
         }
         .font(Typography.ui(Metrics.chromeSize))
         .foregroundStyle(Color(palette.muted))

@@ -250,6 +250,36 @@ public enum Metrics {
     public static let footerButtonWidth: CGFloat = 24
     public static let footerButtonHeight: CGFloat = 20
 
+    // MARK: Help page
+
+    /// Rows are set at `bodySize`, so the design's `172px` gutter and `22px`
+    /// column gap are carried as multiples of the row size rather than as
+    /// the pixel counts they were drawn at — the two columns then keep their
+    /// proportions when the text scale moves, which pixels would not.
+    public static let helpKeyColumnRatio: CGFloat = 172.0 / 14.5
+    public static let helpColumnGapRatio: CGFloat = 22.0 / 14.5
+    /// Section labels against the row size, same reasoning.
+    public static let helpSectionLabelRatio: CGFloat = 10.5 / 14.5
+    /// Letter-spacing on those labels, as a fraction of their own size.
+    public static let helpSectionTracking: CGFloat = 0.16
+
+    /// Half the gap between two rows: it is paid twice, once below a row and
+    /// once above the next, so the pair collapses to the design's 10.
+    public static let helpRowSpacing: CGFloat = 5
+
+    /// The page has no insets of its own: its content column and the space
+    /// around a section label both come from `chromeInsetX` / `chromeInsetY`,
+    /// the same values the header bar and the note's own column use. The
+    /// handoff drew it at 34 / 22 / 7, but the page crossfades onto the
+    /// editor and a column that lands somewhere else is the first thing you
+    /// see when it does.
+    ///
+    /// The first label's gap is *not* left to `paragraphSpacingBefore` —
+    /// AppKit's honoring of that on the very first paragraph in a container
+    /// is not something to bet the top of the page on. It goes in the
+    /// container inset instead, which `NSTextView` applies to both ends, so
+    /// it is also the gap below the last row.
+
     // MARK: Font scale
 
     /// One press of ⌘= / ⌘- or one click of a footer button.

@@ -20,11 +20,28 @@ struct HotKeyTests {
         let cmdShiftP = HotKey(keyCode: UInt32(kVK_ANSI_P), modifiers: UInt32(cmdKey | shiftKey))
         #expect(cmdShiftP.displayString == "⇧⌘P")
 
-        let allMods = HotKey(
-            keyCode: UInt32(kVK_ANSI_F),
+        let ctrlOptSlash = HotKey(
+            keyCode: UInt32(kVK_ANSI_Slash), modifiers: UInt32(controlKey | optionKey))
+        #expect(ctrlOptSlash.displayString == "⌃⌥/")
+    }
+
+    /// All four at once is a hyperkey, not four modifiers — and `⌃⌥⇧⌘` is
+    /// four fifths of a help-page row before the key even arrives.
+    @Test("All four modifiers collapse to the hyperkey glyph")
+    func hyperkey() {
+        let hyperPeriod = HotKey(
+            keyCode: UInt32(kVK_ANSI_Period),
             modifiers: UInt32(controlKey | optionKey | shiftKey | cmdKey)
         )
-        #expect(allMods.displayString == "⌃⌥⇧⌘F")
+        #expect(hyperPeriod.displayString == "❖.")
+
+        // One modifier short is still spelled out — the glyph stands for the
+        // whole set or it means nothing.
+        let almost = HotKey(
+            keyCode: UInt32(kVK_ANSI_Period),
+            modifiers: UInt32(controlKey | optionKey | shiftKey)
+        )
+        #expect(almost.displayString == "⌃⌥⇧.")
     }
 
     @Test("An unmapped key code degrades to a readable placeholder")

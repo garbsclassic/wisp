@@ -60,6 +60,15 @@ public enum Typography {
         return NSFont(name: notesFamily, size: size) ?? .systemFont(ofSize: size)
     }
 
+    /// Chrome face for the places that typeset with AppKit rather than
+    /// SwiftUI — the help page, whose rows live in an `NSTextView`. Weight
+    /// is not a parameter: the custom family carries it in the family name,
+    /// and everything drawn through this is regular.
+    public static func uiFont(_ size: CGFloat) -> NSFont {
+        let size = scaled(size)
+        return NSFont(name: uiFamily, size: size) ?? .systemFont(ofSize: size)
+    }
+
     // MARK: SwiftUI
 
     /// Bridges the AppKit resolver rather than re-resolving, so the

@@ -16,13 +16,26 @@ public struct HotKey: Equatable, Sendable {
         modifiers: UInt32(optionKey)
     )
 
-    /// Human-readable string like "⌥Space" or "⌃⇧F".
+    /// All four modifiers at once. Written as one glyph rather than as
+    /// `⌃⌥⇧⌘`, which is four fifths of the row before the key even
+    /// arrives — and which reads as four separate keys when it is really
+    /// one, since a hyperkey is what a remapped Caps Lock produces.
+    public static let hyperGlyph = "❖"
+
+    private static let hyperMask =
+        UInt32(controlKey) | UInt32(optionKey) | UInt32(shiftKey) | UInt32(cmdKey)
+
+    /// Human-readable string like "⌥Space", "⌃⇧F", or "❖.".
     public var displayString: String {
         var s = ""
-        if (modifiers & UInt32(controlKey)) != 0 { s += "⌃" }
-        if (modifiers & UInt32(optionKey))  != 0 { s += "⌥" }
-        if (modifiers & UInt32(shiftKey))   != 0 { s += "⇧" }
-        if (modifiers & UInt32(cmdKey))     != 0 { s += "⌘" }
+        if modifiers & Self.hyperMask == Self.hyperMask {
+            s = Self.hyperGlyph
+        } else {
+            if (modifiers & UInt32(controlKey)) != 0 { s += "⌃" }
+            if (modifiers & UInt32(optionKey))  != 0 { s += "⌥" }
+            if (modifiers & UInt32(shiftKey))   != 0 { s += "⇧" }
+            if (modifiers & UInt32(cmdKey))     != 0 { s += "⌘" }
+        }
         s += Self.keyName(for: keyCode)
         return s
     }

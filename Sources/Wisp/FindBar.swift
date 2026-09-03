@@ -4,7 +4,7 @@ import Carbon.HIToolbox
 import WispCore
 
 /// A single-row find bar that floats at the top of the editor. Type to
-/// search; Return / Shift-Return step matches; Esc closes. Deliberately
+/// search; Return / Shift-Return step matches; Esc dismisses. Deliberately
 /// minimal — no replace, no regex, no case toggle.
 struct FindBar: View {
     @Environment(\.palette) private var palette
@@ -13,7 +13,7 @@ struct FindBar: View {
     let currentIndex: Int   // 1-based; 0 when no matches
     let onNext: () -> Void
     let onPrev: () -> Void
-    let onClose: () -> Void
+    let onDismiss: () -> Void
 
     @FocusState private var focused: Bool
     @State private var monitor: Any?
@@ -41,7 +41,7 @@ struct FindBar: View {
                 .disabled(matchCount == 0)
             iconButton("chevron.down", help: "Next (↵)", action: onNext)
                 .disabled(matchCount == 0)
-            iconButton("xmark", help: "Close (Esc)", action: onClose)
+            iconButton("xmark", help: "Dismiss (Esc)", action: onDismiss)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -101,7 +101,7 @@ struct FindBar: View {
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             switch Int(event.keyCode) {
             case kVK_Escape:
-                onClose()
+                onDismiss()
                 return nil
             case kVK_Return, kVK_ANSI_KeypadEnter:
                 if event.modifierFlags.contains(.shift) { onPrev() } else { onNext() }

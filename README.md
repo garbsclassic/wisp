@@ -73,7 +73,7 @@ ignored.
 | `indent.size`           | `2`                       | Spaces per level. Ignored under `tabs`                                                                                       |
 | `vibrancy`              | `true`                    | Blurs whatever is behind the panel                                                                                           |
 | `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on                                                                        |
-| `dismissOnOutsideClick` | `true`                    | Clicking another app closes the panel                                                                                        |
+| `dismissOnOutsideClick` | `true`                    | Clicking another app dismisses the panel                                                                                        |
 | `position`              | `"auto"`                  | `auto` opens the panel centred, top edge a tenth down the screen, and pins it there; `manual` leaves it wherever you drag it |
 | `scratchpadPath`        | `""`                      | Folder for `scratchpad.md`; empty means `~/Documents`                                                                        |
 | `keymap.*`              | _(see below)_             | Every shortcut, rebindable. `keymap.summon` is the global chord, e.g. `cmd+shift+space`                                      |

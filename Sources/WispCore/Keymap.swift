@@ -121,7 +121,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     /// of the user, and so should do nothing when Wisp is merely active.
     ///
     /// `find`, `settings`, and `refresh` are the exceptions: each opens the
-    /// panel when it is closed, which is the point of them. `summon` isn't
+    /// panel when it is dismissed, which is the point of them. `summon` isn't
     /// a menu item at all — Carbon owns it, and being global is its job.
     public var isPanelScoped: Bool {
         switch self {
