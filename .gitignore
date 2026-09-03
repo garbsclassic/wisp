@@ -1,25 +1,4 @@
-# Swift / SwiftPM
 .build/
-.swiftpm/
-Packages/
-*.xcodeproj
-*.xcworkspace
-DerivedData/
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon?
-._*
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*~
-
-# Build artifacts
-build/
 dist/
-*.app
+.swiftpm/
+.DS_Store

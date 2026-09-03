@@ -189,7 +189,7 @@ public enum Metrics {
     /// The notes body at scale 1.0. Was `FontSize.medium` before the
     /// three-step enum and the continuous scale were merged into one
     /// control, so a default config renders exactly as it used to.
-    public static let bodySize: CGFloat = 19
+    public static let bodySize: CGFloat = 16
     /// `#` and `##` step up off the body; `###` and below are bold at
     /// body size, which is enough to read as a heading without a
     /// six-level ramp that runs out of headroom.
@@ -221,8 +221,8 @@ public enum Metrics {
     /// The header and footer bars' own insets, and the save dot's, so the
     /// dot lines up with the chrome it sits in rather than with the panel
     /// edge.
-    public static let chromeInsetX: CGFloat = 28
-    public static let chromeInsetY: CGFloat = 14
+    public static let chromeInsetX: CGFloat = 24
+    public static let chromeInsetY: CGFloat = 12
 
     /// Where the save dot's top edge goes, so the dot's centre lands on
     /// the header text's rather than on its line-box top.

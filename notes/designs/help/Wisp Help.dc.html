@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin:0; background:#0d1416; }
+  a { color:#5fbfb3; } a:hover { color:#7fd4c8; }
+  .wisp-scroll::-webkit-scrollbar { width:9px; }
+  .wisp-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,.10); border-radius:9px; }
+  .wisp-scroll::-webkit-scrollbar-track { background:transparent; }
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px;background:radial-gradient(120% 90% at 50% 0%,#1b3238 0%,#0d1719 55%,#080d0e 100%);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,sans-serif">
+
+  <div style="width:760px;height:800px;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;background:rgba(20,25,26,.94);box-shadow:0 30px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07)">
+
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.06);flex:none">
+      <span style="font-size: 13px; color: rgb(207, 216, 216); letter-spacing: 0.01em;">help</span>
+      <span style="margin-left: auto; font-size: 12px; color: rgb(105, 121, 123);">⌘F&nbsp;to find</span>
+    </div>
+
+    <div class="wisp-scroll" style="flex:1;overflow-y:auto;padding:4px 0 0">
+
+      <div style="position:sticky;top:0;z-index:2;padding:16px 34px 7px;background:rgba(20,25,26,.97);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#4fb3a4">WISP</div>
+      <div style="padding:0 34px">
+        <div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌃⌥⇧⌘.</div><div style="font-size:14.5px;color:#93a2a3">summon · dismiss panel<br></div></div><div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌘↑<span style="color: rgb(147, 162, 163); text-align: start; white-space: normal;"><span style="color: rgb(226, 234, 234); text-align: right; white-space: nowrap;">&nbsp;·&nbsp;</span></span>⌘↓</div><div style="font-size:14.5px;color:#93a2a3">move to beginning · end</div></div>
+        
+        <div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌘R</div><div style="font-size:14.5px;color:#93a2a3">refresh</div></div><div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#aeb9ba"><span style="color: rgb(226, 234, 234); white-space: nowrap;">⌥⌘</span>R</div><div style="font-size:14.5px;color:#93a2a3">reveal note in finder</div></div><div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌘+<span style="color: rgb(147, 162, 163); text-align: start; white-space: normal;"><span style="color: rgb(226, 234, 234); text-align: right; white-space: nowrap;">&nbsp;·&nbsp;</span></span>⌘−<span style="color: rgb(147, 162, 163); text-align: start; white-space: normal;"><span style="color: rgb(226, 234, 234); text-align: right; white-space: nowrap;">&nbsp;·&nbsp;</span></span>⌘0</div><div style="font-size:14.5px;color:#93a2a3">larger ·&nbsp;smaller · reset&nbsp;text</div></div><div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌘,</div><div style="font-size:14.5px;color:#93a2a3">settings</div></div>
+        
+      </div><div style="position:sticky;top:0;z-index:2;padding:22px 34px 7px;background:rgba(20,25,26,.97);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#4fb3a4">EDIT</div>
+
+      
+      <div style="padding:0 34px">
+        <div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌘F</div><div style="font-size:14.5px;color:#93a2a3">find... — ↵ · ⇧↵ to step</div></div><div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">↵ · ⇧↵</div><div style="font-size:14.5px;color:#93a2a3">find next · previous</div></div><div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌘D</div><div style="font-size:14.5px;color:#93a2a3">duplicate line or selection</div></div>
+        
+        
+        
+      </div><div style="position:sticky;top:0;z-index:2;padding:22px 34px 7px;background:rgba(20,25,26,.97);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#4fb3a4">Format</div>
+
+      
+      <div style="padding:0 34px">
+        <div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌘L</div><div style="font-size:14.5px;color:#93a2a3">toggle bullet list<br></div></div><div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌥↑<span style="color: rgb(147, 162, 163); text-align: start; white-space: normal;"><span style="color: rgb(226, 234, 234); text-align: right; white-space: nowrap;">&nbsp;·&nbsp;</span></span>⌥↓</div><div style="font-size:14.5px;color:#93a2a3">move line or selection</div></div><div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⌘B<span style="color: rgb(147, 162, 163); text-align: start; white-space: normal;"><span style="color: rgb(226, 234, 234); text-align: right; white-space: nowrap;">&nbsp;·&nbsp;</span></span>⌘I<span style="color: rgb(147, 162, 163); text-align: start; white-space: normal;"><span style="color: rgb(226, 234, 234); text-align: right; white-space: nowrap;">&nbsp;·&nbsp;</span></span>⌘H<span style="color: rgb(147, 162, 163); text-align: start; white-space: normal;"><span style="color: rgb(226, 234, 234); text-align: right; white-space: nowrap;">&nbsp;·&nbsp;</span></span>⌘U</div><div style="font-size:14.5px;color:#93a2a3">bold · highlight · italic · underline</div></div><div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">⇥<span style="color: rgb(147, 162, 163); text-align: start; white-space: normal;"><span style="color: rgb(226, 234, 234); text-align: right; white-space: nowrap;">&nbsp;·&nbsp;</span></span>⇧⇥</div><div style="font-size:14.5px;color:#93a2a3">increase · decrease indentation</div></div>
+        
+        
+        
+        
+      </div>
+
+      <div style="position:sticky;top:0;z-index:2;padding:22px 34px 7px;background:rgba(20,25,26,.97);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#4fb3a4">INSERT</div>
+      <div style="padding:0 34px">
+        <div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">- · * · +</div><div style="font-size:14.5px;color:#93a2a3">bulleted list</div></div>
+        <div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">1. · A. · a.</div><div style="font-size:14.5px;color:#93a2a3">numbered list</div></div>
+        <div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap"># · ## · ###</div><div style="font-size:14.5px;color:#93a2a3">headings</div></div>
+        <div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">---</div><div style="font-size:14.5px;color:#93a2a3">horizontal rule</div></div>
+        <div style="display:grid;grid-template-columns:172px 1fr;gap:22px;padding:5px 0"><div style="text-align:right;font-size:14.5px;color:#e2eaea;white-space:nowrap">&nbsp;:) · :rocket:</div><div style="font-size:14.5px;color:#93a2a3">emojis — 🙂 · 🚀 ·&nbsp;etc</div></div>
+      </div>
+
+      
+      <div style="padding:0 34px 28px">
+        
+        
+        
+        
+        
+        
+      </div>
+
+    </div>
+
+    <div style="flex:none;display:flex;gap:16px;padding:11px 16px;background:rgba(255,255,255,.03);border-top:1px solid rgba(255,255,255,.06);font-size:12px;color:#69797b">
+      <span>scroll with ↑ · ↓ · mouse wheel</span>
+      <span style="margin-left:auto">esc to dismiss</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:820,&quot;height&quot;:860}}"></script>
+</body>
+</html>

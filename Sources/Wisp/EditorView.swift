@@ -250,11 +250,20 @@ final class EditorModel: ObservableObject {
     /// that actually owns it. Bold and italic share one token/marker pair
     /// rather than each getting its own, since they're the same operation
     /// parameterized by the marker string.
-    func toggleBold() { wrapMarker = "**"; wrapToken &+= 1 }
+    func toggleBold() {
+        wrapMarker = "**"
+        wrapToken &+= 1
+    }
     /// `_word_` rather than `*word*`. Both still *render* as italic — this
     /// is only what the key inserts.
-    func toggleItalic() { wrapMarker = "_"; wrapToken &+= 1 }
-    func toggleHighlight() { wrapMarker = "=="; wrapToken &+= 1 }
+    func toggleItalic() {
+        wrapMarker = "_"
+        wrapToken &+= 1
+    }
+    func toggleHighlight() {
+        wrapMarker = "=="
+        wrapToken &+= 1
+    }
 
     /// ⌘D. Same token arrangement as ⌘B / ⌘I, for the same reason: the
     /// edit needs the text view's live selection, which only
@@ -329,9 +338,18 @@ final class EditorModel: ObservableObject {
     /// through to further handling only once nothing is left open.
     @discardableResult
     func dismissTopOverlay() -> Bool {
-        if showFind { closeFind(); return true }
-        if showHotKeyCapture { showHotKeyCapture = false; return true }
-        if showHelp { showHelp = false; return true }
+        if showFind {
+            closeFind()
+            return true
+        }
+        if showHotKeyCapture {
+            showHotKeyCapture = false
+            return true
+        }
+        if showHelp {
+            showHelp = false
+            return true
+        }
         return false
     }
 
@@ -466,16 +484,16 @@ struct EditorView: View {
                         indent: model.settings.config.indent,
                         theme: model.theme
                     )
-                    .padding(.horizontal, 28)
-                    .padding(.top, model.headings.isEmpty ? 28 : 4)
+                    .padding(.horizontal, 24)
+                    .padding(.top, model.headings.isEmpty ? 26 : 2)
                     .padding(.bottom, 4)
                     if model.text.isEmpty {
                         Text(model.placeholder)
                             .font(Typography.notes(Metrics.bodySize))
                             .foregroundStyle(Color(palette.muted))
                             .allowsHitTesting(false)
-                            .padding(.horizontal, 28)
-                            .padding(.top, model.headings.isEmpty ? 28 : 4)
+                            .padding(.horizontal, 24)
+                            .padding(.top, model.headings.isEmpty ? 26 : 2)
                     }
                 }
                 BottomBar(
