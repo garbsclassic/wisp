@@ -6,10 +6,12 @@ struct BottomBar: View {
     let onDecreaseFontScale: () -> Void
     let onIncreaseFontScale: () -> Void
     let themePreference: ThemePreference
+    let isRawMode: Bool
     /// Tooltips name their own chord, so a rebind shows up here without
     /// anyone remembering to edit a string.
     let keymap: Keymap
     let onCycleTheme: () -> Void
+    let onToggleRawMode: () -> Void
     let onHelpClick: () -> Void
     /// A bad config key, an unparseable chord, or a font that isn't
     /// installed. Nil most of the time.
@@ -33,6 +35,12 @@ struct BottomBar: View {
             glyphButton(
                 "questionmark", help: hint("Keyboard shortcuts and formatting", .help),
                 action: onHelpClick)
+            // Filled when on, the way the theme button swaps its glyph:
+            // a footer control that says which way it is currently set.
+            glyphButton(
+                isRawMode ? "doc.plaintext.fill" : "doc.plaintext",
+                help: hint(isRawMode ? "Show formatting" : "Show raw text", .rawMode),
+                action: onToggleRawMode)
             glyphButton(
                 themeIconName, help: hint(themeButtonHelp, .toggleTheme), action: onCycleTheme)
             // Two buttons rather than the old "Aa" cycle: the scale is

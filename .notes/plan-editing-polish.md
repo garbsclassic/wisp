@@ -37,12 +37,12 @@ Six unrelated papercuts and additions, batched because they land in the same thr
 
 ## Work
 
-- [ ] 1. Accent for header text, not separators — `HeaderBar.swift`
-- [ ] 2. `⇧⇥` mirrors `⇥` at the cursor — `LineEdits.outdentAtCursor`, `NotesTextView.handleBacktab`
-- [ ] 3. `↵` preserves indentation and continues nested lists — `SmartEditing`, `handleEnter`
-- [ ] 4. Backslash escapes — new `Escapes.swift`, `Palette.faint`, the styling and layout passes
-- [ ] 5. Auto-surround a selection by typing a delimiter — `MarkdownWrap`, `shouldChangeTextIn`
-- [ ] 6. Raw text mode on ⌘↩ — `KeymapAction.rawMode`, `MinimalTextEditor`, `BottomBar`, help page
+- [x] 1. Accent for header text, not separators — `HeaderBar.swift`
+- [x] 2. `⇧⇥` mirrors `⇥` at the cursor — `LineEdits.outdentAtCursor`, `NotesTextView.handleBacktab`
+- [x] 3. `↵` preserves indentation and continues nested lists — `SmartEditing`, `handleEnter`
+- [x] 4. Backslash escapes — new `Escapes.swift`, `Palette.faint`, the styling and layout passes
+- [x] 5. Auto-surround a selection by typing a delimiter — `MarkdownWrap`, `shouldChangeTextIn`
+- [x] 6. Raw text mode on ⌘↩ — `KeymapAction.rawMode`, `MinimalTextEditor`, `BottomBar`, help page
 
 ## Verification
 

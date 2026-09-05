@@ -27,11 +27,15 @@ final class NotesLayoutManager: NSLayoutManager {
     /// typed with the user's own Tab key steps glyphs at the same rate it
     /// steps columns.
     var indentWidth: Int = Indent().width
+    /// Raw mode draws neither rules nor bullets: both stand in for characters
+    /// the styling pass hides, and in raw mode nothing is hidden.
+    var isRawMode: Bool = false
 
     override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
         super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
 
-        guard let textStorage = textStorage,
+        guard !isRawMode,
+              let textStorage = textStorage,
               let context = NSGraphicsContext.current?.cgContext else {
             return
         }

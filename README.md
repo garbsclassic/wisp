@@ -96,6 +96,7 @@ An action can take a list instead of a single chord, and every entry binds —
 | `help`                                    | `["f1", "cmd+/"]` |
 | `bold` / `italic` / `highlight` / `underline` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+e` |
 | `toggleTheme`                             | `cmd+t` |
+| `rawMode`                                 | `cmd+return` |
 | `duplicateLine` / `toggleListItem`        | `cmd+d` / `opt+l` |
 | `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
 | `increaseFontScale` / `decreaseFontScale` / `resetFontScale` | `cmd+=` / `cmd+-` / `cmd+0` |
@@ -108,6 +109,21 @@ Underline writes `<u>…</u>`: markdown has none, `__` is already bold here,
 and `<u>` is what Obsidian's own underline command inserts. Code wraps in
 single backticks and renders in `fonts.code`; fenced blocks aren't styled,
 only inline spans.
+
+`rawMode` drops every styling pass and sets the body in `fonts.code`, so the
+screen shows the file. It isn't persisted — it resets when you quit. List
+continuation on ↵ keeps working; the two aids that *rewrite* the line,
+`---`→rule and `:rocket:`→🚀, are off while it is on.
+
+With a selection, typing `` ` `` `_` `'` or `"` wraps it in that character,
+and `*` or `=` wraps it in two — bold and highlight. It only ever wraps, never
+unwraps, so a second press nests. To replace a selection with one of those six
+characters, clear the selection first.
+
+A backslash escapes the character after it: `` \` `` is a literal backtick and
+not the start of a code span. The set is Obsidian's — ``\` \* \_ \# \| \~``
+and the `\.` after a list number — plus `\= \< \+ \-` and `\\`. The
+backslash stays on screen, dimmed, like every other marker here.
 
 `summon` is the only global one — the rest need Wisp's panel in front of you,
 except `find`, `settings`, and `refresh`, which open it. The menu bar menu

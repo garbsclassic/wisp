@@ -165,4 +165,25 @@
   monospace rather than to the body face, since code rendered as prose loses the only thing the
   backticks were for. Fenced blocks are deliberately untouched: `` `[^`\n]+` `` can't match across
   the second backtick of a fence, so ``` lines are left alone. 187 tests
+- 2026-09-05 — [editing-polish](plan-editing-polish.md): six papercuts and additions. Header headings
+  take the accent, on the labels rather than the row, since the container's `muted` is what the `…`
+  overlay inherits. `⇧⇥` gained `outdentAtCursor`: `⇥` with a bare caret inserts *at the caret*, so
+  whitespace could be added mid-line and never taken back — it now takes one tab, or the unit's
+  width in spaces, from just before the caret, and returns nil rather than a no-op so a caret inside
+  the leading indent still falls through to the whole-line outdent. `nextListMarker` carries the
+  line's own indent, which is what ↵ on a nested item had been dropping; indented prose gets the
+  same through the new `leadingIndent`, while a flush-left line is still left to AppKit so undo
+  keeps coalescing. Backslash escapes went in as `Escapes.scan` — and turned out to be almost
+  entirely a *rendering* job: `\# foo` already misses the heading pattern, `\- foo` already isn't a
+  bullet because `\` isn't a bullet character, `\---` already isn't a rule. Only the inline
+  patterns, which match happily starting one character in, needed the `isLive` guard. The backslash
+  stays visible in a new `faint` token — Flexoki `tx-3` on dark; on light, Modernist's `tx-3` is
+  already what `muted` uses, so it takes `ui-2` rather than collapsing two tiers. Typing `` ` `` `_`
+  `'` `"` `*` `=` over a selection now wraps it, wrap-only rather than toggling: a chord may
+  reasonably toggle, but typing a character is an insertion. Raw mode on ⌘↩ drops every styling pass
+  and sets the body in the code face; list continuation stays on, `---`→rule and `:rocket:`→🚀 go
+  off, since those two *rewrite the line* and raw mode exists to show what the line is. It isn't
+  persisted — a way to glance at the file is not a preference. 208 tests. Visual verification was
+  not possible: `screencapture` returns a black frame without Screen Recording permission, so the
+  header color, the faint backslash, and raw mode's face are unverified on screen.
 

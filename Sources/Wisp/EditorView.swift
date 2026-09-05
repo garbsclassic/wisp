@@ -26,6 +26,13 @@ final class EditorModel: ObservableObject {
     private(set) var wrapMarkers = MarkdownWrap.Markers("**")
     @Published private(set) var placeholder: String = ""
     @Published var showHotKeyCapture: Bool = false
+    /// ⌘↩. Drops every styling pass and sets the body in the code face, so
+    /// what is on screen is what is on disk.
+    ///
+    /// Deliberately not persisted: it is a way to glance at the file, not a
+    /// preference. The panel only orders out, so it survives a dismiss and
+    /// resets on quit — which is the lifetime it wants.
+    @Published var isRawMode: Bool = false
 
     // MARK: Help
 
@@ -255,6 +262,11 @@ final class EditorModel: ObservableObject {
     /// so "reset" means the size this user considers normal.
     func resetFontScale() {
         fontScale = settings.config.clampedDefaultFontScale
+        requestFocus()
+    }
+
+    func toggleRawMode() {
+        isRawMode.toggle()
         requestFocus()
     }
 
@@ -521,7 +533,8 @@ struct EditorView: View {
                             ? NSRange(location: 0, length: 0) : model.findHighlightRange,
                         fontScale: model.fontScale,
                         indent: model.settings.config.indent,
-                        theme: model.theme
+                        theme: model.theme,
+                        isRawMode: model.isRawMode
                     )
                     .padding(.horizontal, 24)
                     .padding(.top, model.headings.isEmpty ? 26 : 2)
@@ -540,8 +553,10 @@ struct EditorView: View {
                     onDecreaseFontScale: { model.stepFontScale(by: -1) },
                     onIncreaseFontScale: { model.stepFontScale(by: 1) },
                     themePreference: model.themePreference,
+                    isRawMode: model.isRawMode,
                     keymap: model.settings.config.keymap,
                     onCycleTheme: { model.cycleTheme() },
+                    onToggleRawMode: { model.toggleRawMode() },
                     onHelpClick: {
                         withAnimation(.easeInOut(duration: 0.18)) {
                             model.showHelp.toggle()

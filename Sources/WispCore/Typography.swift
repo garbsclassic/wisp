@@ -87,6 +87,14 @@ public enum Typography {
         NSFont(name: codeFamily, size: size) ?? .monospacedSystemFont(ofSize: size, weight: .regular)
     }
 
+    /// The code face at a *design* size, scaled the way `notesFont` is — for
+    /// raw mode, where the whole body is set in it rather than one span
+    /// inside prose. The `atResolvedSize` overload above takes an
+    /// already-scaled size, since it reads one off a resolved font.
+    public static func codeFont(_ size: CGFloat) -> NSFont {
+        codeFont(atResolvedSize: scaled(size))
+    }
+
     // MARK: SwiftUI
 
     /// Bridges the AppKit resolver rather than re-resolving, so the

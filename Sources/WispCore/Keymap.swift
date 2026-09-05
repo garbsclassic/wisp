@@ -57,6 +57,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case help
 
     case toggleTheme
+    case rawMode
 
     case bold
     case italic
@@ -85,6 +86,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .refresh: return "Refresh"
         case .help: return "Keyboard Shortcuts"
         case .toggleTheme: return "Cycle Theme"
+        case .rawMode: return "Raw Text"
         case .bold: return "Bold"
         case .italic: return "Italic"
         case .highlight: return "Highlight"
@@ -113,6 +115,10 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .bold: return "cmd+b"
         case .italic: return "cmd+i"
         case .toggleTheme: return "cmd+t"
+        // ⌘↩ rather than a letter: this is "show me the file", a sibling of
+        // the ⌘-Return "commit / step outside what you're typing" gesture,
+        // and every unclaimed ⌘-letter reads as a formatting command here.
+        case .rawMode: return "cmd+return"
         case .highlight: return "opt+h"
         // `<u>` is HTML, not markdown — which is also what Obsidian's own
         // underline command inserts, and this note is read there too.

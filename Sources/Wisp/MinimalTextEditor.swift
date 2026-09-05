@@ -38,6 +38,11 @@ struct MinimalTextEditor: NSViewRepresentable {
     var fontScale: Double
     var indent: Indent
     var theme: Theme
+    /// ⌘↩. Every styling pass is skipped and the body is set in the code
+    /// face, so the screen shows the file. Compared in `updateNSView` like
+    /// `fontScale`, since the resolved attributes live in the storage and
+    /// nothing re-derives them on their own.
+    var isRawMode: Bool
 
     func makeNSView(context: Context) -> NSScrollView {
         let (scrollView, textView) = NotesTextView.makeScrollView()
@@ -47,7 +52,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         scrollView.borderType = .noBorder
         scrollView.contentView.drawsBackground = false
 
-        let font = Typography.notesFont(Metrics.bodySize)
+        let font = Self.baseFont(isRawMode: isRawMode)
 
         textView.delegate = context.coordinator
         textView.drawsBackground = false
@@ -67,11 +72,13 @@ struct MinimalTextEditor: NSViewRepresentable {
         textView.string = text
 
         Self.applyPalette(
-            Palette.for(theme), to: textView, font: font, headings: headings, indent: indent)
+            Palette.for(theme), to: textView, font: font, headings: headings, indent: indent,
+            isRawMode: isRawMode)
 
         context.coordinator.lastFontScale = fontScale
         context.coordinator.lastIndent = indent
         context.coordinator.lastTheme = theme
+        context.coordinator.lastRawMode = isRawMode
         return scrollView
     }
 
@@ -91,9 +98,11 @@ struct MinimalTextEditor: NSViewRepresentable {
         // re-run the same full restyle, so they share one branch.
         if context.coordinator.lastFontScale != fontScale
             || context.coordinator.lastIndent != indent
+            || context.coordinator.lastRawMode != isRawMode
         {
             context.coordinator.lastFontScale = fontScale
             context.coordinator.lastIndent = indent
+            context.coordinator.lastRawMode = isRawMode
             textView.indentUnit = indent.unit
             restyle(textView)
         }
@@ -155,8 +164,16 @@ struct MinimalTextEditor: NSViewRepresentable {
 
     private func restyle(_ textView: NotesTextView) {
         Self.applyPalette(
-            Palette.for(theme), to: textView, font: Typography.notesFont(Metrics.bodySize),
-            headings: headings, indent: indent)
+            Palette.for(theme), to: textView, font: Self.baseFont(isRawMode: isRawMode),
+            headings: headings, indent: indent, isRawMode: isRawMode)
+    }
+
+    /// The face the whole body is set in. Raw mode takes the code family,
+    /// which is what makes "this is the file" legible at a glance rather
+    /// than something you have to infer from the absence of bold.
+    static func baseFont(isRawMode: Bool) -> NSFont {
+        isRawMode
+            ? Typography.codeFont(Metrics.bodySize) : Typography.notesFont(Metrics.bodySize)
     }
 
     private static func makeParagraphStyle() -> NSMutableParagraphStyle {
@@ -193,7 +210,8 @@ struct MinimalTextEditor: NSViewRepresentable {
         to textView: NotesTextView,
         font: NSFont,
         headings: [Heading],
-        indent: Indent
+        indent: Indent,
+        isRawMode: Bool
     ) {
         let paragraph = makeParagraphStyle()
         textView.textColor = palette.text
@@ -211,10 +229,12 @@ struct MinimalTextEditor: NSViewRepresentable {
             lm.bulletColor = palette.text
             lm.bulletFont = font
             lm.indentWidth = indent.width
+            lm.isRawMode = isRawMode
         }
         if let storage = textView.textStorage {
             resetBaseAttributes(
                 in: storage, font: font, color: palette.text, paragraph: paragraph)
+            guard !isRawMode else { return }
             restyleContent(
                 in: storage, baseFont: font, headings: headings, indent: indent, palette: palette)
         }
@@ -554,6 +574,12 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lastFontScale: Double = 1
         var lastIndent: Indent = Indent()
         var lastTheme: Theme = .dark
+        /// Read by the delegate callbacks below as well as by `updateNSView`:
+        /// raw mode also turns off the smart editing that *rewrites the file*
+        /// — `---`→rule and `:rocket:`→🚀 — since looking at the raw text is
+        /// the one time those are least welcome. List continuation stays: it
+        /// is typing assistance, not rendering.
+        var lastRawMode: Bool = false
 
         init(text: Binding<String>, headings: Binding<[Heading]>) {
             self.text = text
@@ -566,18 +592,19 @@ struct MinimalTextEditor: NSViewRepresentable {
 
             // Emoji shortcode replacement runs first — it may rewrite a
             // chunk of text, after which we restyle against the result.
-            EmojiReplace.replaceIfMatched(in: textView)
+            if !lastRawMode { EmojiReplace.replaceIfMatched(in: textView) }
 
             // Live-restyle: reset font, foreground, and paragraph style to
             // base across the storage, then re-apply the content passes.
             // Resetting first is what lets a line that stopped being an HR
             // or a list item lose the styling it had.
             if let storage = textView.textStorage {
-                let baseFont = Typography.notesFont(Metrics.bodySize)
+                let baseFont = MinimalTextEditor.baseFont(isRawMode: lastRawMode)
                 let palette = Palette.for(lastTheme)
                 MinimalTextEditor.resetBaseAttributes(
                     in: storage, font: baseFont, color: palette.text,
                     paragraph: MinimalTextEditor.makeParagraphStyle())
+                guard !lastRawMode else { return }
                 MinimalTextEditor.restyleContent(
                     in: storage, baseFont: baseFont, headings: headings.wrappedValue,
                     indent: lastIndent, palette: palette)
@@ -622,8 +649,10 @@ struct MinimalTextEditor: NSViewRepresentable {
 
             // Only single-char `-` insertions count. Pastes (multi-char) and
             // undo restorations have different replacement strings, so they
-            // skip this path naturally.
-            guard replacementString == "-",
+            // skip this path naturally. Raw mode skips it outright: this one
+            // rewrites the line, and the point of raw mode is to see what the
+            // line actually is.
+            guard !lastRawMode, replacementString == "-",
                   affectedCharRange.length == 0
             else { return true }
 
@@ -669,7 +698,7 @@ struct MinimalTextEditor: NSViewRepresentable {
 
             // Fallback path: catches `---` that arrived via paste, where the
             // typed-character interceptor above wouldn't fire.
-            if SmartEditing.isHorizontalRuleTrigger(line) {
+            if !lastRawMode, SmartEditing.isHorizontalRuleTrigger(line) {
                 let replaceRange = NSRange(
                     location: lineRange.location,
                     length: lineEnd - lineRange.location
