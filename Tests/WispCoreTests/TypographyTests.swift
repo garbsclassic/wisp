@@ -28,6 +28,16 @@ struct TypographyTests {
 
     /// The size arrives already scaled — it comes off a resolved font, not
     /// off a `Metrics` constant, so scaling it again would compound.
+    @Test("The code face at a design size is scaled like the body's")
+    func codeFontScales() {
+        Typography.configure(fonts: FontSet(), scale: 2)
+        defer { Typography.configure(fonts: FontSet(), scale: 1) }
+        #expect(Typography.codeFont(16).pointSize == 32)
+        // The `atResolvedSize` overload is the unscaled one; raw mode passes a
+        // design size and needs the scale applied, same as the body face.
+        #expect(Typography.codeFont(atResolvedSize: 16).pointSize == 16)
+    }
+
     @Test("The code face takes its size as given")
     func codeSizeIsNotRescaled() {
         defer { Typography.configure(fonts: FontSet(), scale: 1) }

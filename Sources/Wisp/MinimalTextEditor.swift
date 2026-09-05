@@ -641,7 +641,11 @@ struct MinimalTextEditor: NSViewRepresentable {
             // replacing it. Guarded on a single character, so a paste and an
             // undo restoration — both multi-character — fall through to the
             // ordinary replace.
-            if affectedCharRange.length > 0, let typed = replacementString,
+            // `hasMarkedText` excludes an IME still composing: a composition
+            // that happens to pass through one of these characters is a
+            // half-finished word, not a request to wrap anything.
+            if affectedCharRange.length > 0, !textView.hasMarkedText(),
+                let typed = replacementString,
                 let markers = MarkdownWrap.surroundMarkers(for: typed) {
                 MarkdownWrap.wrap(in: textView, range: affectedCharRange, markers: markers)
                 return false

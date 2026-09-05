@@ -541,7 +541,9 @@ struct EditorView: View {
                     .padding(.bottom, 4)
                     if model.text.isEmpty {
                         Text(model.placeholder)
-                            .font(Typography.notes(Metrics.bodySize))
+                            // Same face as the body it sits on top of, which
+                            // in raw mode is the code one.
+                            .font(Font(MinimalTextEditor.baseFont(isRawMode: model.isRawMode)))
                             .foregroundStyle(Color(palette.muted))
                             .allowsHitTesting(false)
                             .padding(.horizontal, 24)

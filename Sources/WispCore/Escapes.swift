@@ -58,6 +58,9 @@ public enum Escapes {
         var backslashes: Set<Int> = []
         var escaped: Set<Int> = []
         var index = 0
+        // `length - 1`, so a trailing backslash is inert without a special
+        // case: the loop can never stand on the last character, and there is
+        // nothing after it to escape anyway.
         while index < text.length - 1 {
             guard text.character(at: index) == backslash,
                 escapableUnits.contains(text.character(at: index + 1))
