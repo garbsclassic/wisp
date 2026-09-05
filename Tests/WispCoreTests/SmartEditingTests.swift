@@ -97,6 +97,69 @@ struct ListMarkerTests {
     func nonList(line: String) {
         #expect(SmartEditing.nextListMarker(for: line) == nil)
     }
+
+    @Test(
+        "Unordered markers carry their leading indentation",
+        arguments: [("  - foo", "  - "), ("\t* foo", "\t* "), ("   + foo", "   + ")]
+    )
+    func indentedUnordered(line: String, marker: String) {
+        #expect(SmartEditing.nextListMarker(for: line) == marker)
+    }
+
+    @Test("A numeric marker carries its leading indentation")
+    func indentedNumeric() {
+        #expect(SmartEditing.nextListMarker(for: "  3. foo") == "  4. ")
+    }
+
+    @Test(
+        "Alphabetic markers carry their leading indentation, including at the end of the alphabet",
+        arguments: [
+            ("  B. foo", "  C. "),
+            ("  y. foo", "  z. "),
+            ("  Z. foo", nil),
+            ("  z. foo", nil),
+        ] as [(String, String?)]
+    )
+    func indentedAlphabetic(line: String, marker: String?) {
+        #expect(SmartEditing.nextListMarker(for: line) == marker)
+    }
+
+    @Test("An indented empty item still yields the exit signal, indent and all")
+    func indentedEmptyItemExits() {
+        #expect(SmartEditing.nextListMarker(for: "  - ") == "")
+        #expect(SmartEditing.nextListMarker(for: "\t2. ") == "")
+    }
+
+    @Test("Indentation alone does not make a line a list item")
+    func indentationAloneIsNotAList() {
+        #expect(SmartEditing.nextListMarker(for: "  foo") == nil)
+    }
+}
+
+@Suite("SmartEditing: leading indent")
+struct LeadingIndentTests {
+    @Test(
+        "Leading spaces and tabs are captured verbatim",
+        arguments: [
+            ("  foo", "  "),
+            ("\tfoo", "\t"),
+            (" \t foo", " \t "),
+            ("foo", ""),
+        ]
+    )
+    func indent(line: String, expected: String) {
+        #expect(SmartEditing.leadingIndent(of: line) == expected)
+    }
+
+    @Test("A whitespace-only line returns the whole line")
+    func wholeLineIsWhitespace() {
+        #expect(SmartEditing.leadingIndent(of: "   ") == "   ")
+    }
+
+    @Test("An empty string has no leading indent")
+    func empty() {
+        #expect(SmartEditing.leadingIndent(of: "") == "")
+    }
 }
 
 @Suite("List items")

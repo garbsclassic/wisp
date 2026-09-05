@@ -206,6 +206,129 @@ struct IndentEditTests {
     }
 }
 
+@Suite("LineEdits — outdent at cursor")
+struct OutdentAtCursorTests {
+    @Test("Mid-line spaces exactly the unit's width are removed entirely")
+    func removesTheFullUnit() throws {
+        let text = "foo  bar"
+        let edit = try #require(
+            LineEdits.outdentAtCursor(
+                in: text as NSString, selection: NSRange(location: 5, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == "foobar")
+        #expect(edit.selection == NSRange(location: 3, length: 0))
+    }
+
+    @Test("Fewer spaces before the cursor than the unit removes only what is there")
+    func removesWhatIsThere() throws {
+        let text = "foo bar"
+        let edit = try #require(
+            LineEdits.outdentAtCursor(
+                in: text as NSString, selection: NSRange(location: 4, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == "foobar")
+        #expect(edit.selection == NSRange(location: 3, length: 0))
+    }
+
+    @Test("More spaces before the cursor than the unit removes exactly the unit's width")
+    func removesOnlyTheUnitWidth() throws {
+        let text = "foo    bar"
+        let edit = try #require(
+            LineEdits.outdentAtCursor(
+                in: text as NSString, selection: NSRange(location: 7, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == "foo  bar")
+        #expect(edit.selection == NSRange(location: 5, length: 0))
+    }
+
+    @Test("A mid-line tab is removed whole, regardless of the configured unit width")
+    func removesOneTab() throws {
+        let text = "foo\tbar"
+        let edit = try #require(
+            LineEdits.outdentAtCursor(
+                in: text as NSString, selection: NSRange(location: 4, length: 0), unit: "    "))
+        #expect(apply(edit, to: text) == "foobar")
+        #expect(edit.selection == NSRange(location: 3, length: 0))
+    }
+
+    @Test("A mixed tab-then-spaces run gives up only the spaces, never the tab")
+    func mixedRunKeepsTheTab() throws {
+        let text = "foo\t  bar"
+        let edit = try #require(
+            LineEdits.outdentAtCursor(
+                in: text as NSString, selection: NSRange(location: 6, length: 0), unit: "    "))
+        #expect(apply(edit, to: text) == "foo\tbar")
+        #expect(edit.selection == NSRange(location: 4, length: 0))
+    }
+
+    @Test("A cursor inside the line's leading indent is not this edit")
+    func cursorInsideLeadingIndent() {
+        let text = "  foo"
+        let edit = LineEdits.outdentAtCursor(
+            in: text as NSString, selection: NSRange(location: 1, length: 0), unit: "  ")
+        #expect(edit == nil)
+    }
+
+    @Test("A cursor at the end of the line's leading indent is not this edit")
+    func cursorAtEndOfLeadingIndent() {
+        let text = "  foo"
+        let edit = LineEdits.outdentAtCursor(
+            in: text as NSString, selection: NSRange(location: 2, length: 0), unit: "  ")
+        #expect(edit == nil)
+    }
+
+    @Test("A cursor at column zero is not this edit")
+    func cursorAtColumnZero() {
+        let text = "foo"
+        let edit = LineEdits.outdentAtCursor(
+            in: text as NSString, selection: NSRange(location: 0, length: 0), unit: "  ")
+        #expect(edit == nil)
+    }
+
+    @Test("A line of only whitespace is entirely leading indent, even at its end")
+    func wholeLineIsWhitespace() {
+        let text = "   "
+        let edit = LineEdits.outdentAtCursor(
+            in: text as NSString, selection: NSRange(location: 3, length: 0), unit: "  ")
+        #expect(edit == nil)
+    }
+
+    @Test("A non-empty selection is not this edit")
+    func nonEmptySelection() {
+        let text = "foo  bar"
+        let edit = LineEdits.outdentAtCursor(
+            in: text as NSString, selection: NSRange(location: 3, length: 2), unit: "  ")
+        #expect(edit == nil)
+    }
+
+    @Test("The line-start check is against the cursor's own line, not the document start")
+    func secondLineOfMultilineText() throws {
+        let text = "first\nfoo  bar"
+        let edit = try #require(
+            LineEdits.outdentAtCursor(
+                in: text as NSString, selection: NSRange(location: 11, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == "first\nfoobar")
+        #expect(edit.selection == NSRange(location: 9, length: 0))
+    }
+
+    @Test("A single-tab unit removes only one space from a mid-line run of spaces")
+    func singleTabUnitOnSpaces() throws {
+        let text = "foo   bar"
+        let edit = try #require(
+            LineEdits.outdentAtCursor(
+                in: text as NSString, selection: NSRange(location: 6, length: 0), unit: "\t"))
+        #expect(apply(edit, to: text) == "foo  bar")
+        #expect(edit.selection == NSRange(location: 5, length: 0))
+    }
+
+    @Test("A single-tab unit still removes a whole mid-line tab")
+    func singleTabUnitOnATab() throws {
+        let text = "foo\tbar"
+        let edit = try #require(
+            LineEdits.outdentAtCursor(
+                in: text as NSString, selection: NSRange(location: 4, length: 0), unit: "\t"))
+        #expect(apply(edit, to: text) == "foobar")
+        #expect(edit.selection == NSRange(location: 3, length: 0))
+    }
+}
+
 @Suite("LineEdits — move lines")
 struct MoveLinesTests {
     @Test("Moving up swaps with the line above")

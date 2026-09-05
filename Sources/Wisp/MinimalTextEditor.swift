@@ -610,6 +610,16 @@ struct MinimalTextEditor: NSViewRepresentable {
             shouldChangeTextIn affectedCharRange: NSRange,
             replacementString: String?
         ) -> Bool {
+            // Typing a delimiter over a selection wraps it rather than
+            // replacing it. Guarded on a single character, so a paste and an
+            // undo restoration — both multi-character — fall through to the
+            // ordinary replace.
+            if affectedCharRange.length > 0, let typed = replacementString,
+                let markers = MarkdownWrap.surroundMarkers(for: typed) {
+                MarkdownWrap.wrap(in: textView, range: affectedCharRange, markers: markers)
+                return false
+            }
+
             // Only single-char `-` insertions count. Pastes (multi-char) and
             // undo restorations have different replacement strings, so they
             // skip this path naturally.

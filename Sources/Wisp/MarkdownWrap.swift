@@ -58,11 +58,38 @@ enum MarkdownWrap {
             return
         }
 
-        let wrapped = markers.open + selectedText + markers.close
-        guard textView.replaceText(in: selectedRange, with: wrapped) else { return }
+        wrap(in: textView, range: selectedRange, markers: markers)
+    }
+
+    /// Put `markers` around `range`, leaving the inner content selected so a
+    /// second pass nests rather than starting over.
+    ///
+    /// Split out of `toggle` because typing a delimiter over a selection wants
+    /// this half and not the unwrap half: ⌘B is a command and may toggle, but
+    /// typing a character is an insertion, and having `"` swallow the quotes
+    /// off `"foo"` is not what the keypress meant.
+    static func wrap(in textView: NSTextView, range: NSRange, markers: Markers) {
+        let inner = (textView.string as NSString).substring(with: range)
+        let wrapped = markers.open + inner + markers.close
+        guard textView.replaceText(in: range, with: wrapped) else { return }
         textView.setSelectedRange(NSRange(
-            location: selectedRange.location + openLen,
-            length: (selectedText as NSString).length
+            location: range.location + (markers.open as NSString).length,
+            length: (inner as NSString).length
         ))
+    }
+
+    /// What typing `typed` over a selection wraps it in, or nil for a
+    /// character that means nothing here.
+    ///
+    /// Doubled for `*` and `=` because that is the emphasis those characters
+    /// are reached for — a lone `*` is italic, but `_` already covers italic,
+    /// and `=` alone is not markup at all. `'` and `"` aren't markup either;
+    /// they are the other thing a selection gets wrapped in.
+    static func surroundMarkers(for typed: String) -> Markers? {
+        switch typed {
+        case "`", "_", "'", "\"": return Markers(typed)
+        case "*", "=": return Markers(typed + typed)
+        default: return nil
+        }
     }
 }
