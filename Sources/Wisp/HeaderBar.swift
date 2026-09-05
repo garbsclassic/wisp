@@ -62,7 +62,11 @@ struct HeaderBar: View {
                         .padding(.horizontal, 10)
                 }
                 Button(action: { onJump(heading) }) {
+                    // Accent on the headings themselves, not on the row: the
+                    // container's `muted` is what the `…` overlay inherits, and
+                    // an accented ellipsis reads as a heading you can click.
                     Text(heading.name)
+                        .foregroundStyle(Color(palette.accent))
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)

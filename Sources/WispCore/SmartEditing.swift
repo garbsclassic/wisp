@@ -14,29 +14,45 @@ public enum SmartEditing {
 
     /// Given a line of text, return the marker to insert on the next line if
     /// this line is a list item. Returns `nil` if not a list, or the next
-    /// marker (e.g. `"- "`, `"3. "`, `"B. "`). Returns an empty string when
+    /// marker (e.g. `"- "`, `"3. "`, `"  B. "`). Returns an empty string when
     /// the current line is an empty list item — the caller should treat that
     /// as a signal to exit the list.
+    ///
+    /// The line's own leading whitespace is part of what comes back, so ↵ on a
+    /// nested item continues the list at the depth it was already at rather
+    /// than dropping it back to the margin.
     public static func nextListMarker(for line: String) -> String? {
-        if let match = line.firstMatch(of: /^([-*+])\s/) {
-            let bullet = String(match.1)
+        if let match = line.firstMatch(of: /^([ \t]*)([-*+])\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
-            return "\(bullet) "
+            return "\(match.1)\(match.2) "
         }
-        if let match = line.firstMatch(of: /^(\d+)\.\s/) {
-            let n = Int(match.1) ?? 0
+        if let match = line.firstMatch(of: /^([ \t]*)(\d+)\.\s/) {
+            let n = Int(match.2) ?? 0
             if isEmptyAfter(match.range, in: line) { return "" }
-            return "\(n + 1). "
+            return "\(match.1)\(n + 1). "
         }
-        if let match = line.firstMatch(of: /^([A-Z])\.\s/) {
+        if let match = line.firstMatch(of: /^([ \t]*)([A-Z])\.\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
-            return nextAlphaMarker(Character(String(match.1)), limit: "Z")
+            guard let next = nextAlphaMarker(Character(String(match.2)), limit: "Z") else {
+                return nil
+            }
+            return String(match.1) + next
         }
-        if let match = line.firstMatch(of: /^([a-z])\.\s/) {
+        if let match = line.firstMatch(of: /^([ \t]*)([a-z])\.\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
-            return nextAlphaMarker(Character(String(match.1)), limit: "z")
+            guard let next = nextAlphaMarker(Character(String(match.2)), limit: "z") else {
+                return nil
+            }
+            return String(match.1) + next
         }
         return nil
+    }
+
+    /// The leading spaces and tabs on `line`, for carrying an indent onto the
+    /// next one. Empty when the line is flush left, which is the caller's
+    /// signal to leave ↵ to AppKit.
+    public static func leadingIndent(of line: String) -> String {
+        String(line.prefix { $0 == " " || $0 == "\t" })
     }
 
     private static func isEmptyAfter(_ range: Range<String.Index>, in line: String) -> Bool {

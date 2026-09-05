@@ -126,13 +126,22 @@ final class NotesTextView: NSTextView {
     }
 
     /// ⇧Tab always outdents — there is nothing else it could usefully
-    /// mean in a plain-text editor with no tab stops.
+    /// mean in a plain-text editor with no tab stops. What it outdents is
+    /// whichever of the two things `handleTab` might have indented: the
+    /// whitespace just before a bare cursor mid-line, or failing that the
+    /// whole block.
     func handleBacktab() {
-        let edit = LineEdits.outdent(
-            in: string as NSString, selection: selectedRange(), unit: indentUnit)
+        let text = string as NSString
+        let selection = selectedRange()
+        if let edit = LineEdits.outdentAtCursor(
+            in: text, selection: selection, unit: indentUnit) {
+            apply(edit)
+            return
+        }
+        let edit = LineEdits.outdent(in: text, selection: selection, unit: indentUnit)
         // An already-flush block rewrites itself to itself; skipping it
         // keeps a no-op ⇧Tab out of the undo stack.
-        guard edit.replacement != (string as NSString).substring(with: edit.range) else { return }
+        guard edit.replacement != text.substring(with: edit.range) else { return }
         apply(edit)
     }
 

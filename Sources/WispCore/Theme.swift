@@ -67,7 +67,8 @@ public struct Palette {
     /// palette is "surfaces: cards, sidebars, modals" — which is what the
     /// chrome bars are relative to the writing area they frame.
     public let chrome: NSColor
-    /// The single accent, used sparingly — caret and selection only.
+    /// The single accent, used sparingly — caret, selection, the save dot,
+    /// help section labels, and the header's heading links.
     /// Flexoki cyan / Modernist vermilion.
     public let accent: NSColor
     /// 1px incidental rules, including the horizontal-rule glyph. Alpha,

@@ -636,7 +636,16 @@ struct MinimalTextEditor: NSViewRepresentable {
             }
 
             guard let marker = SmartEditing.nextListMarker(for: line) else {
-                return false
+                // Not a list, but an indented line still carries its indent
+                // onto the next one — AppKit's own newline would land the
+                // cursor back at the margin. A flush-left line is left to
+                // AppKit, which keeps undo coalescing on the common path.
+                let indent = SmartEditing.leadingIndent(of: line)
+                guard !indent.isEmpty else { return false }
+                replace(
+                    in: textView, range: NSRange(location: cursor, length: 0),
+                    with: "\n" + indent)
+                return true
             }
 
             if marker.isEmpty {

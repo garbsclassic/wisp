@@ -30,6 +30,10 @@ public enum LineEdits {
     }
 
     private static let newline: unichar = 0x0A
+    private static let space: unichar = 0x20
+    private static let tab: unichar = 0x09
+
+    private static func isSpaceOrTab(_ c: unichar) -> Bool { c == space || c == tab }
 
     // MARK: Duplicate
 
@@ -119,6 +123,52 @@ public enum LineEdits {
             let spaces = line.prefix { $0 == " " }.count
             return (inserted: "", removed: min(spaces, width))
         }
+    }
+
+    /// ⇧⇥ with a bare cursor sitting after whitespace that is *not* the
+    /// line's own leading indent — the exact inverse of what a mid-line ⇥
+    /// inserts there. Without it, whitespace typed into the middle of a line
+    /// can be added but never taken back.
+    ///
+    /// Nil rather than a no-op `Edit` when there is nothing mid-line to take,
+    /// so the caller falls through to outdenting the whole line — which is
+    /// what ⇧⇥ means everywhere else, and what a cursor sitting *in* the
+    /// leading indent still gets.
+    public static func outdentAtCursor(
+        in text: NSString, selection: NSRange, unit: String
+    ) -> Edit? {
+        guard selection.length == 0 else { return nil }
+        let cursor = max(0, min(selection.location, text.length))
+        let line = lineRange(in: text, at: cursor)
+
+        var runStart = cursor
+        while runStart > line.location, isSpaceOrTab(text.character(at: runStart - 1)) {
+            runStart -= 1
+        }
+        // Nothing before the cursor, or the run reaches the line start and so
+        // *is* the leading indent. Either way this is not our edit.
+        guard runStart < cursor, runStart > line.location else { return nil }
+
+        let removed: Int
+        if text.character(at: cursor - 1) == tab {
+            // One tab is one level, whatever the configured width says.
+            removed = 1
+        } else {
+            // Only the spaces immediately before the cursor, so a run of
+            // `\t  ` gives up its two spaces without also losing the tab.
+            var spaces = 0
+            while cursor - spaces - 1 >= runStart,
+                text.character(at: cursor - spaces - 1) == space {
+                spaces += 1
+            }
+            removed = min(spaces, (unit as NSString).length)
+        }
+        guard removed > 0 else { return nil }
+
+        let range = NSRange(location: cursor - removed, length: removed)
+        return Edit(
+            range: range, replacement: "",
+            selection: NSRange(location: range.location, length: 0))
     }
 
     // MARK: Move and toggle
