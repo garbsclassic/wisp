@@ -196,8 +196,12 @@ struct MinimalTextEditor: NSViewRepresentable {
         storage.removeAttribute(.backgroundColor, range: full)
         // `==marked==` shares the attribute, so it is repainted before the
         // match goes on top. Without this, opening Find erases every
-        // highlight in the note.
-        Self.styleHighlights(in: storage, palette: palette, marks: Escapes.scan(storage.string))
+        // highlight in the note. Not in raw mode, where there is no
+        // `==marked==` to put back — only the match itself is painted.
+        if !isRawMode {
+            Self.styleHighlights(
+                in: storage, palette: palette, marks: Escapes.scan(storage.string))
+        }
 
         let range = findHighlightRange
         guard range.length > 0, NSMaxRange(range) <= full.length else { return }
@@ -234,7 +238,16 @@ struct MinimalTextEditor: NSViewRepresentable {
         if let storage = textView.textStorage {
             resetBaseAttributes(
                 in: storage, font: font, color: palette.text, paragraph: paragraph)
-            guard !isRawMode else { return }
+            guard !isRawMode else {
+                // `resetBaseAttributes` leaves `.backgroundColor` alone, since
+                // the find match rides on it and a restyle must not wipe the
+                // match. Nothing repaints `==marked==` in raw mode, so it has
+                // to go here or an amber wash survives into a mode whose whole
+                // point is that nothing is styled.
+                storage.removeAttribute(
+                    .backgroundColor, range: NSRange(location: 0, length: storage.length))
+                return
+            }
             restyleContent(
                 in: storage, baseFont: font, headings: headings, indent: indent, palette: palette)
         }
@@ -378,7 +391,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     ) {
         let text = storage.string
         func isLive(_ range: Range<String.Index>, _ closeLength: Int) -> Bool {
-            Self.isLive(NSRange(range, in: text), closeLength: closeLength, marks: marks)
+            marks.isLive(NSRange(range, in: text), closeLength: closeLength)
         }
 
         for match in text.matches(of: /\*\*([^*\n]+)\*\*/) where isLive(match.range, 2) {
@@ -443,24 +456,11 @@ struct MinimalTextEditor: NSViewRepresentable {
     ) {
         let text = storage.string
         for match in text.matches(of: /==([^=\n]+)==/)
-        where isLive(NSRange(match.range, in: text), closeLength: 2, marks: marks) {
+        where marks.isLive(NSRange(match.range, in: text), closeLength: 2) {
             storage.addAttribute(
                 .backgroundColor, value: palette.highlight,
                 range: NSRange(match.range, in: text))
         }
-    }
-
-    /// True when neither end of a marked-up run was escaped.
-    ///
-    /// Checked on the *first* character of the delimiter at each end, which is
-    /// the only place a backslash can sit and mean anything — `\**bold**` is
-    /// escaped, `*\*bold**` is a different (and malformed) thing.
-    private static func isLive(
-        _ range: NSRange, closeLength: Int, marks: Escapes.Marks
-    ) -> Bool {
-        guard !marks.isEmpty else { return true }
-        return !marks.isEscaped(range.location)
-            && !marks.isEscaped(NSMaxRange(range) - closeLength)
     }
 
     /// True when the run isn't butted against a word character on either
@@ -604,7 +604,11 @@ struct MinimalTextEditor: NSViewRepresentable {
                 MinimalTextEditor.resetBaseAttributes(
                     in: storage, font: baseFont, color: palette.text,
                     paragraph: MinimalTextEditor.makeParagraphStyle())
-                guard !lastRawMode else { return }
+                guard !lastRawMode else {
+                    storage.removeAttribute(
+                        .backgroundColor, range: NSRange(location: 0, length: storage.length))
+                    return
+                }
                 MinimalTextEditor.restyleContent(
                     in: storage, baseFont: baseFont, headings: headings.wrappedValue,
                     indent: lastIndent, palette: palette)
@@ -638,14 +642,24 @@ struct MinimalTextEditor: NSViewRepresentable {
             replacementString: String?
         ) -> Bool {
             // Typing a delimiter over a selection wraps it rather than
-            // replacing it. Guarded on a single character, so a paste and an
-            // undo restoration — both multi-character — fall through to the
-            // ordinary replace.
-            // `hasMarkedText` excludes an IME still composing: a composition
-            // that happens to pass through one of these characters is a
-            // half-finished word, not a request to wrap anything.
+            // replacing it.
+            //
+            // Gated on the live `NSEvent` and not on `replacementString`
+            // alone, which cannot tell a keystroke from a programmatic
+            // replace. Every hand-rolled edit in the app re-enters this
+            // delegate with whatever text it is putting back, and plenty of
+            // those are one character: ⌥L unsetting `- *` puts back `*`,
+            // ⌘E unwrapping `` `*` `` puts back `*`, and AppKit's own undo
+            // restores exactly the character you replaced. Each was being
+            // wrapped instead of applied.
+            //
+            // `hasMarkedText` additionally excludes an IME mid-composition,
+            // where the character is a half-finished word rather than a
+            // request to wrap anything.
             if affectedCharRange.length > 0, !textView.hasMarkedText(),
                 let typed = replacementString,
+                let event = NSApp.currentEvent, event.type == .keyDown,
+                event.characters == typed,
                 let markers = MarkdownWrap.surroundMarkers(for: typed) {
                 MarkdownWrap.wrap(in: textView, range: affectedCharRange, markers: markers)
                 return false
@@ -689,7 +703,11 @@ struct MinimalTextEditor: NSViewRepresentable {
 
         private func handleEnter(in textView: NSTextView) -> Bool {
             let s = textView.string as NSString
-            let cursor = textView.selectedRange().location
+            // The whole selection, not just its start: ↵ over a selection
+            // deletes it first, which is what AppKit's own newline does and
+            // what every hand-rolled path below was quietly skipping.
+            let selection = textView.selectedRange()
+            let cursor = selection.location
             let lineRange = s.lineRange(for: NSRange(location: cursor, length: 0))
             var lineEnd = lineRange.location + lineRange.length
             if lineEnd > lineRange.location, s.character(at: lineEnd - 1) == 0x0A {
@@ -716,23 +734,26 @@ struct MinimalTextEditor: NSViewRepresentable {
                 // onto the next one — AppKit's own newline would land the
                 // cursor back at the margin. A flush-left line is left to
                 // AppKit, which keeps undo coalescing on the common path.
-                let indent = SmartEditing.leadingIndent(of: line)
+                // The indent up to the *cursor*, not the whole line's:
+                // splitting inside the leading run would otherwise hand the
+                // tail a full copy of the indent on top of the whitespace it
+                // already carries.
+                let head = s.substring(with: NSRange(
+                    location: lineRange.location, length: cursor - lineRange.location))
+                let indent = SmartEditing.leadingIndent(of: head)
                 guard !indent.isEmpty else { return false }
-                replace(
-                    in: textView, range: NSRange(location: cursor, length: 0),
-                    with: "\n" + indent)
+                replace(in: textView, range: selection, with: "\n" + indent)
                 return true
             }
 
             if marker.isEmpty {
                 let stripRange = NSRange(
                     location: lineRange.location,
-                    length: cursor - lineRange.location
+                    length: NSMaxRange(selection) - lineRange.location
                 )
                 replace(in: textView, range: stripRange, with: "\n")
             } else {
-                let insert = "\n" + marker
-                replace(in: textView, range: NSRange(location: cursor, length: 0), with: insert)
+                replace(in: textView, range: selection, with: "\n" + marker)
             }
             return true
         }

@@ -48,6 +48,20 @@ public enum Escapes {
         public var isEmpty: Bool { backslashes.isEmpty }
 
         public func isEscaped(_ offset: Int) -> Bool { escaped.contains(offset) }
+
+        /// True when a delimited run is real markup rather than an escaped
+        /// one — the test the inline styling passes apply to every match.
+        ///
+        /// Checked on the *first* character of the delimiter at each end,
+        /// which is the only place a backslash can sit and mean anything:
+        /// `\\**bold**` is escaped, `*\\*bold**` is a different and
+        /// malformed thing. `closeLength` is the closing delimiter's own
+        /// length, which is not always the opening one's — `<u>…</u>`.
+        public func isLive(_ range: NSRange, closeLength: Int) -> Bool {
+            guard !isEmpty else { return true }
+            return !isEscaped(range.location)
+                && !isEscaped(range.location + range.length - closeLength)
+        }
     }
 
     /// Scanned left to right, consuming both characters of every pair, so

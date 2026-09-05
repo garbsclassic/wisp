@@ -74,7 +74,7 @@ public struct HelpDocument: Equatable, Sendable {
                     group(.bold, .highlight, .italic, .underline, .code),
                     "bold · highlight · italic · underline · code"),
                 Row("⇥ · ⇧⇥", "increase · decrease indentation"),
-                Row("` · _ · \" · * · ==", "wrap the selection as you type"),
+                Row("` · _ · ' · \" · ** · ==", "wrap the selection as you type"),
                 Row(chord(.rawMode), "raw text — no formatting"),
             ]),
             Section("Insert", [

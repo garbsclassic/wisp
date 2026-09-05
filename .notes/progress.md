@@ -187,3 +187,18 @@
   not possible: `screencapture` returns a black frame without Screen Recording permission, so the
   header color, the faint backslash, and raw mode's face are unverified on screen.
 
+- 2026-09-05 — [editing-polish](plan-editing-polish.md): review pass, findings in
+  [review-editing-polish.md](review-editing-polish.md). The one that mattered: auto-surround
+  guarded on `replacementString` being one of the six characters, which cannot tell a keystroke
+  from a hand-rolled `replaceText` — and every hand-rolled edit in the app re-enters the delegate
+  with whatever it is putting back. ⌥L unsetting the line `- *` puts back `*` and got `**- ***`;
+  ⌘E unwrapping `` `*` `` wrapped instead; ⌘Z restoring any of the six wrapped it and abandoned the
+  undo group. Gating on `NSApp.currentEvent` being a `.keyDown` whose `characters` equal the
+  replacement is the fix, and it closes the dead-key case for free. Also: ↵ over a selection was
+  not deleting the selection — pre-existing on the list paths, but the new indent branch extended
+  it to every indented line — and `leadingIndent` read the whole line, so splitting inside the
+  leading run doubled the indent. Raw mode was keeping `==marked==` backgrounds, since
+  `resetBaseAttributes` deliberately leaves `.backgroundColor` alone (the find match rides on it)
+  and nothing repaints it in raw mode. `isLive` moved onto `Escapes.Marks` so the feature's actual
+  promise is testable rather than private in the untested target. First `.notes/intent.md`: the
+  four things here most likely to be "fixed" back.
