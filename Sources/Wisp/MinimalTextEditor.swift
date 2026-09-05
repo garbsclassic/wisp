@@ -180,7 +180,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         // `==marked==` shares the attribute, so it is repainted before the
         // match goes on top. Without this, opening Find erases every
         // highlight in the note.
-        Self.styleHighlights(in: storage, palette: palette)
+        Self.styleHighlights(in: storage, palette: palette, marks: Escapes.scan(storage.string))
 
         let range = findHighlightRange
         guard range.length > 0, NSMaxRange(range) <= full.length else { return }
@@ -250,10 +250,11 @@ struct MinimalTextEditor: NSViewRepresentable {
         in storage: NSTextStorage, baseFont: NSFont, headings: [Heading], indent: Indent,
         palette: Palette
     ) {
+        let marks = Escapes.scan(storage.string)
         styleHorizontalRules(in: storage)
         styleLists(in: storage, baseFont: baseFont, indent: indent)
         styleHeadings(in: storage, baseFont: baseFont, headings: headings)
-        styleInlineMarkup(in: storage, baseFont: baseFont, palette: palette)
+        styleInlineMarkup(in: storage, baseFont: baseFont, palette: palette, marks: marks)
     }
 
     /// Apply bold + scaled font to lines that begin with a markdown heading
@@ -353,13 +354,18 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// though ⌘B and ⌘I only ever *write* one, so a note pasted in from
     /// anywhere renders the way its author meant.
     private static func styleInlineMarkup(
-        in storage: NSTextStorage, baseFont: NSFont, palette: Palette
+        in storage: NSTextStorage, baseFont: NSFont, palette: Palette, marks: Escapes.Marks
     ) {
         let text = storage.string
-        for match in text.matches(of: /\*\*([^*\n]+)\*\*/) {
+        func isLive(_ range: Range<String.Index>, _ closeLength: Int) -> Bool {
+            Self.isLive(NSRange(range, in: text), closeLength: closeLength, marks: marks)
+        }
+
+        for match in text.matches(of: /\*\*([^*\n]+)\*\*/) where isLive(match.range, 2) {
             applyTrait(.bold, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
-        for match in text.matches(of: /__([^_\n]+)__/) where isFreestanding(match.range, in: text) {
+        for match in text.matches(of: /__([^_\n]+)__/)
+        where isFreestanding(match.range, in: text) && isLive(match.range, 2) {
             applyTrait(.bold, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
         // Italic: a single marker, skipping any match that touches another
@@ -367,11 +373,12 @@ struct MinimalTextEditor: NSViewRepresentable {
         // the inside of a bold run. Swift Regex literals have no lookbehind,
         // so this filters after matching instead.
         for match in text.matches(of: /\*([^*\n]+)\*/)
-        where !isAdjacent(to: "*", match.range, in: text) {
+        where !isAdjacent(to: "*", match.range, in: text) && isLive(match.range, 1) {
             applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
         for match in text.matches(of: /_([^_\n]+)_/)
-        where !isAdjacent(to: "_", match.range, in: text) && isFreestanding(match.range, in: text) {
+        where !isAdjacent(to: "_", match.range, in: text) && isFreestanding(match.range, in: text)
+            && isLive(match.range, 1) {
             applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
         // `` `code` ``: a whole different family, so it replaces the font
@@ -379,7 +386,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         // at that offset, which is what lets a span inside a heading keep
         // the heading's size. Triple-backtick fences are left alone —
         // `[^`\n]+` can't match across the second backtick of a fence.
-        for match in text.matches(of: /`([^`\n]+)`/) {
+        for match in text.matches(of: /`([^`\n]+)`/) where isLive(match.range, 1) {
             let range = NSRange(match.range, in: text)
             let size = currentFont(in: storage, at: range.location, fallback: baseFont).pointSize
             storage.addAttribute(
@@ -387,12 +394,22 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
         // `<u>…</u>`: an attribute rather than a symbolic trait, so it
         // can't go through `applyTrait` with the others.
-        for match in text.matches(of: /<u>([^<\n]+)<\/u>/) {
+        for match in text.matches(of: /<u>([^<\n]+)<\/u>/) where isLive(match.range, 4) {
             storage.addAttribute(
                 .underlineStyle, value: NSUnderlineStyle.single.rawValue,
                 range: NSRange(match.range, in: text))
         }
-        styleHighlights(in: storage, palette: palette)
+        styleHighlights(in: storage, palette: palette, marks: marks)
+
+        // Last, so nothing above can repaint over it. A backslash that
+        // escaped something is syntax rather than content, and reads as such
+        // without being hidden — the same bargain every other marker here
+        // makes. `\\` paints only the first of the two.
+        for offset in marks.backslashes {
+            storage.addAttribute(
+                .foregroundColor, value: palette.faint,
+                range: NSRange(location: offset, length: 1))
+        }
     }
 
     /// `==marked==` runs, painted with a background.
@@ -401,13 +418,29 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// to be able to re-run just this: both features want
     /// `.backgroundColor` and there is no second background attribute to
     /// keep them apart.
-    static func styleHighlights(in storage: NSTextStorage, palette: Palette) {
+    static func styleHighlights(
+        in storage: NSTextStorage, palette: Palette, marks: Escapes.Marks
+    ) {
         let text = storage.string
-        for match in text.matches(of: /==([^=\n]+)==/) {
+        for match in text.matches(of: /==([^=\n]+)==/)
+        where isLive(NSRange(match.range, in: text), closeLength: 2, marks: marks) {
             storage.addAttribute(
                 .backgroundColor, value: palette.highlight,
                 range: NSRange(match.range, in: text))
         }
+    }
+
+    /// True when neither end of a marked-up run was escaped.
+    ///
+    /// Checked on the *first* character of the delimiter at each end, which is
+    /// the only place a backslash can sit and mean anything — `\**bold**` is
+    /// escaped, `*\*bold**` is a different (and malformed) thing.
+    private static func isLive(
+        _ range: NSRange, closeLength: Int, marks: Escapes.Marks
+    ) -> Bool {
+        guard !marks.isEmpty else { return true }
+        return !marks.isEscaped(range.location)
+            && !marks.isEscaped(NSMaxRange(range) - closeLength)
     }
 
     /// True when the run isn't butted against a word character on either

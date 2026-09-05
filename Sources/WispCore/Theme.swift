@@ -54,6 +54,10 @@ public struct Palette {
     public let text: NSColor
     /// Secondary text on modal surfaces. Flexoki `tx-2` / Modernist `muted`.
     public let muted: NSColor
+    /// Syntax a reader is meant to look past rather than at — the backslash
+    /// of an escape. Flexoki `tx-3`; on light, Modernist's own `tx-3` is
+    /// already `muted`, so this takes `ui-2`, the next tier out.
+    public let faint: NSColor
     /// Failure text — hotkey registration errors. Flexoki red; distinct
     /// from `accent` so an error never reads as a hint.
     public let danger: NSColor
@@ -97,6 +101,7 @@ public struct Palette {
             return Palette(
                 text: rgb(0xCECDC3),
                 muted: rgb(0x7D7C78),
+                faint: rgb(0x575653),
                 danger: rgb(0xD14D41),
                 panel: rgb(0x1C1B1A),
                 surface: rgb(0x282726),
@@ -114,6 +119,7 @@ public struct Palette {
             return Palette(
                 text: rgb(0x161413),
                 muted: rgb(0x4B4949),
+                faint: rgb(0x6A685E),
                 danger: rgb(0xAF3029),
                 panel: rgb(0xF0EFEF),
                 surface: rgb(0xF7F6F6),
