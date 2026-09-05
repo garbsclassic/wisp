@@ -120,3 +120,145 @@ struct EscapesMarksTests {
         #expect(Escapes.scan(text) == Escapes.scan(text as NSString))
     }
 }
+
+@Suite("Escapes: Marks.isLive")
+struct EscapesIsLiveTests {
+    @Test("An unescaped code span is live")
+    func unescapedCodeSpanIsLive() {
+        let text = "`code`" as NSString
+        let run = NSRange(location: 0, length: text.length)
+        let marks = Escapes.scan(text)
+        #expect(marks.isLive(run, closeLength: 1))
+    }
+
+    @Test("A backslash before the opening backtick makes the span not live")
+    func backslashBeforeOpeningBacktickIsNotLive() {
+        let text = "\\`code`" as NSString
+        let run = text.range(of: "`code`")
+        let marks = Escapes.scan(text)
+        #expect(!marks.isLive(run, closeLength: 1))
+    }
+
+    /// The half a naive "check the start only" implementation would miss:
+    /// the backslash sits on the closing delimiter, not the opening one.
+    @Test("A backslash before the closing backtick makes the span not live")
+    func backslashBeforeClosingBacktickIsNotLive() {
+        let text = "`code\\`" as NSString
+        let run = NSRange(location: 0, length: text.length)
+        let marks = Escapes.scan(text)
+        #expect(!marks.isLive(run, closeLength: 1))
+    }
+
+    @Test("An unescaped bold run is live")
+    func unescapedBoldIsLive() {
+        let text = "**bold**" as NSString
+        let run = NSRange(location: 0, length: text.length)
+        let marks = Escapes.scan(text)
+        #expect(marks.isLive(run, closeLength: 2))
+    }
+
+    @Test("A backslash before the opening bold delimiter makes the run not live")
+    func backslashBeforeOpeningBoldIsNotLive() {
+        let text = "\\**bold**" as NSString
+        let run = text.range(of: "**bold**")
+        let marks = Escapes.scan(text)
+        #expect(!marks.isLive(run, closeLength: 2))
+    }
+
+    @Test("A backslash before the closing bold delimiter makes the run not live")
+    func backslashBeforeClosingBoldIsNotLive() {
+        let text = "**bold\\**" as NSString
+        let run = NSRange(location: 0, length: text.length)
+        let marks = Escapes.scan(text)
+        #expect(!marks.isLive(run, closeLength: 2))
+    }
+
+    @Test("An unescaped highlight run is live")
+    func unescapedHighlightIsLive() {
+        let text = "==marked==" as NSString
+        let run = NSRange(location: 0, length: text.length)
+        let marks = Escapes.scan(text)
+        #expect(marks.isLive(run, closeLength: 2))
+    }
+
+    @Test("A backslash before the opening highlight delimiter makes the run not live")
+    func backslashBeforeOpeningHighlightIsNotLive() {
+        let text = "\\==marked==" as NSString
+        let run = text.range(of: "==marked==")
+        let marks = Escapes.scan(text)
+        #expect(!marks.isLive(run, closeLength: 2))
+    }
+
+    @Test("An unescaped underline run is live")
+    func unescapedUnderlineIsLive() {
+        let text = "<u>x</u>" as NSString
+        let run = NSRange(location: 0, length: text.length)
+        let marks = Escapes.scan(text)
+        #expect(marks.isLive(run, closeLength: 4))
+    }
+
+    /// `<u>` opens with 3 characters but `</u>` closes with 4 — the case that
+    /// pins the asymmetric-delimiter handling.
+    @Test("A backslash before the opening underline delimiter makes the run not live")
+    func backslashBeforeOpeningUnderlineIsNotLive() {
+        let text = "\\<u>x</u>" as NSString
+        let run = text.range(of: "<u>x</u>")
+        let marks = Escapes.scan(text)
+        #expect(!marks.isLive(run, closeLength: 4))
+    }
+
+    /// The escape sits on the closing `</u>` here, not the opening `<u>`, so
+    /// only the correct `closeLength` locates it. Passing 1 instead (as if a
+    /// single `<` closed the run) checks the wrong offset and flips the
+    /// answer, which is what makes the parameter demonstrably load-bearing
+    /// rather than decorative.
+    @Test("Passing the wrong closeLength for an escaped closing underline delimiter flips the answer")
+    func wrongCloseLengthFlipsAnswerForEscapedClosingUnderline() {
+        let text = "<u>x\\</u>" as NSString
+        let run = NSRange(location: 0, length: text.length)
+        let marks = Escapes.scan(text)
+        #expect(!marks.isLive(run, closeLength: 4))
+        #expect(marks.isLive(run, closeLength: 1))
+    }
+
+    @Test("Backslashes elsewhere in the text don't affect an untouched code span")
+    func backslashesElsewhereDoNotAffectUntouchedSpan() {
+        let text = "\\*x* `code` trailing" as NSString
+        let run = text.range(of: "`code`")
+        let marks = Escapes.scan(text)
+        #expect(!marks.isEmpty)
+        #expect(marks.isLive(run, closeLength: 1))
+    }
+
+    @Test("Marks.none reports any range as live, the no-backslashes fast path")
+    func noneMarksReportsAnyRangeAsLive() {
+        #expect(Escapes.Marks.none.isLive(NSRange(location: 0, length: 0), closeLength: 0))
+        #expect(Escapes.Marks.none.isLive(NSRange(location: 1_000, length: 50), closeLength: 10))
+    }
+
+    /// Backslashes present elsewhere in the text (so the real check runs,
+    /// not the `isEmpty` fast path) with the run itself sitting at offset 0,
+    /// exercising the low end of the `range.location + range.length -
+    /// closeLength` arithmetic.
+    @Test("A run starting at offset 0 stays live when nothing on it is escaped")
+    func runAtOffsetZeroIsLive() {
+        let text = "`code` \\*x*" as NSString
+        let run = text.range(of: "`code`")
+        #expect(run.location == 0)
+        let marks = Escapes.scan(text)
+        #expect(!marks.isEmpty)
+        #expect(marks.isLive(run, closeLength: 1))
+    }
+
+    /// Same as above but at the other boundary: the run ends exactly at
+    /// `text.length`, so the closing offset lands on the last valid index.
+    @Test("A run ending at the very end of the text stays live when nothing on it is escaped")
+    func runAtEndOfTextIsLive() {
+        let text = "\\*x* some text `code`" as NSString
+        let run = text.range(of: "`code`")
+        #expect(run.location + run.length == text.length)
+        let marks = Escapes.scan(text)
+        #expect(!marks.isEmpty)
+        #expect(marks.isLive(run, closeLength: 1))
+    }
+}

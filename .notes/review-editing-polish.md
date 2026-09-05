@@ -51,3 +51,12 @@ its behaviour on an empty `unit`; both raw-mode early returns skipping nothing b
 `NotesLayoutManager.isRawMode` and the styling pass being unable to disagree for a frame, since
 both are written inside the same synchronous `applyPalette`; and `lastRawMode` being unreachable
 in a stale state from any keystroke.
+
+## Known gaps
+
+`MarkdownWrap.surroundMarkers` and the `shouldChangeTextIn` branch that consumes it have no tests —
+both live in the `Wisp` target, which has none. `surroundMarkers` is a four-line switch and moving
+it to `WispCore` purely to reach it would split one concept across two files; the branch itself
+needs a live `NSEvent` and a text view, so it is a manual check either way. What to exercise by
+hand after any change there: ⌥L on a line reading `- *`, ⌘E on a selected `` `*` ``, and ⌘Z after
+typing over a selected `*` — the three that finding 1 was breaking.
