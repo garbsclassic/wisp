@@ -18,7 +18,6 @@ extension NSTextView {
 
 struct MinimalTextEditor: NSViewRepresentable {
     @Binding var text: String
-    @Binding var headings: [Heading]
     var focusToken: Int
     var scrollToken: Int
     var scrollTarget: Int
@@ -72,7 +71,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         textView.string = text
 
         Self.applyPalette(
-            Palette.for(theme), to: textView, font: font, headings: headings, indent: indent,
+            Palette.for(theme), to: textView, font: font, indent: indent,
             isSourceView: isSourceView)
 
         context.coordinator.lastFontScale = fontScale
@@ -165,7 +164,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     private func restyle(_ textView: NotesTextView) {
         Self.applyPalette(
             Palette.for(theme), to: textView, font: Self.baseFont(isSourceView: isSourceView),
-            headings: headings, indent: indent, isSourceView: isSourceView)
+            indent: indent, isSourceView: isSourceView)
     }
 
     /// The face the whole body is set in. Raw mode takes the code family,
@@ -213,7 +212,6 @@ struct MinimalTextEditor: NSViewRepresentable {
         _ palette: Palette,
         to textView: NotesTextView,
         font: NSFont,
-        headings: [Heading],
         indent: Indent,
         isSourceView: Bool
     ) {
@@ -248,8 +246,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                     .backgroundColor, range: NSRange(location: 0, length: storage.length))
                 return
             }
-            restyleContent(
-                in: storage, baseFont: font, headings: headings, indent: indent, palette: palette)
+            restyleContent(in: storage, baseFont: font, indent: indent, palette: palette)
         }
     }
 
@@ -279,14 +276,21 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// Always run over the whole storage against a freshly reset base, so a
     /// line that *stopped* being a rule or a list item loses the styling it
     /// had. Cheap at scratchpad sizes.
+    ///
+    /// Headings are parsed from the storage here rather than taken from
+    /// `EditorModel.headings`. An edit made from inside `updateNSView` —
+    /// every token-driven one: ⌘D, ⌥L, ⌥↑/↓, the wrap toggles — reaches
+    /// `textDidChange` while SwiftUI is still mid-update, and a write to an
+    /// `@ObservedObject` binding there is deferred, so the model's headings
+    /// still describe the text from before the edit. Their offsets then
+    /// land on whichever line moved into that position.
     static func restyleContent(
-        in storage: NSTextStorage, baseFont: NSFont, headings: [Heading], indent: Indent,
-        palette: Palette
+        in storage: NSTextStorage, baseFont: NSFont, indent: Indent, palette: Palette
     ) {
         let marks = Escapes.scan(storage.string)
         styleHorizontalRules(in: storage)
         styleLists(in: storage, baseFont: baseFont, indent: indent)
-        styleHeadings(in: storage, baseFont: baseFont, headings: headings)
+        styleHeadings(in: storage, baseFont: baseFont, headings: storage.string.extractHeadings())
         styleInlineMarkup(in: storage, baseFont: baseFont, palette: palette, marks: marks)
     }
 
@@ -550,20 +554,12 @@ struct MinimalTextEditor: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, headings: $headings)
+        Coordinator(text: $text)
     }
 
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
-        /// Kept as a live binding rather than a `lastXToken`-style cached
-        /// copy so `textDidChange` can read the fresh value mid-callback
-        /// (below) without re-running `extractHeadings()` itself. This
-        /// relies on `EditorModel.text`'s `didSet` recomputing `headings`
-        /// synchronously and unconditionally — true today because the
-        /// header bar needs it live on every keystroke too, but worth
-        /// re-checking here if that ever changes.
-        var headings: Binding<[Heading]>
         var lastFocusToken: Int = 0
         var lastScrollToken: Int = 0
         var lastWrapToken: Int = 0
@@ -581,9 +577,8 @@ struct MinimalTextEditor: NSViewRepresentable {
         /// is typing assistance, not rendering.
         var lastSourceView: Bool = false
 
-        init(text: Binding<String>, headings: Binding<[Heading]>) {
+        init(text: Binding<String>) {
             self.text = text
-            self.headings = headings
         }
 
         func textDidChange(_ notification: Notification) {
@@ -610,8 +605,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                     return
                 }
                 MinimalTextEditor.restyleContent(
-                    in: storage, baseFont: baseFont, headings: headings.wrappedValue,
-                    indent: lastIndent, palette: palette)
+                    in: storage, baseFont: baseFont, indent: lastIndent, palette: palette)
             }
         }
 

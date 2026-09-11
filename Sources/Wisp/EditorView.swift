@@ -515,7 +515,6 @@ struct EditorView: View {
                 ZStack(alignment: .topLeading) {
                     MinimalTextEditor(
                         text: $model.text,
-                        headings: $model.headings,
                         focusToken: model.focusToken,
                         scrollToken: model.scrollToken,
                         scrollTarget: model.scrollTarget,
