@@ -107,11 +107,11 @@ public struct Palette {
                 panel: rgb(0x1C1B1A),
                 surface: rgb(0x282726),
                 chrome: rgb(0x1C1B1A),
-                accent: rgb(0x4ECBDF),
-                indicator: rgb(0xF4AD5D),
+                accent: rgb(0x3AA99F),
+                indicator: rgb(0xD7AE7F),
                 rule: rgb(0xCECDC3, 0.32),
                 border: rgb(0xCECDC3, 0.10),
-                selection: rgb(0x4ECBDF, 0.20),
+                selection: rgb(0x3AA99F, 0.20),
                 findHighlight: rgb(0xD0A215, 0.38),
                 highlight: rgb(0xD0A215, 0.24)
             )

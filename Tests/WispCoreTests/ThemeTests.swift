@@ -93,7 +93,7 @@ struct PaletteTests {
     /// paints differently on a P3 panel than on an sRGB monitor.
     @Test("Tokens are pinned to sRGB, not device RGB")
     func colorSpace() {
-        #expect(dark.accent == rgb(0x4E_CB_DF))
+        #expect(dark.accent == rgb(0x3A_A9_9F))
         #expect(light.accent == rgb(0xEC_30_13))
         #expect(
             dark.accent
