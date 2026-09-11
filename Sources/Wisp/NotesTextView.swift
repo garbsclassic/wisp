@@ -169,6 +169,45 @@ final class NotesTextView: NSTextView {
         apply(edit)
     }
 
+    // MARK: Home
+
+    /// ⌘← and Home. On a list line the first stop is the item's text, past
+    /// the marker; from there a second press goes to column 0. `super`
+    /// runs first because it knows about wrapping: on a continuation
+    /// fragment it stops at that fragment's start, which is already past
+    /// the marker, and the smart stop only applies when it came back with
+    /// the paragraph's own first column.
+    override func moveToBeginningOfLine(_ sender: Any?) {
+        let cursor = selectedRange().location
+        super.moveToBeginningOfLine(sender)
+        guard let target = homeTarget(from: cursor) else { return }
+        setSelectedRange(NSRange(location: target, length: 0))
+    }
+
+    /// ⇧⌘←. Adjusted only from a bare cursor: with a selection already
+    /// standing, which end is the anchor depends on how it was made, and
+    /// `super` is the one that knows.
+    override func moveToBeginningOfLineAndModifySelection(_ sender: Any?) {
+        let before = selectedRange()
+        super.moveToBeginningOfLineAndModifySelection(sender)
+        guard before.length == 0, let target = homeTarget(from: before.location) else { return }
+        setSelectedRange(
+            NSRange(location: min(target, before.location), length: abs(before.location - target)))
+    }
+
+    /// AppKit binds the Home key to a scroll with no caret move, the one
+    /// thing nobody reaching for Home on a text line wants.
+    override func scrollToBeginningOfDocument(_ sender: Any?) {
+        moveToBeginningOfLine(sender)
+    }
+
+    private func homeTarget(from cursor: Int) -> Int? {
+        let text = string as NSString
+        guard selectedRange().location == LineEdits.lineRange(in: text, at: cursor).location
+        else { return nil }
+        return SmartEditing.homeTarget(in: text, cursor: cursor)
+    }
+
     private func isInListItem(_ selection: NSRange, in text: NSString) -> Bool {
         let line = LineEdits.lineRange(in: text, at: selection.location)
         return SmartEditing.listItem(lineRange: line, in: text) != nil

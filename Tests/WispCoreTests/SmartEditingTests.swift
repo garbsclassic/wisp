@@ -234,3 +234,67 @@ struct ListItemTests {
         #expect(SmartEditing.bulletGlyph(depth: -1) == "▪")
     }
 }
+
+@Suite("SmartEditing: home")
+struct HomeTargetTests {
+    private func target(_ text: String, cursor: Int) -> Int? {
+        SmartEditing.homeTarget(in: text as NSString, cursor: cursor)
+    }
+
+    @Test(
+        "Home lands on content start from wherever the cursor sits ahead of it",
+        arguments: [
+            // (line, cursor, expected content start)
+            ("- item", 4, 2),  // mid-line
+            ("- item", 0, 2),  // column 0
+            ("- item", 1, 2),  // inside the marker's trailing whitespace
+            ("1. item", 5, 3),  // ordered, mid-line
+            ("1. item", 0, 3),  // ordered, column 0
+            ("A. item", 0, 3),  // alphabetic ordered marker
+            ("a. item", 0, 3),  // lowercase alphabetic ordered marker
+            ("  - item", 6, 4),  // indented bullet, mid-line
+            ("  - item", 0, 4),  // indented bullet, column 0 (before the indent)
+            ("  - item", 2, 4),  // cursor sitting on the marker character itself
+        ] as [(String, Int, Int)]
+    )
+    func toContentStart(line: String, cursor: Int, expected: Int) {
+        #expect(target(line, cursor: cursor) == expected)
+    }
+
+    @Test("A second Home press from content start goes to column 0")
+    func toColumnZero() {
+        #expect(target("- item", cursor: 2) == 0)
+    }
+
+    @Test("An indented item's column 0 is the line start, before the indent")
+    func indentedColumnZero() {
+        #expect(target("  - item", cursor: 4) == 0)
+    }
+
+    @Test("Non-list lines yield nil", arguments: ["plain text", "-word"])
+    func nonList(line: String) {
+        #expect(target(line, cursor: 0) == nil)
+    }
+
+    @Test("An empty document yields nil")
+    func emptyDocument() {
+        #expect(target("", cursor: 0) == nil)
+    }
+
+    @Test("Offsets are document-absolute when the list line isn't the first")
+    func laterLine() {
+        let text = "para\n- item\nmore\n"
+        // The second line starts at 5; its content starts at 7.
+        #expect(target(text, cursor: 9) == 7)  // mid-line
+        #expect(target(text, cursor: 7) == 5)  // at content start -> line start
+        #expect(target(text, cursor: 5) == 7)  // at column 0 -> content start
+    }
+
+    @Test("The last line works the same without a trailing newline")
+    func lastLineWithoutTrailingNewline() {
+        let text = "para\n- item"
+        #expect(target(text, cursor: 9) == 7)  // mid-line
+        #expect(target(text, cursor: 7) == 5)  // at content start -> line start
+        #expect(target(text, cursor: 5) == 7)  // at column 0 -> content start
+    }
+}

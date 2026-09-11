@@ -154,6 +154,17 @@ public enum SmartEditing {
             indentWidth: indentWidth)
     }
 
+    /// Where Home lands on a list line: the start of the item's text, or
+    /// column 0 when the cursor is already there. The marker is chrome
+    /// rather than content — it is drawn as a glyph — so the stop a
+    /// second press adds is the one that puts the cursor before it. Nil
+    /// off a list line, which keeps the ordinary behavior.
+    public static func homeTarget(in text: NSString, cursor: Int) -> Int? {
+        let line = LineEdits.lineRange(in: text, at: cursor)
+        guard let item = listItem(lineRange: line, in: text) else { return nil }
+        return cursor == item.contentStart ? line.location : item.contentStart
+    }
+
     /// The glyph drawn in place of a hidden bullet marker at each nesting
     /// level.
     public static let bulletGlyphs = ["•", "◦", "▪"]
