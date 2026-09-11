@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import WispCore
 
 /// The notes body. A subclass rather than what
@@ -169,7 +170,27 @@ final class NotesTextView: NSTextView {
         apply(edit)
     }
 
-    // MARK: Home
+    // MARK: Home and End
+
+    /// AppKit gives Home and End to the document — a scroll with no caret
+    /// move bare, select-to-the-end with ⇧ — where every other editor
+    /// gives them to the line. Caught here as key events rather than by
+    /// overriding the document selectors, which ⇧⌘↑ and ⇧⌘↓ share and
+    /// should keep. ⌥ and ⌘ variants fall through untouched.
+    override func keyDown(with event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            .subtracting([.function, .numericPad])
+        let shift = modifiers == .shift
+        guard modifiers.isEmpty || shift else { return super.keyDown(with: event) }
+        switch Int(event.keyCode) {
+        case kVK_Home:
+            shift ? moveToBeginningOfLineAndModifySelection(self) : moveToBeginningOfLine(self)
+        case kVK_End:
+            shift ? moveToEndOfLineAndModifySelection(self) : moveToEndOfLine(self)
+        default:
+            super.keyDown(with: event)
+        }
+    }
 
     /// ⌘← and Home. On a list line the first stop is the item's text, past
     /// the marker; from there a second press goes to column 0. `super`
@@ -193,12 +214,6 @@ final class NotesTextView: NSTextView {
         guard before.length == 0, let target = homeTarget(from: before.location) else { return }
         setSelectedRange(
             NSRange(location: min(target, before.location), length: abs(before.location - target)))
-    }
-
-    /// AppKit binds the Home key to a scroll with no caret move, the one
-    /// thing nobody reaching for Home on a text line wants.
-    override func scrollToBeginningOfDocument(_ sender: Any?) {
-        moveToBeginningOfLine(sender)
     }
 
     private func homeTarget(from cursor: Int) -> Int? {

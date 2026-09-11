@@ -67,6 +67,7 @@ public struct HelpDocument: Equatable, Sendable {
                 Row("↵ · ⇧↵", "find next · previous"),
                 Row(chord(.duplicateLine), "duplicate line or selection"),
                 Row("⌘← · ↖", "start of list text · then of line"),
+                Row("⌘→ · ↘", "end of line"),
             ]),
             Section("Format", [
                 Row(chord(.toggleBulletedList), "toggle bulleted list"),
