@@ -406,12 +406,12 @@ struct MoveLinesTests {
     }
 }
 
-@Suite("LineEdits — toggle list item")
-struct ToggleListItemTests {
+@Suite("LineEdits — toggle bulleted list item")
+struct ToggleBulletedListItemTests {
     @Test("A plain line becomes a bullet")
     func setOne() {
         let text = "alpha\n"
-        let edit = LineEdits.toggleListItem(
+        let edit = LineEdits.toggleBulletedList(
             in: text as NSString, selection: NSRange(location: 2, length: 0))
         #expect(apply(edit, to: text) == "- alpha\n")
     }
@@ -419,18 +419,18 @@ struct ToggleListItemTests {
     @Test("A bullet line loses its marker")
     func unsetOne() {
         let text = "- alpha\n"
-        let edit = LineEdits.toggleListItem(
+        let edit = LineEdits.toggleBulletedList(
             in: text as NSString, selection: NSRange(location: 4, length: 0))
         #expect(apply(edit, to: text) == "alpha\n")
     }
 
     @Test("Indentation survives in both directions")
     func keepsIndent() {
-        let set = LineEdits.toggleListItem(
+        let set = LineEdits.toggleBulletedList(
             in: "    alpha\n" as NSString, selection: NSRange(location: 6, length: 0))
         #expect(apply(set, to: "    alpha\n") == "    - alpha\n")
 
-        let unset = LineEdits.toggleListItem(
+        let unset = LineEdits.toggleBulletedList(
             in: "    - alpha\n" as NSString, selection: NSRange(location: 8, length: 0))
         #expect(apply(unset, to: "    - alpha\n") == "    alpha\n")
     }
@@ -438,7 +438,7 @@ struct ToggleListItemTests {
     @Test("A block that is entirely bullets is unset")
     func unsetBlock() {
         let text = "- one\n- two\n"
-        let edit = LineEdits.toggleListItem(
+        let edit = LineEdits.toggleBulletedList(
             in: text as NSString, selection: NSRange(location: 0, length: 11))
         #expect(apply(edit, to: text) == "one\ntwo\n")
     }
@@ -446,7 +446,7 @@ struct ToggleListItemTests {
     @Test("A mixed block becomes a list rather than losing its markers")
     func mixedBlockBecomesList() {
         let text = "- one\ntwo\n"
-        let edit = LineEdits.toggleListItem(
+        let edit = LineEdits.toggleBulletedList(
             in: text as NSString, selection: NSRange(location: 0, length: 9))
         #expect(apply(edit, to: text) == "- - one\n- two\n")
     }
@@ -455,17 +455,17 @@ struct ToggleListItemTests {
     func roundTrip() {
         let text = "alpha\nbeta\n"
         let selection = NSRange(location: 0, length: 10)
-        let set = LineEdits.toggleListItem(in: text as NSString, selection: selection)
+        let set = LineEdits.toggleBulletedList(in: text as NSString, selection: selection)
         let once = apply(set, to: text)
         #expect(once == "- alpha\n- beta\n")
-        let unset = LineEdits.toggleListItem(in: once as NSString, selection: set.selection)
+        let unset = LineEdits.toggleBulletedList(in: once as NSString, selection: set.selection)
         #expect(apply(unset, to: once) == text)
     }
 
     @Test("An ordered item is left alone — it is not a bullet")
     func ordered() {
         let text = "1. alpha\n"
-        let edit = LineEdits.toggleListItem(
+        let edit = LineEdits.toggleBulletedList(
             in: text as NSString, selection: NSRange(location: 4, length: 0))
         #expect(apply(edit, to: text) == "- 1. alpha\n")
     }

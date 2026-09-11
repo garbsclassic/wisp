@@ -38,7 +38,7 @@ The `fontScale` precision bug is mine from the last pass: `steppedFontScale` sna
 | Highlight token       | New `Palette.highlight`, separate from `findHighlight`           | One is content the user wrote, one is transient UI state; they should be free to diverge      |
 | Highlight vs find     | Find repaints on top, after the `==` pass                        | Both are `.backgroundColor` — there is no second background attribute to keep them apart      |
 | Move line at an edge  | No-op `Edit`, not a wrap-around                                  | Wrapping a line from the top of the note to the bottom is never what the keypress meant       |
-| Toggle list on a mix  | Any non-item in the block → make them all items                  | "Make this a list" is the common intent; unset only when it is already uniformly a list       |
+| Toggle bulleted list on a mix  | Any non-item in the block → make them all items                  | "Make this a list" is the common intent; unset only when it is already uniformly a list       |
 | UI type sizes         | +2pt across the four chrome tokens, body untouched               | Asked for. `bodySize` is the one the scale multiplies against, so moving it would resize notes |
 
 ## Work
@@ -58,7 +58,7 @@ The `fontScale` precision bug is mine from the last pass: `steppedFontScale` sna
 ### 3. New verbs in `LineEdits`
 
 - [x] `moveLines(in:selection:by:)` — ±1 line, no-op at either edge, selection rides the block
-- [x] `toggleListItem(in:selection:marker:)` — via the existing `rewriteLines` head-change engine
+- [x] `toggleBulletedList(in:selection:marker:)` — via the existing `rewriteLines` head-change engine
 - [x] Tests for both, including the last line with no trailing newline
 
 ### 4. Configurable keymap
@@ -84,7 +84,7 @@ The `fontScale` precision bug is mine from the last pass: `steppedFontScale` sna
   "italic": "cmd+i",
   "highlight": "opt+h",
   "duplicateLine": "cmd+d",
-  "toggleListItem": "opt+l",
+  "toggleBulletedList": "opt+l",
   "moveLineUp": "opt+up",
   "moveLineDown": "opt+down",
   "increaseFontScale": "cmd+=",

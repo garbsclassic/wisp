@@ -230,7 +230,7 @@ public enum LineEdits {
     /// a half-list would silently discard the half that was already right.
     /// Leading whitespace survives either way, so toggling doesn't flatten
     /// a nested item.
-    public static func toggleListItem(
+    public static func toggleBulletedList(
         in text: NSString, selection: NSRange, marker: String = "- "
     ) -> Edit {
         let block = lineBlock(in: text, covering: selection)

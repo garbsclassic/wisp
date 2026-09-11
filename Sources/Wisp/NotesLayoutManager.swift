@@ -29,12 +29,12 @@ final class NotesLayoutManager: NSLayoutManager {
     var indentWidth: Int = Indent().width
     /// Raw mode draws neither rules nor bullets: both stand in for characters
     /// the styling pass hides, and in raw mode nothing is hidden.
-    var isRawMode: Bool = false
+    var isSourceView: Bool = false
 
     override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
         super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
 
-        guard !isRawMode,
+        guard !isSourceView,
               let textStorage = textStorage,
               let context = NSGraphicsContext.current?.cgContext else {
             return

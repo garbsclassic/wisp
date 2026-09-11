@@ -44,7 +44,7 @@ Deviations to confirm, all flagged rather than silently taken:
 ## Follow-up: the two bindings the page was promising
 
 - [x] `underline` (`cmd+u`), writing `<u>…</u>`. Markdown has no underline; `__` is already bold in this editor, and `<u>` is what Obsidian's own underline command inserts — which matters, because the note is read there. `MarkdownWrap` grew an open/close pair for it, since every other marker is its own closer. It styles through `.underlineStyle` rather than `applyTrait`: underline is an attribute, not a symbolic trait, so it also has to be removed in `resetBaseAttributes` alongside `.kern`, or the rule outlives the tags.
-- [x] `revealNote` (`opt+cmd+r`), panel-scoped, so it fires with the menu closed and the panel focused.
+- [x] `reveal` (`opt+cmd+r`), panel-scoped, so it fires with the menu closed and the panel focused.
 - [x] The status-item menu stamps its own chords from the live keymap rather than hardcoding them. `KeyChord.menuEquivalent` already existed for this and had tests but no caller. A key equivalent on a status-item menu only fires while that menu is open, and `KeyBindingMonitor` never sees events during a menu tracking loop, so the two paths can't double-fire.
 
 ### Padding: the app's tokens, not the handoff's

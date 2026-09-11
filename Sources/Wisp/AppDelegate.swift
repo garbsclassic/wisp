@@ -44,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onResetStorageLocation: { [weak self] in
                 self?.resetStorageLocation()
             },
-            onRevealNote: { [weak self] in self?.revealNoteInFinder() }
+            onReveal: { [weak self] in self?.revealInFinder() }
         )
         menuBarController?.apply(settings.config.keymap)
 
@@ -131,9 +131,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleHighlight(_ sender: Any?) { model.toggleHighlight() }
     @objc func toggleUnderline(_ sender: Any?) { model.toggleUnderline() }
     @objc func toggleCode(_ sender: Any?) { model.toggleCode() }
-    @objc func revealNote(_ sender: Any?) { revealNoteInFinder() }
+    @objc func reveal(_ sender: Any?) { revealInFinder() }
     @objc func duplicateSelection(_ sender: Any?) { model.duplicateSelection() }
-    @objc func toggleListItem(_ sender: Any?) { model.toggleListItem() }
+    @objc func toggleBulletedList(_ sender: Any?) { model.toggleBulletedList() }
     @objc func moveLineUp(_ sender: Any?) { model.moveLine(by: -1) }
     @objc func moveLineDown(_ sender: Any?) { model.moveLine(by: 1) }
 
@@ -146,27 +146,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .settings: openSettings(nil)
         case .refresh: refresh(nil)
         case .help: toggleHelp(nil)
-        case .toggleTheme: cycleTheme(nil)
-        case .rawMode: model.toggleRawMode()
+        case .cycleTheme: cycleTheme(nil)
+        case .sourceView: model.toggleSourceView()
         case .bold: model.toggleBold()
         case .italic: model.toggleItalic()
         case .highlight: model.toggleHighlight()
         case .underline: model.toggleUnderline()
         case .code: model.toggleCode()
         case .duplicateLine: model.duplicateSelection()
-        case .toggleListItem: model.toggleListItem()
+        case .toggleBulletedList: model.toggleBulletedList()
         case .moveLineUp: model.moveLine(by: -1)
         case .moveLineDown: model.moveLine(by: 1)
         case .increaseFontScale: model.stepFontScale(by: 1)
         case .decreaseFontScale: model.stepFontScale(by: -1)
         case .resetFontScale: model.resetFontScale()
-        case .revealNote: revealNoteInFinder()
+        case .reveal: revealInFinder()
         }
     }
 
     @objc func cycleTheme(_ sender: Any?) { model.cycleTheme() }
 
-    @objc func toggleRawMode(_ sender: Any?) { model.toggleRawMode() }
+    @objc func toggleSourceView(_ sender: Any?) { model.toggleSourceView() }
 
     @objc func toggleHelp(_ sender: Any?) {
         withAnimation(.easeInOut(duration: 0.18)) { model.showHelp.toggle() }
@@ -355,7 +355,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func revealNoteInFinder() {
+    private func revealInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting([model.scratchpadURL])
     }
 }

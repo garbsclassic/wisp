@@ -9,9 +9,9 @@ dismiss-on-outside-click, a left-click menu, and a hand-editable `~/.config/wisp
 chezmoi manages the same way it manages `clef.jsonc`.
 
 **This updates the fork rather than rebuilding.** Every ask lands on a seam that already exists:
-`ThemePreference`/`Palette`/`Chrome` for theming, the `FontFace` enum and `makeFont` chain for
+`ThemeSetting`/`Palette`/`Chrome` for theming, the `FontFace` enum and `makeFont` chain for
 fonts, `FloatingPanel.onCancel` for dismissal, and an isolated `MenuBarController`. The theme work
-is further along than it looks — `ThemePreference` already cycles light/dark/system, already
+is further along than it looks — `ThemeSetting` already cycles light/dark/system, already
 defaults to `.system`, and already re-resolves live through a KVO observer on
 `NSApp.effectiveAppearance` ([EditorView.swift:149](Sources/Wisp/EditorView.swift:149)). Only the
 color _values_ are wrong. Rebuilding would mean re-implementing ~1,000 lines of subtle `NSTextView`
@@ -253,7 +253,7 @@ every item an SF Symbol at `.small` scale via Clef's `symbol(_:)` helper; and ad
 | Settings…              | `gearshape`            | exact match, same wording          |
 | Set Shortcut…          | `keyboard`             | no equivalent                      |
 | Launch at Login        | `power`                | exact match, same wording          |
-| Storage Location…      | `folder`               | `Reveal Notes in Finder`           |
+| Storage Location…      | `folder`               | `Reveal in Finder`           |
 | Reset Storage Location | `arrow.uturn.backward` | no equivalent                      |
 | About Wisp             | `info.circle`          | no equivalent                      |
 | Quit Wisp              | `xmark.circle`         | exact match, same wording          |

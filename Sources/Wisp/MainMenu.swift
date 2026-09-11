@@ -18,21 +18,21 @@ enum MainMenuBuilder {
         .settings: #selector(AppDelegate.openSettings(_:)),
         .refresh: #selector(AppDelegate.refresh(_:)),
         .help: #selector(AppDelegate.toggleHelp(_:)),
-        .toggleTheme: #selector(AppDelegate.cycleTheme(_:)),
-        .rawMode: #selector(AppDelegate.toggleRawMode(_:)),
+        .cycleTheme: #selector(AppDelegate.cycleTheme(_:)),
+        .sourceView: #selector(AppDelegate.toggleSourceView(_:)),
         .bold: #selector(AppDelegate.toggleBold(_:)),
         .italic: #selector(AppDelegate.toggleItalic(_:)),
         .highlight: #selector(AppDelegate.toggleHighlight(_:)),
         .underline: #selector(AppDelegate.toggleUnderline(_:)),
         .code: #selector(AppDelegate.toggleCode(_:)),
         .duplicateLine: #selector(AppDelegate.duplicateSelection(_:)),
-        .toggleListItem: #selector(AppDelegate.toggleListItem(_:)),
+        .toggleBulletedList: #selector(AppDelegate.toggleBulletedList(_:)),
         .moveLineUp: #selector(AppDelegate.moveLineUp(_:)),
         .moveLineDown: #selector(AppDelegate.moveLineDown(_:)),
         .increaseFontScale: #selector(AppDelegate.increaseFontScale(_:)),
         .decreaseFontScale: #selector(AppDelegate.decreaseFontScale(_:)),
         .resetFontScale: #selector(AppDelegate.resetFontScale(_:)),
-        .revealNote: #selector(AppDelegate.revealNote(_:)),
+        .reveal: #selector(AppDelegate.reveal(_:)),
     ]
 
     /// The action a menu item stands for, recovered from its selector.
@@ -50,7 +50,7 @@ enum MainMenuBuilder {
             items: [
                 item(.settings, target: target, keymap: keymap),
                 item(.refresh, target: target, keymap: keymap),
-                item(.revealNote, target: target, keymap: keymap),
+                item(.reveal, target: target, keymap: keymap),
                 .separator(),
                 NSMenuItem(
                     title: "Quit Wisp", action: #selector(NSApplication.terminate(_:)),
@@ -93,7 +93,7 @@ enum MainMenuBuilder {
                 item(.underline, target: target, keymap: keymap),
                 item(.code, target: target, keymap: keymap),
                 .separator(),
-                item(.toggleListItem, target: target, keymap: keymap),
+                item(.toggleBulletedList, target: target, keymap: keymap),
             ])
 
         mainMenu.addItem(
@@ -103,8 +103,8 @@ enum MainMenuBuilder {
                 item(.decreaseFontScale, target: target, keymap: keymap),
                 item(.resetFontScale, target: target, keymap: keymap),
                 .separator(),
-                item(.toggleTheme, target: target, keymap: keymap),
-                item(.rawMode, target: target, keymap: keymap),
+                item(.cycleTheme, target: target, keymap: keymap),
+                item(.sourceView, target: target, keymap: keymap),
             ])
 
         // Titled "Shortcuts" rather than "Help" so AppKit doesn't claim it

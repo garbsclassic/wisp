@@ -5,13 +5,13 @@ struct BottomBar: View {
     let wordCount: Int
     let onDecreaseFontScale: () -> Void
     let onIncreaseFontScale: () -> Void
-    let themePreference: ThemePreference
-    let isRawMode: Bool
+    let themeSetting: ThemeSetting
+    let isSourceView: Bool
     /// Tooltips name their own chord, so a rebind shows up here without
     /// anyone remembering to edit a string.
     let keymap: Keymap
     let onCycleTheme: () -> Void
-    let onToggleRawMode: () -> Void
+    let onToggleSourceView: () -> Void
     let onHelpClick: () -> Void
     /// A bad config key, an unparseable chord, or a font that isn't
     /// installed. Nil most of the time.
@@ -33,24 +33,24 @@ struct BottomBar: View {
             }
             Spacer()
             glyphButton(
-                "questionmark", help: hint("Keyboard shortcuts and formatting", .help),
+                "questionmark", help: hint("Help", .help),
                 action: onHelpClick)
             // Filled when on, the way the theme button swaps its glyph:
             // a footer control that says which way it is currently set.
             glyphButton(
-                isRawMode ? "doc.plaintext.fill" : "doc.plaintext",
-                help: hint(isRawMode ? "Show formatting" : "Show raw text", .rawMode),
-                action: onToggleRawMode)
+                isSourceView ? "doc.plaintext.fill" : "doc.plaintext",
+                help: hint(isSourceView ? "Rich text view" : "Source view", .sourceView),
+                action: onToggleSourceView)
             glyphButton(
-                themeIconName, help: hint(themeButtonHelp, .toggleTheme), action: onCycleTheme)
+                themeIconName, help: hint(themeButtonHelp, .cycleTheme), action: onCycleTheme)
             // Two buttons rather than the old "Aa" cycle: the scale is
             // continuous now, and a single button can't express a range
             // you can move in both directions.
             glyphButton(
-                "textformat.size.smaller", help: hint("Smaller text", .decreaseFontScale),
+                "textformat.size.smaller", help: hint("Smaller font", .decreaseFontScale),
                 action: onDecreaseFontScale)
             glyphButton(
-                "textformat.size.larger", help: hint("Larger text", .increaseFontScale),
+                "textformat.size.larger", help: hint("Larger font", .increaseFontScale),
                 action: onIncreaseFontScale)
             Text("esc to dismiss")
         }
@@ -89,7 +89,7 @@ struct BottomBar: View {
     }
 
     private var themeIconName: String {
-        switch themePreference {
+        switch themeSetting {
         case .light: return "sun.max"
         case .dark: return "moon"
         case .system: return "circle.lefthalf.filled"
@@ -97,10 +97,10 @@ struct BottomBar: View {
     }
 
     private var themeButtonHelp: String {
-        switch themePreference.next {
-        case .light: return "Switch to light theme"
-        case .dark: return "Switch to dark theme"
-        case .system: return "Follow system appearance"
+        switch themeSetting.next {
+        case .light: return "Light theme"
+        case .dark: return "Dark theme"
+        case .system: return "System theme"
         }
     }
 

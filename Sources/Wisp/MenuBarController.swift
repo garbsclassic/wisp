@@ -17,7 +17,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let isStorageCustom: () -> Bool
     private let onPickStorageLocation: () -> Void
     private let onResetStorageLocation: () -> Void
-    private let onRevealNote: () -> Void
+    private let onReveal: () -> Void
 
     // Strong: NSMenuItem.target is weak, so holding items here can't
     // cycle, and it drops the assign-after-addItem ordering rule that
@@ -37,7 +37,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         isStorageCustom: @escaping () -> Bool,
         onPickStorageLocation: @escaping () -> Void,
         onResetStorageLocation: @escaping () -> Void,
-        onRevealNote: @escaping () -> Void
+        onReveal: @escaping () -> Void
     ) {
         self.onSetHotKey = onSetHotKey
         self.onOpenConfig = onOpenConfig
@@ -47,7 +47,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.isStorageCustom = isStorageCustom
         self.onPickStorageLocation = onPickStorageLocation
         self.onResetStorageLocation = onResetStorageLocation
-        self.onRevealNote = onRevealNote
+        self.onReveal = onReveal
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -94,10 +94,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         let reveal = makeItem(
-            "Reveal Note in Finder", symbol: "doc.text.magnifyingglass",
-            action: #selector(handleRevealNote)
+            "Reveal in Finder", symbol: "doc.text.magnifyingglass",
+            action: #selector(handleReveal)
         )
-        boundItems.append((.revealNote, reveal))
+        boundItems.append((.reveal, reveal))
         menu.addItem(reveal)
 
         menu.addItem(.separator())
@@ -283,7 +283,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         onResetStorageLocation()
     }
 
-    @objc private func handleRevealNote() {
-        onRevealNote()
+    @objc private func handleReveal() {
+        onReveal()
     }
 }

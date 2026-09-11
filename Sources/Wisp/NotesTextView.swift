@@ -104,8 +104,8 @@ final class NotesTextView: NSTextView {
     }
 
     /// ⌥L.
-    func toggleListItem() {
-        apply(LineEdits.toggleListItem(in: string as NSString, selection: selectedRange()))
+    func toggleBulletedList() {
+        apply(LineEdits.toggleBulletedList(in: string as NSString, selection: selectedRange()))
     }
 
     /// Tab. On a list item — or anywhere a selection spans — this shifts

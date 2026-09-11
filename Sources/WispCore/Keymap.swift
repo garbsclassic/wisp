@@ -56,8 +56,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case refresh
     case help
 
-    case toggleTheme
-    case rawMode
+    case cycleTheme
+    case sourceView
 
     case bold
     case italic
@@ -66,7 +66,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case code
 
     case duplicateLine
-    case toggleListItem
+    case toggleBulletedList
     case moveLineUp
     case moveLineDown
 
@@ -74,32 +74,31 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case decreaseFontScale
     case resetFontScale
 
-    case revealNote
+    case reveal
 
-    /// What the menu item reads. Not derived from the case name — "Actual
-    /// Size" and "Duplicate" are what these are called on a Mac.
+    /// What the menu item reads.
     public var title: String {
         switch self {
         case .summon: return "Summon"
         case .find: return "Find"
         case .settings: return "Settings…"
         case .refresh: return "Refresh"
-        case .help: return "Keyboard Shortcuts"
-        case .toggleTheme: return "Cycle Theme"
-        case .rawMode: return "Raw Text"
+        case .help: return "Help"
+        case .cycleTheme: return "Cycle Theme"
+        case .sourceView: return "Source View"
         case .bold: return "Bold"
         case .italic: return "Italic"
         case .highlight: return "Highlight"
         case .underline: return "Underline"
         case .code: return "Code"
-        case .duplicateLine: return "Duplicate"
-        case .toggleListItem: return "Toggle List Item"
+        case .duplicateLine: return "Duplicate Line"
+        case .toggleBulletedList: return "Toggle Bulleted List"
         case .moveLineUp: return "Move Line Up"
         case .moveLineDown: return "Move Line Down"
-        case .increaseFontScale: return "Increase Text Size"
-        case .decreaseFontScale: return "Decrease Text Size"
-        case .resetFontScale: return "Actual Size"
-        case .revealNote: return "Reveal Note in Finder"
+        case .increaseFontScale: return "Increase Font Size"
+        case .decreaseFontScale: return "Decrease Font Size"
+        case .resetFontScale: return "Reset Font Size"
+        case .reveal: return "Reveal in Finder"
         }
     }
 
@@ -114,18 +113,18 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .help: return ["f1", "cmd+/"]
         case .bold: return "cmd+b"
         case .italic: return "cmd+i"
-        case .toggleTheme: return "cmd+t"
+        case .cycleTheme: return "cmd+t"
         // ⌘↩ rather than a letter: this is "show me the file", a sibling of
         // the ⌘-Return "commit / step outside what you're typing" gesture,
         // and every unclaimed ⌘-letter reads as a formatting command here.
-        case .rawMode: return "cmd+return"
+        case .sourceView: return "cmd+return"
         case .highlight: return "opt+h"
         // `<u>` is HTML, not markdown — which is also what Obsidian's own
         // underline command inserts, and this note is read there too.
         case .underline: return "cmd+u"
         case .code: return "cmd+e"
         case .duplicateLine: return "cmd+d"
-        case .toggleListItem: return "opt+l"
+        case .toggleBulletedList: return "opt+l"
         case .moveLineUp: return "opt+up"
         case .moveLineDown: return "opt+down"
         case .increaseFontScale: return "cmd+="
@@ -133,7 +132,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .resetFontScale: return "cmd+0"
         // ⌘R with Option, beside the plain ⌘R it is a cousin of: one
         // re-reads the note, the other goes and looks at it.
-        case .revealNote: return "opt+cmd+r"
+        case .reveal: return "opt+cmd+r"
         }
     }
 

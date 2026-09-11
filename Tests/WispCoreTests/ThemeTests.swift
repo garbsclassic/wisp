@@ -22,16 +22,16 @@ struct ThemeEnumTests {
     func rawValues() {
         #expect(Theme.dark.rawValue == "dark")
         #expect(Theme.light.rawValue == "light")
-        #expect(ThemePreference.light.rawValue == "light")
-        #expect(ThemePreference.dark.rawValue == "dark")
-        #expect(ThemePreference.system.rawValue == "system")
+        #expect(ThemeSetting.light.rawValue == "light")
+        #expect(ThemeSetting.dark.rawValue == "dark")
+        #expect(ThemeSetting.system.rawValue == "system")
     }
 
     @Test("The footer button cycles light → dark → system")
     func cycle() {
-        #expect(ThemePreference.light.next == .dark)
-        #expect(ThemePreference.dark.next == .system)
-        #expect(ThemePreference.system.next == .light)
+        #expect(ThemeSetting.light.next == .dark)
+        #expect(ThemeSetting.dark.next == .system)
+        #expect(ThemeSetting.system.next == .light)
     }
 }
 

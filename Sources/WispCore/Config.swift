@@ -243,7 +243,7 @@ public struct PanelFrame: Codable, Equatable, Sendable {
 public struct WispConfig: Codable, Equatable, Sendable {
     /// Light, dark, or follow the system. Richer than Clef's, which has no
     /// system option.
-    public var theme: ThemePreference
+    public var theme: ThemeSetting
     public var fonts: FontSet
     /// The one text-size control: a multiplier on every design size in
     /// `Metrics`, body and chrome alike. Moved by ⌘= / ⌘- and the footer
@@ -276,7 +276,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
     public var panel: PanelFrame?
 
     public init(
-        theme: ThemePreference = .system,
+        theme: ThemeSetting = .system,
         fonts: FontSet = FontSet(),
         fontScale: Double = 1.0,
         defaultFontScale: Double = 1.0,

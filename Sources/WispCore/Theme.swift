@@ -11,13 +11,13 @@ public enum Theme: String, CaseIterable, Sendable {
 /// as Theme's so a stored value from the pre-system-mode era still
 /// loads correctly. `.system` resolves at runtime against
 /// NSApp.effectiveAppearance.
-public enum ThemePreference: String, Codable, CaseIterable, Sendable {
+public enum ThemeSetting: String, Codable, CaseIterable, Sendable {
     case light
     case dark
     case system
 
     /// One-click cycle wired into the BottomBar button.
-    public var next: ThemePreference {
+    public var next: ThemeSetting {
         switch self {
         case .light: return .dark
         case .dark: return .system
@@ -75,6 +75,7 @@ public struct Palette {
     /// help section labels, and the header's heading links.
     /// Flexoki cyan / Modernist vermilion.
     public let accent: NSColor
+    public let indicator: NSColor
     /// 1px incidental rules, including the horizontal-rule glyph. Alpha,
     /// not opaque: the panel is vibrancy whose luminance tracks the
     /// desktop, so an opaque rule washes out over a light wallpaper.
@@ -107,6 +108,7 @@ public struct Palette {
                 surface: rgb(0x282726),
                 chrome: rgb(0x1C1B1A),
                 accent: rgb(0x4ECBDF),
+                indicator: rgb(0xF4AD5D),
                 rule: rgb(0xCECDC3, 0.32),
                 border: rgb(0xCECDC3, 0.10),
                 selection: rgb(0x4ECBDF, 0.20),
@@ -125,6 +127,7 @@ public struct Palette {
                 surface: rgb(0xF7F6F6),
                 chrome: rgb(0xE6E4E1),
                 accent: rgb(0xEC3013),
+                indicator: rgb(0x558A86),
                 rule: rgb(0x201E1D, 0.18),
                 border: rgb(0x201E1D, 0.12),
                 selection: rgb(0xEC3013, 0.14),
@@ -196,25 +199,25 @@ public enum Metrics {
     /// The notes body at scale 1.0. Was `FontSize.medium` before the
     /// three-step enum and the continuous scale were merged into one
     /// control, so a default config renders exactly as it used to.
-    public static let bodySize: CGFloat = 16
+    public static let bodySize: CGFloat = 15
     /// `#` and `##` step up off the body; `###` and below are bold at
     /// body size, which is enough to read as a heading without a
     /// six-level ramp that runs out of headroom.
-    public static let headingLevel1Ratio: CGFloat = 1.20
-    public static let headingLevel2Ratio: CGFloat = 1.10
+    public static let headingLevel1Ratio: CGFloat = 1.08
+    public static let headingLevel2Ratio: CGFloat = 1.04
     /// Generous leading — this is a writing surface, not a dense list.
-    public static let bodyLineHeightMultiple: CGFloat = 1.45
+    public static let bodyLineHeightMultiple: CGFloat = 1.35
 
     // MARK: Chrome
 
     /// Header, footer, and the incidental hint lines in the overlays.
-    public static let chromeSize: CGFloat = 14
+    public static let chromeSize: CGFloat = 13
     /// Secondary labels inside an overlay — chord names, the find field's
     /// leading glyph.
-    public static let labelSize: CGFloat = 15
+    public static let labelSize: CGFloat = 14
     /// Overlay row text and the find field itself: the one chrome size
     /// meant to be read rather than glanced at.
-    public static let rowSize: CGFloat = 16
+    public static let rowSize: CGFloat = 15
     /// The single large string in the hotkey-capture overlay.
     public static let titleSize: CGFloat = 21
 

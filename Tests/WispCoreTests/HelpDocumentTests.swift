@@ -58,7 +58,7 @@ struct HelpDocumentTests {
     @Test("Late-added rows follow the keymap like every other one")
     func lateBoundRowsFollowTheKeymap() {
         let rebound = Keymap([
-            .revealNote: "ctrl+shift+f", .underline: "ctrl+shift+u", .code: "ctrl+shift+e",
+            .reveal: "ctrl+shift+f", .underline: "ctrl+shift+u", .code: "ctrl+shift+e",
         ])
         let rows = HelpDocument.make(keymap: rebound).sections.flatMap(\.rows)
 

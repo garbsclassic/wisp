@@ -32,7 +32,7 @@ final class EditorModel: ObservableObject {
     /// Deliberately not persisted: it is a way to glance at the file, not a
     /// preference. The panel only orders out, so it survives a dismiss and
     /// resets on quit — which is the lifetime it wants.
-    @Published var isRawMode: Bool = false
+    @Published var isSourceView: Bool = false
 
     // MARK: Help
 
@@ -115,16 +115,16 @@ final class EditorModel: ObservableObject {
         }
     }
     /// User-facing choice: light, dark, or follow-system. Persisted.
-    @Published var themePreference: ThemePreference = .system {
+    @Published var themeSetting: ThemeSetting = .system {
         didSet {
             guard didLoad else { return }
-            settings.setTheme(themePreference)
-            theme = themePreference.resolve()
+            settings.setTheme(themeSetting)
+            theme = themeSetting.resolve()
         }
     }
 
     /// Resolved theme actually used for rendering. Driven by
-    /// themePreference, or — when preference is .system — by the OS
+    /// themeSetting, or — when preference is .system — by the OS
     /// appearance via the KVO observer below.
     @Published private(set) var theme: Theme = .dark {
         didSet {
@@ -171,8 +171,8 @@ final class EditorModel: ObservableObject {
     init(settings: Settings) {
         self.settings = settings
         helpDocument = HelpDocument.make(keymap: settings.config.keymap)
-        themePreference = settings.config.theme
-        theme = themePreference.resolve()
+        themeSetting = settings.config.theme
+        theme = themeSetting.resolve()
         appearanceObservation = NSApplication.shared.observe(
             \.effectiveAppearance,
             options: [.new]
@@ -265,19 +265,19 @@ final class EditorModel: ObservableObject {
         requestFocus()
     }
 
-    func toggleRawMode() {
-        isRawMode.toggle()
+    func toggleSourceView() {
+        isSourceView.toggle()
         requestFocus()
     }
 
     func cycleTheme() {
-        themePreference = themePreference.next
+        themeSetting = themeSetting.next
         requestFocus()
     }
 
     private func systemAppearanceMaybeChanged() {
-        guard themePreference == .system else { return }
-        let resolved = themePreference.resolve()
+        guard themeSetting == .system else { return }
+        let resolved = themeSetting.resolve()
         if resolved != theme { theme = resolved }
     }
 
@@ -308,7 +308,7 @@ final class EditorModel: ObservableObject {
     /// edit needs the text view's live selection, which only
     /// `MinimalTextEditor` has a handle on.
     func duplicateSelection() { duplicateToken &+= 1 }
-    func toggleListItem() { listItemToken &+= 1 }
+    func toggleBulletedList() { listItemToken &+= 1 }
 
     /// ⌥↑ / ⌥↓. The delta rides alongside the token, the same pairing
     /// `scrollTarget` has with `scrollToken`.
@@ -421,8 +421,8 @@ final class EditorModel: ObservableObject {
         didLoad = false
         defer { didLoad = wasLoaded }
 
-        themePreference = settings.config.theme
-        theme = themePreference.resolve()
+        themeSetting = settings.config.theme
+        theme = themeSetting.resolve()
         fontScale = settings.config.clampedFontScale
         helpDocument = HelpDocument.make(keymap: settings.config.keymap)
 
@@ -534,7 +534,7 @@ struct EditorView: View {
                         fontScale: model.fontScale,
                         indent: model.settings.config.indent,
                         theme: model.theme,
-                        isRawMode: model.isRawMode
+                        isSourceView: model.isSourceView
                     )
                     .padding(.horizontal, 24)
                     .padding(.top, model.headings.isEmpty ? 26 : 2)
@@ -542,8 +542,8 @@ struct EditorView: View {
                     if model.text.isEmpty {
                         Text(model.placeholder)
                             // Same face as the body it sits on top of, which
-                            // in raw mode is the code one.
-                            .font(Font(MinimalTextEditor.baseFont(isRawMode: model.isRawMode)))
+                            // in source view is the code one.
+                            .font(Font(MinimalTextEditor.baseFont(isSourceView: model.isSourceView)))
                             .foregroundStyle(Color(palette.muted))
                             .allowsHitTesting(false)
                             .padding(.horizontal, 24)
@@ -554,11 +554,11 @@ struct EditorView: View {
                     wordCount: wordCount,
                     onDecreaseFontScale: { model.stepFontScale(by: -1) },
                     onIncreaseFontScale: { model.stepFontScale(by: 1) },
-                    themePreference: model.themePreference,
-                    isRawMode: model.isRawMode,
+                    themeSetting: model.themeSetting,
+                    isSourceView: model.isSourceView,
                     keymap: model.settings.config.keymap,
                     onCycleTheme: { model.cycleTheme() },
-                    onToggleRawMode: { model.toggleRawMode() },
+                    onToggleSourceView: { model.toggleSourceView() },
                     onHelpClick: {
                         withAnimation(.easeInOut(duration: 0.18)) {
                             model.showHelp.toggle()

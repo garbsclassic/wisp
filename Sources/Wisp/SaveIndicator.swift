@@ -19,7 +19,7 @@ struct SaveIndicator: View {
 
     var body: some View {
         Circle()
-            .fill(Color(palette.accent))
+            .fill(Color(palette.indicator))
             .frame(width: Metrics.saveIndicatorSize, height: Metrics.saveIndicatorSize)
             .opacity(isVisible ? 1 : 0)
             // Out more slowly than in: the appearance is the event, and a

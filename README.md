@@ -40,7 +40,7 @@ first leaves a dangling login item.
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic / Highlight** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`)
 - **Line editing** — ⌘D duplicates the line or selection; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected
-- **⌥L** makes the line a list item, or unmakes it
+- **⌥L** makes the line a bulleted list item, or unmakes it
 - **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
 - **Launch at Login** — toggle in the menu bar menu
 - **Refresh** — ⌘R re-reads the config and the note from disk
@@ -92,12 +92,12 @@ An action can take a list instead of a single chord, and every entry binds —
 | ----------------------------------------- | ---------- |
 | `summon`                                  | `ctrl+opt+.` |
 | `find` / `settings` / `refresh`           | `cmd+f` / `cmd+,` / `cmd+r` |
-| `revealNote`                              | `opt+cmd+r` |
+| `reveal`                              | `opt+cmd+r` |
 | `help`                                    | `["f1", "cmd+/"]` |
 | `bold` / `italic` / `highlight` / `underline` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+e` |
 | `toggleTheme`                             | `cmd+t` |
-| `rawMode`                                 | `cmd+return` |
-| `duplicateLine` / `toggleListItem`        | `cmd+d` / `opt+l` |
+| `sourceView`                                 | `cmd+return` |
+| `duplicateLine` / `toggleBulletedList`        | `cmd+d` / `opt+l` |
 | `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
 | `increaseFontScale` / `decreaseFontScale` / `resetFontScale` | `cmd+=` / `cmd+-` / `cmd+0` |
 
@@ -110,7 +110,7 @@ and `<u>` is what Obsidian's own underline command inserts. Code wraps in
 single backticks and renders in `fonts.code`; fenced blocks aren't styled,
 only inline spans.
 
-`rawMode` drops every styling pass and sets the body in `fonts.code`, so the
+`sourceView` drops every styling pass and sets the body in `fonts.code`, so the
 screen shows the file. It isn't persisted — it resets when you quit. List
 continuation on ↵ keeps working; the two aids that *rewrite* the line,
 `---`→rule and `:rocket:`→🚀, are off while it is on.

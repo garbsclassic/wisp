@@ -42,7 +42,7 @@ Six unrelated papercuts and additions, batched because they land in the same thr
 - [x] 3. `↵` preserves indentation and continues nested lists — `SmartEditing`, `handleEnter`
 - [x] 4. Backslash escapes — new `Escapes.swift`, `Palette.faint`, the styling and layout passes
 - [x] 5. Auto-surround a selection by typing a delimiter — `MarkdownWrap`, `shouldChangeTextIn`
-- [x] 6. Raw text mode on ⌘↩ — `KeymapAction.rawMode`, `MinimalTextEditor`, `BottomBar`, help page
+- [x] 6. Raw text mode on ⌘↩ — `KeymapAction.sourceView`, `MinimalTextEditor`, `BottomBar`, help page
 
 ## Verification
 

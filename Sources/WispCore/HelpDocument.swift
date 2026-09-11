@@ -56,10 +56,10 @@ public struct HelpDocument: Equatable, Sendable {
                 Row(chord(.summon), "summon · dismiss panel"),
                 Row("⌘↑ · ⌘↓", "move to beginning · end"),
                 Row(chord(.refresh), "refresh"),
-                Row(chord(.revealNote), "reveal note in finder"),
+                Row(chord(.reveal), "reveal note in finder"),
                 Row(
                     group(.increaseFontScale, .decreaseFontScale, .resetFontScale),
-                    "larger · smaller · reset text"),
+                    "larger · smaller · reset font"),
                 Row(chord(.settings), "settings"),
             ]),
             Section("Edit", [
@@ -68,14 +68,14 @@ public struct HelpDocument: Equatable, Sendable {
                 Row(chord(.duplicateLine), "duplicate line or selection"),
             ]),
             Section("Format", [
-                Row(chord(.toggleListItem), "toggle bullet list"),
+                Row(chord(.toggleBulletedList), "toggle bulleted list"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
                 Row(
                     group(.bold, .highlight, .italic, .underline, .code),
                     "bold · highlight · italic · underline · code"),
                 Row("⇥ · ⇧⇥", "increase · decrease indentation"),
-                Row("` · _ · ' · \" · ** · ==", "wrap the selection as you type"),
-                Row(chord(.rawMode), "raw text — no formatting"),
+                Row("` · _ · ' · \" · ** · ==", "wrap selection"),
+                Row(chord(.sourceView), "source view — raw text"),
             ]),
             Section("Insert", [
                 Row("- · * · +", "bulleted list"),

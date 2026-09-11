@@ -46,7 +46,7 @@ struct TypographyTests {
     }
 
     /// Every size goes through one multiplier, so a display that needs
-    /// everything a notch bigger doesn't need the layout redrawn.
+    /// everything a notch larger doesn't need the layout redrawn.
     @Test("Configuring applies the families and scales every size")
     func configuring() {
         defer { Typography.configure(fonts: FontSet(), scale: 1) }

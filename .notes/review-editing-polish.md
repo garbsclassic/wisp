@@ -28,7 +28,7 @@ Findings from the review pass over `main..editing-polish`, and what was done abo
    Raw mode returns before that pass, so the amber wash survived into a mode whose whole point is
    that nothing is styled. Both raw-mode early returns now clear it, and `applyFindHighlight` no
    longer repaints `==marked==` while raw mode is on; the match itself still paints, since finding
-   text in the raw view is the point.
+   text in the source view is the point.
 
 4. **The help row for auto-surround was wrong.** It omitted `'`, and showed `*` singly while
    showing `=` doubled — both double. Now `` ` · _ · ' · " · ** · == ``.
@@ -48,8 +48,8 @@ Findings from the review pass over `main..editing-polish`, and what was done abo
 `Escapes.scan` bounds (including the two-character skip at the end of the text); the `where
 isLive(…)` clauses being exact no-ops on backslash-free text; `outdentAtCursor`'s off-by-ones and
 its behaviour on an empty `unit`; both raw-mode early returns skipping nothing but `restyleContent`;
-`NotesLayoutManager.isRawMode` and the styling pass being unable to disagree for a frame, since
-both are written inside the same synchronous `applyPalette`; and `lastRawMode` being unreachable
+`NotesLayoutManager.isSourceView` and the styling pass being unable to disagree for a frame, since
+both are written inside the same synchronous `applyPalette`; and `lastSourceView` being unreachable
 in a stale state from any keystroke.
 
 ## Known gaps

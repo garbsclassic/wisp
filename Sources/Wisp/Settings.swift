@@ -61,7 +61,7 @@ final class Settings: ObservableObject {
 
     // MARK: Mutations
 
-    func setTheme(_ preference: ThemePreference) {
+    func setTheme(_ preference: ThemeSetting) {
         config.theme = preference
         write(["theme"], preference)
     }
@@ -148,7 +148,7 @@ final class Settings: ObservableObject {
         let defaults = UserDefaults.standard
         var migrated = config
 
-        if let raw = defaults.string(forKey: "Theme"), let pref = ThemePreference(rawValue: raw) {
+        if let raw = defaults.string(forKey: "Theme"), let pref = ThemeSetting(rawValue: raw) {
             migrated.theme = pref
         }
         if defaults.object(forKey: "HotKeyCode") != nil {
