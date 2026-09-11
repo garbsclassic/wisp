@@ -13,15 +13,18 @@ DEST="$DEST_DIR/${APP_NAME}.app"
 
 "$ROOT_DIR/scripts/build.sh"
 
+# Quit every running copy, wherever it was launched from — one started out of
+# dist/ keeps its old executable mapped and would carry on running the
+# pre-rebuild code — and relaunch from the install location afterwards.
 WAS_RUNNING=0
+if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+  WAS_RUNNING=1
+  osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
+  pkill -x "$APP_NAME" 2>/dev/null || true
+  sleep 1
+fi
+
 if [[ -d "$DEST" ]]; then
-  if pgrep -f "$DEST/Contents/MacOS/$APP_NAME" >/dev/null 2>&1; then
-    WAS_RUNNING=1
-    # Quit the running copy first, or the replace lands under a live process.
-    osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
-    pkill -f "$DEST/Contents/MacOS/$APP_NAME" 2>/dev/null || true
-    sleep 1
-  fi
   echo "Replacing existing $DEST"
   rm -rf "$DEST"
 fi
