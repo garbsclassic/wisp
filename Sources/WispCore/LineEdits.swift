@@ -74,7 +74,7 @@ public enum LineEdits {
             selection: NSRange(location: insertAt + 1 + column, length: 0))
     }
 
-    // MARK: Whole-line copy and cut
+    // MARK: Whole-line copy, cut, and paste
 
     /// What ⌘C puts on the pasteboard when nothing is selected: the whole
     /// line, newline included. The newline is what makes the round trip
@@ -100,6 +100,22 @@ public enum LineEdits {
             range: line,
             replacement: "",
             selection: NSRange(location: line.location + min(column, followingLength), length: 0))
+    }
+
+    /// ⌘V of a whole-line copy with nothing selected. The line goes in
+    /// *above* the current one rather than at the caret, so a copy-then-
+    /// paste round trip never splits the line the caret happens to be on.
+    /// The caret rides down with its line, column intact — what VS Code,
+    /// Sublime, and JetBrains all do with their own line-copy flag.
+    ///
+    /// `line` is what `lineForClipboard` produced, newline included.
+    public static func pasteLine(in text: NSString, selection: NSRange, line: String) -> Edit {
+        let current = lineRange(in: text, at: selection.location)
+        return Edit(
+            range: NSRange(location: current.location, length: 0),
+            replacement: line,
+            selection: NSRange(
+                location: selection.location + (line as NSString).length, length: 0))
     }
 
     // MARK: Indent and outdent

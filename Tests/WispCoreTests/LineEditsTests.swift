@@ -113,6 +113,33 @@ struct LineClipboardTests {
         #expect(apply(edit, to: text) == "alpha\n")
         #expect(edit.selection == NSRange(location: 6, length: 0))
     }
+
+    @Test("Paste inserts above the caret's line and rides the caret down with it")
+    func pasteInsertsAboveTheCurrentLine() {
+        let text = "alpha\nbeta\n"
+        let edit = LineEdits.pasteLine(
+            in: text as NSString, selection: NSRange(location: 8, length: 0), line: "xx\n")
+        #expect(apply(edit, to: text) == "alpha\nxx\nbeta\n")
+        #expect(edit.selection == NSRange(location: 11, length: 0))
+    }
+
+    @Test("Pasting on the first line inserts before it rather than at column zero of nothing")
+    func pasteOnFirstLine() {
+        let text = "alpha\nbeta\n"
+        let edit = LineEdits.pasteLine(
+            in: text as NSString, selection: NSRange(location: 0, length: 0), line: "xx\n")
+        #expect(apply(edit, to: text) == "xx\nalpha\nbeta\n")
+        #expect(edit.selection == NSRange(location: 3, length: 0))
+    }
+
+    @Test("Pasting above a last line without a trailing newline leaves the document shape alone")
+    func pasteAboveLastLineWithoutNewline() {
+        let text = "alpha\nbeta"
+        let edit = LineEdits.pasteLine(
+            in: text as NSString, selection: NSRange(location: 8, length: 0), line: "xx\n")
+        #expect(apply(edit, to: text) == "alpha\nxx\nbeta")
+        #expect(edit.selection == NSRange(location: 11, length: 0))
+    }
 }
 
 @Suite("LineEdits — indent and outdent")

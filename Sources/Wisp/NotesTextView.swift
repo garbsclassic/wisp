@@ -2,10 +2,10 @@ import AppKit
 import WispCore
 
 /// The notes body. A subclass rather than what
-/// `NSTextView.scrollableTextView()` hands back, because ⌘C and ⌘X have to
-/// be intercepted: the Edit menu's items target the first responder, so
-/// falling back to the current line when nothing is selected can only
-/// happen here.
+/// `NSTextView.scrollableTextView()` hands back, because ⌘C, ⌘X, and ⌘V
+/// have to be intercepted: the Edit menu's items target the first
+/// responder, so falling back to the current line when nothing is selected
+/// can only happen here.
 ///
 /// Building the view by hand also lets `NotesLayoutManager` be installed
 /// as part of the text stack instead of swapped in afterwards with
@@ -42,7 +42,7 @@ final class NotesTextView: NSTextView {
         return (scrollView, textView)
     }
 
-    // MARK: Whole-line copy and cut
+    // MARK: Whole-line copy, cut, and paste
 
     /// Keeps Cut and Copy enabled with an empty selection.
     ///
@@ -82,10 +82,34 @@ final class NotesTextView: NSTextView {
         apply(LineEdits.cutLine(in: text, selection: selectedRange()))
     }
 
+    /// ⌘V of a line that ⌘C or ⌘X took whole, with nothing selected, puts
+    /// it in above the current line rather than at the caret. Anything
+    /// else — a selection to replace, a pasteboard another app wrote — is
+    /// an ordinary paste.
+    override func paste(_ sender: Any?) {
+        let pasteboard = NSPasteboard.general
+        guard selectedRange().length == 0,
+            pasteboard.types?.contains(Self.wholeLineType) == true,
+            let line = pasteboard.string(forType: .string)
+        else {
+            super.paste(sender)
+            return
+        }
+        apply(LineEdits.pasteLine(in: string as NSString, selection: selectedRange(), line: line))
+    }
+
+    /// Marks a pasteboard entry as a whole line, the way VS Code's
+    /// `isFromEmptySelection` and JetBrains' custom flavor do. The marker is
+    /// a second type on the same entry, so it cannot outlive the text:
+    /// every writer clears the pasteboard before setting its own types, and
+    /// the marker goes with it.
+    private static let wholeLineType = NSPasteboard.PasteboardType("quest.uponre.wisp.whole-line")
+
     private func writeToPasteboard(_ text: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        pasteboard.setString("", forType: Self.wholeLineType)
     }
 
     // MARK: Duplicate, indent, outdent

@@ -121,7 +121,7 @@ struct KeymapTests {
         #expect(KeymapAction.bold.isPanelScoped)
         #expect(KeymapAction.moveLineUp.isPanelScoped)
         #expect(KeymapAction.help.isPanelScoped)
-        #expect(KeymapAction.toggleTheme.isPanelScoped)
+        #expect(KeymapAction.cycleTheme.isPanelScoped)
     }
 }
 

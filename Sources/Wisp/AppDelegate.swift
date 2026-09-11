@@ -44,7 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onResetStorageLocation: { [weak self] in
                 self?.resetStorageLocation()
             },
-            onReveal: { [weak self] in self?.revealInFinder() }
+            onReveal: { [weak self] in self?.revealInFinder() },
+            onSummon: { [weak panel] in panel?.toggle() }
         )
         menuBarController?.apply(settings.config.keymap)
 

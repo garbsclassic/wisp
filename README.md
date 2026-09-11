@@ -39,9 +39,10 @@ first leaves a dangling login item.
 - **Headings** — `#`, `##`, `###` render styled with click-to-jump navigation
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic / Highlight** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`)
-- **Line editing** — ⌘D duplicates the line or selection; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected
+- **Line editing** — ⌘D duplicates the line or selection; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
 - **⌥L** makes the line a bulleted list item, or unmakes it
 - **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
+- **Menu bar icon** — left click for the menu, right click to summon the panel
 - **Launch at Login** — toggle in the menu bar menu
 - **Refresh** — ⌘R re-reads the config and the note from disk
 - **Live reload** — changes to either from another app, Mac, or sync client appear on their own

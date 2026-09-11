@@ -71,21 +71,10 @@ struct BottomBar: View {
         "\(label)   \(keymap.primaryDisplay(action))"
     }
 
-    /// Footer buttons share one shape: an SF Symbol in a fixed box, so
-    /// the row's spacing doesn't rag as the icons change.
-    @ViewBuilder
     private func glyphButton(
         _ symbol: String, help: String, action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(Typography.ui(Metrics.chromeSize))
-                .frame(width: Metrics.footerButtonWidth, height: Metrics.footerButtonHeight)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .pointerCursor()
-        .help(help)
+        GlyphButton(symbol: symbol, help: help, action: action)
     }
 
     private var themeIconName: String {
@@ -106,5 +95,32 @@ struct BottomBar: View {
 
     private var wordsLabel: String {
         wordCount == 1 ? "1 word" : "\(wordCount) words"
+    }
+}
+
+/// Footer buttons share one shape: an SF Symbol in a fixed box, so the
+/// row's spacing doesn't rag as the icons change. Hovering lifts the glyph
+/// from `muted` to `text` — a fade rather than a snap, since the footer is
+/// the quietest part of the panel and a hard flip there reads as a flicker.
+private struct GlyphButton: View {
+    let symbol: String
+    let help: String
+    let action: () -> Void
+    @Environment(\.palette) private var palette
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(Typography.ui(Metrics.chromeSize))
+                .frame(width: Metrics.footerButtonWidth, height: Metrics.footerButtonHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color(isHovered ? palette.text : palette.muted))
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .onHover { isHovered = $0 }
+        .pointerCursor()
+        .help(help)
     }
 }

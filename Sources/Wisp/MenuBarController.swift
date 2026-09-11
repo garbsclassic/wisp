@@ -1,11 +1,12 @@
 import AppKit
 import WispCore
 
-/// Owns the single status-bar item. The permanently-assigned menu is
-/// what makes any click open it, and it refreshes its dynamic state —
-/// Launch at Login checkmark, Reset Scratchpad Folder visibility — in
-/// menuWillOpen rather than being rebuilt each time. Wording and icons
-/// follow Clef's menu where an item exists in both.
+/// Owns the single status-bar item. A left click opens the menu, a right
+/// click summons the panel — the same toggle as the hotkey. The menu
+/// refreshes its dynamic state — Launch at Login checkmark, Reset
+/// Scratchpad Folder visibility — in menuNeedsUpdate rather than being
+/// rebuilt each time. Wording and icons follow Clef's menu where an item
+/// exists in both.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
@@ -18,6 +19,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let onPickStorageLocation: () -> Void
     private let onResetStorageLocation: () -> Void
     private let onReveal: () -> Void
+    private let onSummon: () -> Void
+    private let menu = NSMenu()
 
     // Strong: NSMenuItem.target is weak, so holding items here can't
     // cycle, and it drops the assign-after-addItem ordering rule that
@@ -37,7 +40,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         isStorageCustom: @escaping () -> Bool,
         onPickStorageLocation: @escaping () -> Void,
         onResetStorageLocation: @escaping () -> Void,
-        onReveal: @escaping () -> Void
+        onReveal: @escaping () -> Void,
+        onSummon: @escaping () -> Void
     ) {
         self.onSetHotKey = onSetHotKey
         self.onOpenConfig = onOpenConfig
@@ -48,6 +52,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.onPickStorageLocation = onPickStorageLocation
         self.onResetStorageLocation = onResetStorageLocation
         self.onReveal = onReveal
+        self.onSummon = onSummon
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -55,9 +60,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             let image = Self.makeStatusIcon()
             image.accessibilityDescription = "Wisp"
             button.image = image
+            button.target = self
+            button.action = #selector(handleClick)
+            // Up rather than down: a right-mouse-down would otherwise
+            // open the menu on its own, before the action ever ran.
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
-        let menu = NSMenu()
         menu.delegate = self
 
         // Opens wisp.jsonc in whatever app owns .jsonc — the same move as
@@ -121,9 +130,22 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         quit.target = nil
         quit.keyEquivalent = "q"
         menu.addItem(quit)
+    }
 
-        // Assigned permanently so any click — left or right — opens it.
+    /// Splits the click by button. The menu is assigned only for as long
+    /// as it takes to open: a permanently assigned one is what makes
+    /// AppKit open it on *every* click, and takes the right button away.
+    @objc private func handleClick() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            onSummon()
+            return
+        }
         statusItem.menu = menu
+        statusItem.button?.performClick(nil)
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        statusItem.menu = nil
     }
 
     /// Stamps each configurable item with the chord actually bound to it.

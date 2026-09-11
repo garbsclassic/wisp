@@ -202,3 +202,15 @@
   and nothing repaints it in raw mode. `isLive` moved onto `Escapes.Marks` so the feature's actual
   promise is testable rather than private in the untested target. First `.notes/intent.md`: the
   four things here most likely to be "fixed" back.
+
+- 2026-09-11 — three small ones, no plan. Footer glyphs fade `muted`→`text` on hover (0.15s), which
+  needed `glyphButton` to become a `GlyphButton` view so each has its own hover state. A whole-line
+  ⌘C/⌘X now round-trips: ⌘V with nothing selected puts the line in *above* the caret's line and
+  rides the caret down, column intact. The way to tell a line copy from an ordinary one is a second
+  pasteboard type on the same entry — VS Code's `isFromEmptySelection` and JetBrains' custom flavor
+  are the same trick — which can't go stale because every writer clears the pasteboard first.
+  Right click on the status item toggles the panel; that meant dropping the permanently-assigned
+  menu (AppKit opens it on *any* click) for assign-on-left-click, cleared in `menuDidClose`. Also
+  fixed `KeymapTests` still naming `toggleTheme` after 33af5fe renamed it — the test target hadn't
+  compiled since. 239 tests. Verified on screen with CGEvent-posted clicks and ⌘C/⌘V/⌘Z: hovered `?`
+  measures `#D7D6CE` against `#8F8E8A` at rest; paste landed above and undid cleanly.
