@@ -49,8 +49,8 @@ final class NotesLayoutManager: NSLayoutManager {
             if SmartEditing.isHorizontalRuleLine(lineRange: lineRange, in: nsString) {
                 drawRule(for: lineRange, at: origin, in: context)
             } else if let item = SmartEditing.listItem(lineRange: lineRange, in: nsString),
-                      item.marker == .bullet {
-                drawBullet(for: item, at: origin)
+                      let glyph = item.glyph(indentWidth: indentWidth) {
+                drawMarker(glyph, for: item, at: origin)
             }
             lineStart = lineRange.location + lineRange.length
         }
@@ -80,7 +80,7 @@ final class NotesLayoutManager: NSLayoutManager {
     /// Leading edge, not centered: the styling pass kerns every bullet
     /// marker out to exactly the glyph's own width, so the reserved box
     /// and the glyph are the same size and there is nothing to center.
-    private func drawBullet(for item: SmartEditing.ListItem, at origin: NSPoint) {
+    private func drawMarker(_ glyph: String, for item: SmartEditing.ListItem, at origin: NSPoint) {
         let glyphRange = self.glyphRange(
             forCharacterRange: item.markerRange, actualCharacterRange: nil)
         guard glyphRange.length > 0 else { return }
@@ -95,8 +95,7 @@ final class NotesLayoutManager: NSLayoutManager {
             + location(forGlyphAt: glyphRange.location).y
 
         let glyph = NSAttributedString(
-            string: SmartEditing.bulletGlyph(depth: item.depth(indentWidth: indentWidth)),
-            attributes: [.font: bulletFont, .foregroundColor: bulletColor])
+            string: glyph, attributes: [.font: bulletFont, .foregroundColor: bulletColor])
         glyph.draw(at: NSPoint(
             x: origin.x + markerRect.minX,
             // The text view is flipped, so `draw(at:)` takes the top-left

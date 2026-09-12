@@ -133,6 +133,62 @@ final class NotesTextView: NSTextView {
         apply(LineEdits.toggleBulletedList(in: string as NSString, selection: selectedRange()))
     }
 
+    /// ⌘⇧L.
+    func toggleTaskItems() {
+        apply(LineEdits.toggleTaskItems(in: string as NSString, selection: selectedRange()))
+    }
+
+    /// ⌫ at the start of an item's text takes the marker off instead of
+    /// the space after it. Everything else is `super`'s.
+    override func deleteBackward(_ sender: Any?) {
+        let selection = selectedRange()
+        if selection.length == 0,
+            let edit = SmartEditing.backspaceAtItemStart(
+                in: string as NSString, cursor: selection.location) {
+            apply(edit)
+            return
+        }
+        super.deleteBackward(sender)
+    }
+
+    /// A click on a task's box toggles it. The hit test is against the
+    /// glyph's own rectangle rather than the character index under the
+    /// mouse, so a click in the whitespace beside the box, or on the
+    /// item's first word, still places the caret as it always did.
+    override func mouseDown(with event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard event.clickCount == 1, modifiers.isEmpty, !isSourceView,
+            let layoutManager, let textContainer,
+            let edit = taskToggle(at: convert(event.locationInWindow, from: nil),
+                                  layoutManager: layoutManager, container: textContainer)
+        else { return super.mouseDown(with: event) }
+        apply(edit)
+    }
+
+    /// Raw mode shows the `[ ]` as text, and text is for placing a caret in.
+    private var isSourceView: Bool {
+        (layoutManager as? NotesLayoutManager)?.isSourceView ?? false
+    }
+
+    private func taskToggle(
+        at point: NSPoint, layoutManager: NSLayoutManager, container: NSTextContainer
+    ) -> LineEdits.Edit? {
+        let origin = textContainerOrigin
+        let inContainer = NSPoint(x: point.x - origin.x, y: point.y - origin.y)
+        let text = string as NSString
+        guard text.length > 0 else { return nil }
+        let index = layoutManager.characterIndex(
+            for: inContainer, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
+        let line = LineEdits.lineRange(in: text, at: index)
+        guard let item = SmartEditing.listItem(lineRange: line, in: text), item.marker.isTask
+        else { return nil }
+        let glyphs = layoutManager.glyphRange(
+            forCharacterRange: item.markerRange, actualCharacterRange: nil)
+        let box = layoutManager.boundingRect(forGlyphRange: glyphs, in: container)
+        guard box.contains(inContainer) else { return nil }
+        return SmartEditing.toggledTask(in: text, lineAt: index, selection: selectedRange())
+    }
+
     /// Tab. On a list item — or anywhere a selection spans — this shifts
     /// whole lines; with a bare cursor in ordinary prose it inserts one
     /// indent unit where the cursor is, which is what a Tab key is for.

@@ -22,6 +22,13 @@ public enum SmartEditing {
     /// nested item continues the list at the depth it was already at rather
     /// than dropping it back to the margin.
     public static func nextListMarker(for line: String) -> String? {
+        // Before the plain bullet, which this would otherwise match as a
+        // bullet whose content is `[ ]`. The next box is always empty —
+        // a new task starts undone whatever the one above it says.
+        if let match = line.firstMatch(of: /^([ \t]*)([-*+]) \[[ xX]\]\s/) {
+            if isEmptyAfter(match.range, in: line) { return "" }
+            return "\(match.1)\(match.2) [ ] "
+        }
         if let match = line.firstMatch(of: /^([ \t]*)([-*+])\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
             return "\(match.1)\(match.2) "
@@ -78,6 +85,15 @@ public enum SmartEditing {
             case bullet
             /// `1.`, `A.`, or `a.`.
             case ordered
+            /// `- [ ]` or `- [x]`, any bullet character. The box is part
+            /// of the marker, not the content: it is drawn as one glyph
+            /// and the caret's stops treat it as chrome.
+            case task(checked: Bool)
+
+            public var isTask: Bool {
+                if case .task = self { return true }
+                return false
+            }
         }
 
         public let marker: Marker
@@ -97,6 +113,22 @@ public enum SmartEditing {
         public func depth(indentWidth unit: Int) -> Int {
             guard unit > 0 else { return 0 }
             return indentWidth / unit
+        }
+
+        /// What is drawn in place of the marker, or nil for an ordered
+        /// marker, which is its own content and stays visible.
+        public func glyph(indentWidth unit: Int) -> String? {
+            switch marker {
+            case .bullet: return bulletGlyph(depth: depth(indentWidth: unit))
+            case .task(let checked): return taskGlyph(checked: checked)
+            case .ordered: return nil
+            }
+        }
+
+        /// The character inside a task's box — the ` ` or `x` — which is
+        /// the one character a check toggles.
+        public var taskStateIndex: Int? {
+            marker.isTask ? NSMaxRange(markerRange) - 2 : nil
         }
     }
 
@@ -122,10 +154,17 @@ public enum SmartEditing {
         // parse as a bullet whose content is the remaining dashes.
         if isHorizontalRuleLine(lineRange: lineRange, in: text) { return nil }
 
-        let marker: ListItem.Marker
+        var marker: ListItem.Marker
         if index < contentEnd, isBulletCharacter(text.character(at: index)) {
             marker = .bullet
             index += 1
+            // `- [ ] ` and `- [x] `. The box needs whitespace after it
+            // like any marker does; `- [ ]` alone at the end of a line is
+            // a bullet whose content is the box, until the space arrives.
+            if let checked = taskBox(at: index, before: contentEnd, in: text) {
+                marker = .task(checked: checked)
+                index += 4
+            }
         } else {
             var digits = 0
             while index < contentEnd, isOrderedCharacter(text.character(at: index), first: digits == 0)
@@ -182,9 +221,91 @@ public enum SmartEditing {
             selection: NSRange(location: line.location + 1, length: 0))
     }
 
+    /// ⌫ with the caret at the start of an item's text. What comes off is
+    /// the marker and the whitespace after it, not the one space before
+    /// the caret — deleting that leaves `-item`, which silently stops
+    /// being a list item anyway. The indent stays, so a nested item
+    /// becomes a nested line; ⇧⇥ is the key for flattening it. Nil
+    /// anywhere else on the line, where ⌫ is an ordinary ⌫.
+    public static func backspaceAtItemStart(in text: NSString, cursor: Int) -> LineEdits.Edit? {
+        let line = LineEdits.lineRange(in: text, at: cursor)
+        guard let item = listItem(lineRange: line, in: text), cursor == item.contentStart else {
+            return nil
+        }
+        let markerStart = line.location + item.indentWidth
+        return LineEdits.Edit(
+            range: NSRange(location: markerStart, length: cursor - markerStart), replacement: "",
+            selection: NSRange(location: markerStart, length: 0))
+    }
+
+    /// ↵ on an empty item that is nested: the line, one level shallower.
+    /// Each press steps out a level and only the last leaves the list —
+    /// the only way ↵ alone can walk a caret back up to its parent. Nil
+    /// for a flush-left item, which is the signal to exit. Mirrors
+    /// `LineEdits.outdent`: one leading tab, or up to a unit of spaces.
+    public static func outdentedEmptyItem(_ line: String, unit: String) -> String? {
+        let indent = leadingIndent(of: line)
+        guard !indent.isEmpty else { return nil }
+        if line.hasPrefix("\t") { return String(line.dropFirst()) }
+        let spaces = line.prefix { $0 == " " }.count
+        return String(line.dropFirst(min(spaces, (unit as NSString).length)))
+    }
+
+    /// ⇧↵ inside an item's text: a newline plus whitespace out to the
+    /// content column, so the next line reads as more of the same item.
+    /// CommonMark's own spelling of a continuation, which is what keeps
+    /// it an item in Obsidian too. The indent is copied as written — tabs
+    /// stay tabs — and only the marker's width is padded with spaces.
+    /// Nil off a list line or with the caret before the content.
+    public static func continuationLine(in text: NSString, cursor: Int) -> String? {
+        let line = LineEdits.lineRange(in: text, at: cursor)
+        guard let item = listItem(lineRange: line, in: text), cursor >= item.contentStart else {
+            return nil
+        }
+        let indent = text.substring(
+            with: NSRange(location: line.location, length: item.indentWidth))
+        let markerColumns = item.contentStart - line.location - item.indentWidth
+        return "\n" + indent + String(repeating: " ", count: markerColumns)
+    }
+
+    /// Whether a non-list line is a continuation of the item above it:
+    /// its leading whitespace reaches the item's content column. Blank
+    /// lines don't count — whitespace with nothing after it is not a
+    /// paragraph.
+    public static func isContinuation(
+        lineRange: NSRange, in text: NSString, of item: ListItem, itemLine: NSRange
+    ) -> Bool {
+        let contentColumn = item.contentStart - itemLine.location
+        var index = lineRange.location
+        let end = NSMaxRange(lineRange)
+        while index < end, isSpaceOrTab(text.character(at: index)) { index += 1 }
+        guard index - lineRange.location >= contentColumn, index < end else { return false }
+        return text.character(at: index) != 0x0A
+    }
+
+    /// Flips the box on the task line at `index`: `[ ]` to `[x]` or back.
+    /// A one-character swap, so `selection` survives it untouched. Nil
+    /// off a task line.
+    public static func toggledTask(
+        in text: NSString, lineAt index: Int, selection: NSRange
+    ) -> LineEdits.Edit? {
+        let line = LineEdits.lineRange(in: text, at: index)
+        guard let item = listItem(lineRange: line, in: text), let state = item.taskStateIndex,
+              case .task(let checked) = item.marker
+        else { return nil }
+        return LineEdits.Edit(
+            range: NSRange(location: state, length: 1), replacement: checked ? " " : "x",
+            selection: selection)
+    }
+
     /// The glyph drawn in place of a hidden bullet marker at each nesting
     /// level.
     public static let bulletGlyphs = ["•", "◦", "▪"]
+
+    /// Drawn in place of a hidden `- [ ]` or `- [x]`.
+    public static func taskGlyph(checked: Bool) -> String {
+        checked ? "☑" : "☐"
+    }
 
     /// Cycles rather than clamping past the last glyph, the way Word and
     /// Docs do. The indent already states the absolute depth, so what a
@@ -193,6 +314,21 @@ public enum SmartEditing {
     public static func bulletGlyph(depth: Int) -> String {
         let count = bulletGlyphs.count
         return bulletGlyphs[((depth % count) + count) % count]
+    }
+
+    /// ` [ ]` or ` [x]` starting at `index`, followed by whitespace.
+    private static func taskBox(at index: Int, before end: Int, in text: NSString) -> Bool? {
+        guard index + 4 < end,
+              text.character(at: index) == 0x20,
+              text.character(at: index + 1) == 0x5B,
+              text.character(at: index + 3) == 0x5D,
+              isSpaceOrTab(text.character(at: index + 4))
+        else { return nil }
+        switch text.character(at: index + 2) {
+        case 0x20: return false
+        case 0x78, 0x58: return true
+        default: return nil
+        }
     }
 
     private static func isSpaceOrTab(_ c: unichar) -> Bool { c == 0x20 || c == 0x09 }

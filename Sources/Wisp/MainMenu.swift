@@ -27,6 +27,7 @@ enum MainMenuBuilder {
         .code: #selector(AppDelegate.toggleCode(_:)),
         .duplicateLine: #selector(AppDelegate.duplicateSelection(_:)),
         .toggleBulletedList: #selector(AppDelegate.toggleBulletedList(_:)),
+        .toggleTaskItem: #selector(AppDelegate.toggleTaskItem(_:)),
         .moveLineUp: #selector(AppDelegate.moveLineUp(_:)),
         .moveLineDown: #selector(AppDelegate.moveLineDown(_:)),
         .increaseFontScale: #selector(AppDelegate.increaseFontScale(_:)),
@@ -94,6 +95,7 @@ enum MainMenuBuilder {
                 item(.code, target: target, keymap: keymap),
                 .separator(),
                 item(.toggleBulletedList, target: target, keymap: keymap),
+                item(.toggleTaskItem, target: target, keymap: keymap),
             ])
 
         mainMenu.addItem(

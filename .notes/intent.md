@@ -39,3 +39,11 @@ ones that would otherwise match happily starting one character in.
 is for. `⇧⇥` therefore has two jobs, and tries them in order: take back whitespace immediately
 before the caret (`LineEdits.outdentAtCursor`), and failing that outdent the whole block. The
 asymmetry in the two functions is what makes the pair symmetric in use.
+
+## Nested list items indent twice
+
+`styleLists` gives a list line `firstLineHeadIndent = width(leading whitespace)` while the
+whitespace also renders itself, so a two-space nested item steps in by four spaces' worth. Not an
+oversight: two spaces of Inter is eight points, which does not read as a nesting step; doubled it
+is about the width of `• `, which is the step Apple Notes uses. `headIndent` and the continuation-
+line indent both include the doubling, so wrapped and continuation lines land on the item's text.

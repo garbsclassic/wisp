@@ -71,17 +71,20 @@ public struct HelpDocument: Equatable, Sendable {
             ]),
             Section("Format", [
                 Row(chord(.toggleBulletedList), "toggle bulleted list"),
+                Row(chord(.toggleTaskItem), "toggle task · check it off"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
                 Row(
                     group(.bold, .highlight, .italic, .underline, .code),
                     "bold · highlight · italic · underline · code"),
                 Row("⇥ · ⇧⇥", "increase · decrease indentation"),
+                Row("⇧↵", "continue an item on a new line"),
                 Row("` · _ · ' · \" · ** · ==", "wrap selection"),
                 Row(chord(.sourceView), "source view — raw text"),
             ]),
             Section("Insert", [
                 Row("- · * · +", "bulleted list"),
                 Row("1. · A. · a.", "numbered list"),
+                Row("- [ ]", "task — click the box to check it"),
                 Row("# · ## · ###", "headings"),
                 Row("---", "horizontal rule"),
                 Row(":) · :rocket:", "emojis — 🙂 · 🚀 · etc"),

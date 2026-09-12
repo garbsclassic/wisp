@@ -25,6 +25,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     var wrapMarkers: MarkdownWrap.Markers
     var duplicateToken: Int
     var listItemToken: Int
+    var taskItemToken: Int
     var moveLineToken: Int
     var moveLineDelta: Int
     var findHighlightToken: Int
@@ -151,6 +152,12 @@ struct MinimalTextEditor: NSViewRepresentable {
             context.coordinator.lastListItemToken = listItemToken
             if textView.window?.firstResponder === textView {
                 textView.toggleBulletedList()
+            }
+        }
+        if context.coordinator.lastTaskItemToken != taskItemToken {
+            context.coordinator.lastTaskItemToken = taskItemToken
+            if textView.window?.firstResponder === textView {
+                textView.toggleTaskItems()
             }
         }
         if context.coordinator.lastMoveLineToken != moveLineToken {
@@ -289,7 +296,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     ) {
         let marks = Escapes.scan(storage.string)
         styleHorizontalRules(in: storage)
-        styleLists(in: storage, baseFont: baseFont, indent: indent)
+        styleLists(in: storage, baseFont: baseFont, indent: indent, palette: palette)
         styleHeadings(in: storage, baseFont: baseFont, headings: storage.string.extractHeadings())
         styleInlineMarkup(in: storage, baseFont: baseFont, palette: palette, marks: marks)
     }
@@ -324,30 +331,57 @@ struct MinimalTextEditor: NSViewRepresentable {
     }
 
     /// Give every list line a hanging indent, and hide the `-` / `*` / `+`
-    /// so `NotesLayoutManager` can draw a bullet in the space it reserved.
+    /// or `- [ ]` so `NotesLayoutManager` can draw a glyph in the space it
+    /// reserved.
     ///
     /// The measurements come from the rendered text rather than from a
     /// points-per-character guess: the head indent has to land exactly
     /// where the content starts, or a wrapped line sits a hair off the one
     /// above it. Ordered markers stay visible — `1.` is its own content.
+    ///
+    /// A continuation line — whitespace out to the item's content column,
+    /// what ⇧↵ writes — is pulled to that same column. Inter is
+    /// proportional, so the spaces on their own land a hair off it.
     private static func styleLists(
-        in storage: NSTextStorage, baseFont: NSFont, indent: Indent
+        in storage: NSTextStorage, baseFont: NSFont, indent: Indent, palette: Palette
     ) {
         let ns = storage.string as NSString
         let total = ns.length
         var lineStart = 0
+        var previous: (item: SmartEditing.ListItem, line: NSRange, contentOffset: CGFloat)?
         while lineStart < total {
             let lineRange = ns.lineRange(for: NSRange(location: lineStart, length: 0))
             defer { lineStart = lineRange.location + lineRange.length }
-            guard let item = SmartEditing.listItem(lineRange: lineRange, in: ns) else { continue }
+            guard let item = SmartEditing.listItem(lineRange: lineRange, in: ns) else {
+                if let previous,
+                    SmartEditing.isContinuation(
+                        lineRange: lineRange, in: ns, of: previous.item, itemLine: previous.line)
+                {
+                    styleContinuation(
+                        lineRange: lineRange, in: storage, baseFont: baseFont,
+                        contentOffset: previous.contentOffset)
+                } else {
+                    previous = nil
+                }
+                continue
+            }
 
-            var contentOffset = width(
+            // The leading whitespace is indented by its own width on top of
+            // rendering itself, so a nested item steps in twice as far as
+            // its spaces alone would take it — a two-space unit in Inter is
+            // eight points, which is not a visible nesting step. Everything
+            // measured from here has to include it.
+            let indentOffset = width(
+                of: ns.substring(with: NSRange(
+                    location: lineRange.location, length: item.indentWidth)),
+                font: baseFont)
+            var contentOffset = indentOffset + width(
                 of: ns.substring(with: NSRange(
                     location: lineRange.location,
                     length: item.contentStart - lineRange.location)),
                 font: baseFont)
 
-            if item.marker == .bullet {
+            if let glyph = item.glyph(indentWidth: indent.width) {
                 storage.addAttribute(
                     .foregroundColor, value: NSColor.clear, range: item.markerRange)
                 // `-`, `*`, and `+` have three different advances, and the
@@ -356,26 +390,45 @@ struct MinimalTextEditor: NSViewRepresentable {
                 // `-` — visible as a ragged left edge down a mixed list.
                 // Kerning the marker out to the width of the glyph that
                 // replaces it makes every bullet line start at the same x.
-                let glyph = SmartEditing.bulletGlyph(depth: item.depth(indentWidth: indent.width))
+                // Kern is per character, so a five-character `- [ ]` takes
+                // a fifth of the difference on each.
                 let markerWidth = width(
                     of: ns.substring(with: item.markerRange), font: baseFont)
                 let kern = width(of: glyph, font: baseFont) - markerWidth
-                storage.addAttribute(.kern, value: kern, range: item.markerRange)
+                storage.addAttribute(
+                    .kern, value: kern / CGFloat(item.markerRange.length), range: item.markerRange)
                 contentOffset += kern
             }
+            if item.marker == .task(checked: true) {
+                let content = NSRange(
+                    location: item.contentStart,
+                    length: NSMaxRange(lineRange) - item.contentStart)
+                storage.addAttribute(.foregroundColor, value: palette.muted, range: content)
+            }
+            previous = (item, lineRange, contentOffset)
 
             let paragraph = makeParagraphStyle()
-            paragraph.firstLineHeadIndent = width(
-                of: ns.substring(with: NSRange(
-                    location: lineRange.location,
-                    length: item.markerRange.location - lineRange.location)),
-                font: baseFont)
+            paragraph.firstLineHeadIndent = indentOffset
             // Wrapped lines hang to where the content starts, so a long
             // item reads as one block rather than sliding back under its
             // own bullet.
             paragraph.headIndent = contentOffset
             storage.addAttribute(.paragraphStyle, value: paragraph, range: lineRange)
         }
+    }
+
+    /// The line's own leading whitespace still takes up its width, so the
+    /// first-line indent is what's left of the content column after it,
+    /// and wrapped lines hang at the column itself.
+    private static func styleContinuation(
+        lineRange: NSRange, in storage: NSTextStorage, baseFont: NSFont, contentOffset: CGFloat
+    ) {
+        let ns = storage.string as NSString
+        let leading = ns.substring(with: lineRange).prefix { $0 == " " || $0 == "\t" }
+        let paragraph = makeParagraphStyle()
+        paragraph.firstLineHeadIndent = max(0, contentOffset - width(of: String(leading), font: baseFont))
+        paragraph.headIndent = contentOffset
+        storage.addAttribute(.paragraphStyle, value: paragraph, range: lineRange)
     }
 
     private static func width(of text: String, font: NSFont) -> CGFloat {
@@ -565,6 +618,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lastWrapToken: Int = 0
         var lastDuplicateToken: Int = 0
         var lastListItemToken: Int = 0
+        var lastTaskItemToken: Int = 0
         var lastMoveLineToken: Int = 0
         var lastFindHighlightToken: Int = 0
         var lastFontScale: Double = 1
@@ -723,6 +777,17 @@ struct MinimalTextEditor: NSViewRepresentable {
                 return true
             }
 
+            // ⇧↵ reaches here as a plain `insertNewline:` — AppKit binds
+            // no selector to the shifted key — so the modifier is read off
+            // the event. Inside an item it starts a continuation line;
+            // anywhere else it is an ordinary ↵.
+            if let event = NSApp.currentEvent, event.type == .keyDown,
+                event.modifierFlags.contains(.shift),
+                let continuation = SmartEditing.continuationLine(in: s, cursor: cursor) {
+                replace(in: textView, range: selection, with: continuation)
+                return true
+            }
+
             if selection.length == 0,
                 let edit = SmartEditing.newlineBeforeItem(in: s, cursor: cursor) {
                 guard textView.replaceText(in: edit.range, with: edit.replacement) else {
@@ -751,6 +816,14 @@ struct MinimalTextEditor: NSViewRepresentable {
             }
 
             if marker.isEmpty {
+                let lineContent = NSRange(
+                    location: lineRange.location, length: lineEnd - lineRange.location)
+                // A nested empty item steps out a level per press; only a
+                // flush-left one leaves the list.
+                if let outdented = SmartEditing.outdentedEmptyItem(line, unit: lastIndent.unit) {
+                    replace(in: textView, range: lineContent, with: outdented)
+                    return true
+                }
                 let stripRange = NSRange(
                     location: lineRange.location,
                     length: NSMaxRange(selection) - lineRange.location

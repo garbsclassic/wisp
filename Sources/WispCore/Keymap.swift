@@ -67,6 +67,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
 
     case duplicateLine
     case toggleBulletedList
+    case toggleTaskItem
     case moveLineUp
     case moveLineDown
 
@@ -93,6 +94,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .code: return "Code"
         case .duplicateLine: return "Duplicate Line"
         case .toggleBulletedList: return "Toggle Bulleted List"
+        case .toggleTaskItem: return "Toggle Task Item"
         case .moveLineUp: return "Move Line Up"
         case .moveLineDown: return "Move Line Down"
         case .increaseFontScale: return "Increase Font Size"
@@ -125,6 +127,9 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .code: return "cmd+e"
         case .duplicateLine: return "cmd+d"
         case .toggleBulletedList: return "cmd+l"
+        // The shifted sibling of ⌘L: one says "is this a list", the other
+        // "is this done".
+        case .toggleTaskItem: return "cmd+shift+l"
         case .moveLineUp: return "opt+up"
         case .moveLineDown: return "opt+down"
         case .increaseFontScale: return "cmd+="

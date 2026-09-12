@@ -16,6 +16,7 @@ final class EditorModel: ObservableObject {
     @Published var wrapToken: Int = 0
     @Published var duplicateToken: Int = 0
     @Published var listItemToken: Int = 0
+    @Published var taskItemToken: Int = 0
     @Published var moveLineToken: Int = 0
     private(set) var moveLineDelta: Int = 0
     /// Flashed for a moment each time a save lands on disk. Nil-cost when
@@ -309,6 +310,7 @@ final class EditorModel: ObservableObject {
     /// `MinimalTextEditor` has a handle on.
     func duplicateSelection() { duplicateToken &+= 1 }
     func toggleBulletedList() { listItemToken &+= 1 }
+    func toggleTaskItem() { taskItemToken &+= 1 }
 
     /// ⌥↑ / ⌥↓. The delta rides alongside the token, the same pairing
     /// `scrollTarget` has with `scrollToken`.
@@ -522,6 +524,7 @@ struct EditorView: View {
                         wrapMarkers: model.wrapMarkers,
                         duplicateToken: model.duplicateToken,
                         listItemToken: model.listItemToken,
+                        taskItemToken: model.taskItemToken,
                         moveLineToken: model.moveLineToken,
                         moveLineDelta: model.moveLineDelta,
                         findHighlightToken: model.findHighlightToken,

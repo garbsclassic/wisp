@@ -251,7 +251,10 @@ public enum LineEdits {
     ) -> Edit {
         let block = lineBlock(in: text, covering: selection)
         let allItems = everyLine(of: block, in: text) { line in
-            SmartEditing.listItem(lineRange: line, in: text)?.marker == .bullet
+            guard let marker = SmartEditing.listItem(lineRange: line, in: text)?.marker else {
+                return false
+            }
+            return marker == .bullet || marker.isTask
         }
 
         return rewriteLines(in: text, selection: selection) { body in
@@ -267,6 +270,49 @@ public enum LineEdits {
                 return (inserted: String(indent), removed: item.contentStart)
             }
             return (inserted: indent + marker, removed: indent.count)
+        }
+    }
+
+    /// ⌘⇧L. Two intents behind one key, told apart by what the block
+    /// already is: lines that aren't all tasks *become* tasks, unchecked;
+    /// a block that is all tasks gets checked, or unchecked when every
+    /// box was already ticked. Checking wins the mixed case for the same
+    /// reason a mixed ⌘L block becomes a list — "mark these done" is what
+    /// the key is reaching for, and unticking the done half would lose
+    /// state the user set on purpose.
+    ///
+    /// A plain line gets the whole `- [ ] `; an existing bullet or
+    /// ordered item keeps its marker and gains the box after it, which is
+    /// GFM's spelling for both.
+    public static func toggleTaskItems(in text: NSString, selection: NSRange) -> Edit {
+        let block = lineBlock(in: text, covering: selection)
+        let allTasks = everyLine(of: block, in: text) { line in
+            SmartEditing.listItem(lineRange: line, in: text)?.marker.isTask == true
+        }
+        let allChecked =
+            allTasks
+            && everyLine(of: block, in: text) { line in
+                SmartEditing.listItem(lineRange: line, in: text)?.marker == .task(checked: true)
+            }
+
+        return rewriteLines(in: text, selection: selection) { body in
+            let ns = body as NSString
+            let lineRange = NSRange(location: 0, length: ns.length)
+            let item = SmartEditing.listItem(lineRange: lineRange, in: ns)
+
+            if allTasks, let item, let state = item.taskStateIndex {
+                let head = NSMutableString(string: ns.substring(to: item.contentStart))
+                head.replaceCharacters(
+                    in: NSRange(location: state, length: 1), with: allChecked ? " " : "x")
+                return (inserted: head as String, removed: item.contentStart)
+            }
+            if let item {
+                guard !item.marker.isTask else { return (inserted: "", removed: 0) }
+                return (inserted: ns.substring(to: item.contentStart) + "[ ] ",
+                        removed: item.contentStart)
+            }
+            let indent = body.prefix { $0 == " " || $0 == "\t" }
+            return (inserted: indent + "- [ ] ", removed: indent.count)
         }
     }
 

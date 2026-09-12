@@ -35,12 +35,13 @@ first leaves a dangling login item.
 - **⌃⌥.** to summon from anywhere (rebindable)
 - **Light / dark / system** appearance — one-click cycle, follows macOS by default
 - **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
-- **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item
+- **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item; ⌫ at the start of the text takes the marker off; ↵ on an empty nested item steps out a level; ⇧↵ continues an item on a new line
+- **Task lists** — `- [ ]` renders as a checkbox; click it, or ⌘⇧L, to check it off
 - **Headings** — `#`, `##`, `###` render styled with click-to-jump navigation
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic / Highlight** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`)
 - **Line editing** — ⌘D duplicates the line or selection; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
-- **⌘L** makes the line a bulleted list item, or unmakes it
+- **⌘L** makes the line a bulleted list item, or unmakes it; **⌘⇧L** makes it a task, or checks it off
 - **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
 - **Menu bar icon** — left click for the menu, right click to summon the panel
 - **Launch at Login** — toggle in the menu bar menu
@@ -98,7 +99,7 @@ An action can take a list instead of a single chord, and every entry binds —
 | `bold` / `italic` / `highlight` / `underline` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+e` |
 | `toggleTheme`                             | `cmd+t` |
 | `sourceView`                                 | `cmd+return` |
-| `duplicateLine` / `toggleBulletedList`        | `cmd+d` / `cmd+l` |
+| `duplicateLine` / `toggleBulletedList` / `toggleTaskItem` | `cmd+d` / `cmd+l` / `cmd+shift+l` |
 | `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
 | `increaseFontScale` / `decreaseFontScale` / `resetFontScale` | `cmd+=` / `cmd+-` / `cmd+0` |
 

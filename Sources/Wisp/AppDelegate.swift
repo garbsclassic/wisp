@@ -135,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func reveal(_ sender: Any?) { revealInFinder() }
     @objc func duplicateSelection(_ sender: Any?) { model.duplicateSelection() }
     @objc func toggleBulletedList(_ sender: Any?) { model.toggleBulletedList() }
+    @objc func toggleTaskItem(_ sender: Any?) { model.toggleTaskItem() }
     @objc func moveLineUp(_ sender: Any?) { model.moveLine(by: -1) }
     @objc func moveLineDown(_ sender: Any?) { model.moveLine(by: 1) }
 
@@ -156,6 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .code: model.toggleCode()
         case .duplicateLine: model.duplicateSelection()
         case .toggleBulletedList: model.toggleBulletedList()
+        case .toggleTaskItem: model.toggleTaskItem()
         case .moveLineUp: model.moveLine(by: -1)
         case .moveLineDown: model.moveLine(by: 1)
         case .increaseFontScale: model.stepFontScale(by: 1)
