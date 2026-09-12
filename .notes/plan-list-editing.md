@@ -26,7 +26,7 @@ Plus the bug that started it — ↵ at column 0 doubled the marker — and ⌘L
 | ↵ on an empty nested item | Outdent one level per press | Straight to a flush-left blank line (previous) | Universal across the four apps; also the only way ↵ alone can get a caret from a sub-item back to its parent's level |
 | ⇧↵ | Continuation line: newline plus whitespace to the item's content column | Bare newline; ⌥↵ | ⇧↵ reaches AppKit as plain `insertNewline:`, so it is free to claim by modifier; the whitespace is CommonMark's own spelling of "still this item" and reads correctly in Obsidian |
 | Continuation rendering | Paragraph indents pull the text to the item's content column | Leave the spaces to render themselves | Inter is proportional: `- ` and two spaces are not the same width, so unstyled the line sits a hair off. Hidden-nothing: the spaces remain in the file and in raw mode |
-| Task marker | `- [ ]` / `- [x]` parsed as one marker, drawn as one glyph (☐ · ☑) | Bullet glyph followed by a visible `[ ]` | A checkbox that reads as `• [ ]` is not a checkbox; the marker is chrome exactly as a bullet is, and ⌘←, ⌫, and ↵ already treat `markerRange` as chrome |
+| Task marker | `- [ ]` / `- [x]` parsed as one marker, drawn as one box | Bullet glyph followed by a visible `[ ]` | A checkbox that reads as `• [ ]` is not a checkbox; the marker is chrome exactly as a bullet is, and ⌘←, ⌫, and ↵ already treat `markerRange` as chrome |
 | Ordered item under ⌘⇧L | Trades its number for `- [ ] ` | `1. [ ] foo` (GFM allows it) | A glyph drawn over `1. [ ]` hides the number, which is the one thing an ordered marker is for; Apple Notes converts the same way |
 | Checked items | Content painted `muted` | Strikethrough | Apple Notes and Bear dim; strikethrough on a whole line of prose is noise, and `~~` would be the markdown for that anyway |
 | Task toggle | ⌘⇧L: make every line in the block a task; if they all already are, check or uncheck them together | Obsidian's four-state cycle | Two intents, two actions: ⌘L is "is this a list", ⌘⇧L is "is this done". A cycle makes "check this" a different number of presses depending on where it starts |
@@ -55,6 +55,18 @@ Asked for after the first pass landed.
 
 - [x] Ordered runs renumber after every edit — `SmartEditing.renumber`, `NotesTextView.renumberLists`
 - [x] ↵ on a continuation line starts the next item — `SmartEditing.continuedItem`, `handleEnter`
+
+### Second follow-up
+
+| Decision | Chosen | Rejected | Why |
+| --- | --- | --- | --- |
+| ↵ on an empty flush-left item | Strip the marker in place, caret stays on the now-blank line | Strip and add a newline (the first pass) | The blank line is what the user wanted; every other note app leaves the caret there |
+| Task box | Drawn: a rounded square one ascender tall, stroked, tick inside | Typeset `☐` / `☑` | The two fall back to different fonts (Apple Symbols, system) at different sizes, the empty one barely x-height tall; drawn, both are the same size and as large as the line allows |
+| Cursor over a box | Pointing hand, over the same rectangle the click tests | I-beam everywhere | A clickable thing that shows an I-beam is a bullet with a border |
+
+- [x] ↵ on an empty flush-left item exits in place — `handleEnter`
+- [x] Task box drawn at the text's ascender — `NotesLayoutManager.taskBoxSide`, `drawTaskBox`, `styleLists`
+- [x] Pointing hand over a box — `NotesTextView.mouseMoved`, `cursorUpdate`, `taskBoxIndex`
 
 ## Verification
 

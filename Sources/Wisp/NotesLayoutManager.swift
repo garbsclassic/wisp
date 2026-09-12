@@ -48,9 +48,12 @@ final class NotesLayoutManager: NSLayoutManager {
             let lineRange = nsString.lineRange(for: NSRange(location: lineStart, length: 0))
             if SmartEditing.isHorizontalRuleLine(lineRange: lineRange, in: nsString) {
                 drawRule(for: lineRange, at: origin, in: context)
-            } else if let item = SmartEditing.listItem(lineRange: lineRange, in: nsString),
-                      let glyph = item.glyph(indentWidth: indentWidth) {
-                drawMarker(glyph, for: item, at: origin)
+            } else if let item = SmartEditing.listItem(lineRange: lineRange, in: nsString) {
+                if case .task(let checked) = item.marker {
+                    drawTaskBox(checked: checked, for: item, at: origin)
+                } else if let glyph = item.glyph(indentWidth: indentWidth) {
+                    drawMarker(glyph, for: item, at: origin)
+                }
             }
             lineStart = lineRange.location + lineRange.length
         }
@@ -101,5 +104,63 @@ final class NotesLayoutManager: NSLayoutManager {
             // The text view is flipped, so `draw(at:)` takes the top-left
             // of the glyph's line box rather than its baseline.
             y: baseline - bulletFont.ascender))
+    }
+
+    // MARK: Task boxes
+
+    /// The side of a task's box, in points, for text set in `font`. The
+    /// ascender rather than the cap height: the box is chrome standing in
+    /// for text, and at cap height it reads as a small square beside the
+    /// words rather than a control in front of them. Any bigger and it
+    /// crowds the line above at the body's 1.35× leading.
+    ///
+    /// Drawn rather than typeset: `☐` and `☑` fall back to two different
+    /// fonts on macOS — Apple Symbols and the system face — and come out
+    /// at two different sizes, the empty box barely above the x-height.
+    static func taskBoxSide(for font: NSFont) -> CGFloat {
+        font.ascender.rounded()
+    }
+
+    /// The box, centred on the midpoint of the cap height so it sits with
+    /// the letters rather than hanging off the baseline; the stroke sits
+    /// inside the reserved width, so a box never touches the text after it.
+    private func drawTaskBox(checked: Bool, for item: SmartEditing.ListItem, at origin: NSPoint) {
+        let glyphRange = self.glyphRange(
+            forCharacterRange: item.markerRange, actualCharacterRange: nil)
+        guard glyphRange.length > 0 else { return }
+
+        let fragmentRect = lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+        let markerRect = boundingRect(forGlyphRange: glyphRange, in: textContainers[0])
+        let baseline = origin.y + fragmentRect.minY
+            + location(forGlyphAt: glyphRange.location).y
+
+        let side = Self.taskBoxSide(for: bulletFont)
+        // 1.5pt at the default size, stepping in halves with the scale.
+        let stroke = max(1, (bulletFont.pointSize / 5).rounded() / 2)
+        let inset = stroke / 2
+        // Flipped view: `y` grows downward, so the top edge is the baseline
+        // less the box's reach above the cap-height midpoint.
+        let midline = baseline - bulletFont.capHeight / 2
+        let box = NSRect(
+            x: origin.x + markerRect.minX + inset, y: midline - side / 2 + inset,
+            width: side - stroke, height: side - stroke)
+        let radius = (side / 5).rounded()
+
+        bulletColor.setStroke()
+        let outline = NSBezierPath(roundedRect: box, xRadius: radius, yRadius: radius)
+        outline.lineWidth = stroke
+        outline.stroke()
+
+        guard checked else { return }
+        // A tick from a third of the way across, down to the low point at
+        // the middle, up to the top-right corner region.
+        let tick = NSBezierPath()
+        tick.lineWidth = stroke * 1.5
+        tick.lineCapStyle = .round
+        tick.lineJoinStyle = .round
+        tick.move(to: NSPoint(x: box.minX + box.width * 0.25, y: box.minY + box.height * 0.52))
+        tick.line(to: NSPoint(x: box.minX + box.width * 0.43, y: box.minY + box.height * 0.72))
+        tick.line(to: NSPoint(x: box.minX + box.width * 0.77, y: box.minY + box.height * 0.30))
+        tick.stroke()
     }
 }

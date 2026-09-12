@@ -115,14 +115,20 @@ public enum SmartEditing {
             return indentWidth / unit
         }
 
-        /// What is drawn in place of the marker, or nil for an ordered
-        /// marker, which is its own content and stays visible.
+        /// Whether the marker is chrome — painted clear, and drawn over by
+        /// `NotesLayoutManager` — rather than content. Only an ordered
+        /// marker is content: `1.` stays visible as itself.
+        public var isMarkerHidden: Bool {
+            if case .ordered = marker { return false }
+            return true
+        }
+
+        /// The character typeset in place of a bullet. Nil for a task,
+        /// whose box is drawn rather than typeset, and for an ordered
+        /// marker, which is its own content.
         public func glyph(indentWidth unit: Int) -> String? {
-            switch marker {
-            case .bullet: return bulletGlyph(depth: depth(indentWidth: unit))
-            case .task(let checked): return taskGlyph(checked: checked)
-            case .ordered: return nil
-            }
+            guard case .bullet = marker else { return nil }
+            return bulletGlyph(depth: depth(indentWidth: unit))
         }
 
         /// The character inside a task's box — the ` ` or `x` — which is
@@ -403,11 +409,6 @@ public enum SmartEditing {
     /// The glyph drawn in place of a hidden bullet marker at each nesting
     /// level.
     public static let bulletGlyphs = ["•", "◦", "▪"]
-
-    /// Drawn in place of a hidden `- [ ]` or `- [x]`.
-    public static func taskGlyph(checked: Bool) -> String {
-        checked ? "☑" : "☐"
-    }
 
     /// Cycles rather than clamping past the last glyph, the way Word and
     /// Docs do. The indent already states the absolute depth, so what a

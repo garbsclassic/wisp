@@ -233,3 +233,13 @@
   first keystroke and undo fighting the renumber; markers over nine digits now end a run untouched,
   and renumbering skips undo/redo. 342 tests. Undo sequence checked on screen: `5. x` → `2. ` →
   `5. ` → empty.
+- 2026-09-12 — [list-editing](plan-list-editing.md): ↵ on an empty flush-left item now strips the
+  marker in place rather than leaving a blank line and moving down. Task boxes are drawn — a rounded
+  square one ascender tall, centred on the cap height — instead of typesetting `☐`/`☑`, which fell
+  back to two fonts at two sizes; `ListItem.glyph` is bullets-only now and `isMarkerHidden` carries
+  the chrome test. Pointing hand over a box via `mouseMoved`/`cursorUpdate`, on the same rectangle
+  the click tests. 343 tests. Verified on screen in both themes and at three scale steps: box is
+  30px for the 15pt body (cap 25px; 3px above, 4px below), hand over the box and I-beam a word
+  away, click toggles, ↵↵ on `- last` leaves `- last` + blank, ↵×3 on a nested task walks out.
+  Driver gotcha: a CGEvent mouse click posted after a chord inherits the chord's modifiers and lands
+  as a ctrl-click — clear `flags` on mouse events.

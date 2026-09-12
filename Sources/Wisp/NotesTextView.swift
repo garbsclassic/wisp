@@ -210,12 +210,27 @@ final class NotesTextView: NSTextView {
     override func mouseDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .function, .numericPad])
-        guard modifiers.isEmpty, !isSourceView,
-            let layoutManager, let textContainer,
-            let edit = taskToggle(at: convert(event.locationInWindow, from: nil),
-                                  layoutManager: layoutManager, container: textContainer)
+        guard modifiers.isEmpty, let index = taskBoxIndex(under: event)
         else { return super.mouseDown(with: event) }
-        if event.clickCount == 1 { apply(edit) }
+        if event.clickCount == 1,
+            let edit = SmartEditing.toggledTask(
+                in: string as NSString, lineAt: index, selection: selectedRange())
+        {
+            apply(edit)
+        }
+    }
+
+    /// The pointing hand over a box, the way links get one: AppKit sets
+    /// the I-beam from `mouseMoved`, so the override has to win there,
+    /// and `cursorUpdate` covers the first entry into the view.
+    override func mouseMoved(with event: NSEvent) {
+        guard taskBoxIndex(under: event) != nil else { return super.mouseMoved(with: event) }
+        NSCursor.pointingHand.set()
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        guard taskBoxIndex(under: event) != nil else { return super.cursorUpdate(with: event) }
+        NSCursor.pointingHand.set()
     }
 
     /// Raw mode shows the `[ ]` as text, and text is for placing a caret in.
@@ -223,9 +238,13 @@ final class NotesTextView: NSTextView {
         (layoutManager as? NotesLayoutManager)?.isSourceView ?? false
     }
 
-    private func taskToggle(
-        at point: NSPoint, layoutManager: NSLayoutManager, container: NSTextContainer
-    ) -> LineEdits.Edit? {
+    /// The character index of the task line whose drawn box is under the
+    /// event's mouse position, or nil when the pointer is anywhere else.
+    /// The box's rectangle is the marker's reserved width by the line's
+    /// full height, which is what `NotesLayoutManager` paints into.
+    private func taskBoxIndex(under event: NSEvent) -> Int? {
+        guard !isSourceView, let layoutManager, let container = textContainer else { return nil }
+        let point = convert(event.locationInWindow, from: nil)
         let origin = textContainerOrigin
         let inContainer = NSPoint(x: point.x - origin.x, y: point.y - origin.y)
         let text = string as NSString
@@ -238,8 +257,7 @@ final class NotesTextView: NSTextView {
         let glyphs = layoutManager.glyphRange(
             forCharacterRange: item.markerRange, actualCharacterRange: nil)
         let box = layoutManager.boundingRect(forGlyphRange: glyphs, in: container)
-        guard box.contains(inContainer) else { return nil }
-        return SmartEditing.toggledTask(in: text, lineAt: index, selection: selectedRange())
+        return box.contains(inContainer) ? index : nil
     }
 
     /// Tab. On a list item — or anywhere a selection spans — this shifts

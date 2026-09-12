@@ -451,12 +451,19 @@ struct TaskListItemTests {
         #expect(parse("1. foo")?.marker.isTask == false)
     }
 
-    @Test("A task's glyph comes from SmartEditing.taskGlyph, unaffected by depth")
+    @Test("Only a bullet typesets a glyph; a task's box is drawn, an ordered marker is content")
     func glyph() {
-        #expect(parse("- [ ] foo")?.glyph(indentWidth: 2) == SmartEditing.taskGlyph(checked: false))
-        #expect(parse("- [x] foo")?.glyph(indentWidth: 2) == SmartEditing.taskGlyph(checked: true))
+        #expect(parse("- [ ] foo")?.glyph(indentWidth: 2) == nil)
+        #expect(parse("- [x] foo")?.glyph(indentWidth: 2) == nil)
         #expect(parse("- foo")?.glyph(indentWidth: 2) == "•")
         #expect(parse("1. foo")?.glyph(indentWidth: 2) == nil)
+    }
+
+    @Test("Every marker but an ordered one is hidden chrome")
+    func hiddenMarker() {
+        #expect(parse("- [ ] foo")?.isMarkerHidden == true)
+        #expect(parse("* foo")?.isMarkerHidden == true)
+        #expect(parse("1. foo")?.isMarkerHidden == false)
     }
 }
 

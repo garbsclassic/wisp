@@ -382,7 +382,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                     length: item.contentStart - lineRange.location)),
                 font: baseFont)
 
-            if let glyph = item.glyph(indentWidth: indent.width) {
+            if item.isMarkerHidden {
                 storage.addAttribute(
                     .foregroundColor, value: NSColor.clear, range: item.markerRange)
                 // `-`, `*`, and `+` have three different advances, and the
@@ -393,14 +393,11 @@ struct MinimalTextEditor: NSViewRepresentable {
                 // replaces it makes every bullet line start at the same x.
                 // Kern is per character, so a five-character `- [ ]` takes
                 // a fifth of the difference on each.
-                // Both task glyphs reserve the wider one's advance, so
-                // ticking a box doesn't shift the text after it.
+                // A task reserves the drawn box's side, the same whether
+                // ticked or not, so checking one doesn't shift its text.
                 let glyphWidth =
-                    item.marker.isTask
-                    ? max(
-                        width(of: SmartEditing.taskGlyph(checked: false), font: baseFont),
-                        width(of: SmartEditing.taskGlyph(checked: true), font: baseFont))
-                    : width(of: glyph, font: baseFont)
+                    item.glyph(indentWidth: indent.width).map { width(of: $0, font: baseFont) }
+                    ?? NotesLayoutManager.taskBoxSide(for: baseFont)
                 let markerWidth = width(
                     of: ns.substring(with: item.markerRange), font: baseFont)
                 let kern = glyphWidth - markerWidth
@@ -858,12 +855,14 @@ struct MinimalTextEditor: NSViewRepresentable {
             if marker.isEmpty {
                 let lineContent = NSRange(
                     location: lineRange.location, length: lineEnd - lineRange.location)
-                // A nested empty item steps out a level per press; only a
-                // flush-left one leaves the list. A selection reaching past
-                // the line is a delete first, which the strip path does.
-                if selection.length == 0,
-                    let outdented = SmartEditing.outdentedEmptyItem(line, unit: lastIndent.unit) {
-                    replace(in: textView, range: lineContent, with: outdented)
+                // A nested empty item steps out a level per press, and a
+                // flush-left one leaves the list — in both cases in place,
+                // with no new line: the item was the blank line the user
+                // wanted. A selection reaching past the line is a delete
+                // first, and takes a plain ↵ like anywhere else.
+                if selection.length == 0 {
+                    let outdented = SmartEditing.outdentedEmptyItem(line, unit: lastIndent.unit)
+                    replace(in: textView, range: lineContent, with: outdented ?? "")
                     return true
                 }
                 let stripRange = NSRange(
