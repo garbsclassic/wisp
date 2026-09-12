@@ -359,7 +359,8 @@ struct MinimalTextEditor: NSViewRepresentable {
                 {
                     styleContinuation(
                         lineRange: lineRange, in: storage, baseFont: baseFont,
-                        contentOffset: previous.contentOffset)
+                        contentOffset: previous.contentOffset,
+                        color: previous.item.marker == .task(checked: true) ? palette.muted : nil)
                 } else {
                     previous = nil
                 }
@@ -392,9 +393,17 @@ struct MinimalTextEditor: NSViewRepresentable {
                 // replaces it makes every bullet line start at the same x.
                 // Kern is per character, so a five-character `- [ ]` takes
                 // a fifth of the difference on each.
+                // Both task glyphs reserve the wider one's advance, so
+                // ticking a box doesn't shift the text after it.
+                let glyphWidth =
+                    item.marker.isTask
+                    ? max(
+                        width(of: SmartEditing.taskGlyph(checked: false), font: baseFont),
+                        width(of: SmartEditing.taskGlyph(checked: true), font: baseFont))
+                    : width(of: glyph, font: baseFont)
                 let markerWidth = width(
                     of: ns.substring(with: item.markerRange), font: baseFont)
-                let kern = width(of: glyph, font: baseFont) - markerWidth
+                let kern = glyphWidth - markerWidth
                 storage.addAttribute(
                     .kern, value: kern / CGFloat(item.markerRange.length), range: item.markerRange)
                 contentOffset += kern
@@ -417,16 +426,29 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
     }
 
-    /// The line's own leading whitespace still takes up its width, so the
-    /// first-line indent is what's left of the content column after it,
-    /// and wrapped lines hang at the column itself.
+    /// The line's leading whitespace is kerned down to nothing and the
+    /// paragraph indented to the content column instead. Subtracting its
+    /// width from the indent would do for a bullet, but a task's column
+    /// sits *left* of where six spaces end — the hidden `- [ ]` is kerned
+    /// to a glyph narrower than itself — and an indent can't go negative.
     private static func styleContinuation(
-        lineRange: NSRange, in storage: NSTextStorage, baseFont: NSFont, contentOffset: CGFloat
+        lineRange: NSRange, in storage: NSTextStorage, baseFont: NSFont, contentOffset: CGFloat,
+        color: NSColor?
     ) {
+        if let color { storage.addAttribute(.foregroundColor, value: color, range: lineRange) }
         let ns = storage.string as NSString
-        let leading = ns.substring(with: lineRange).prefix { $0 == " " || $0 == "\t" }
+        var index = lineRange.location
+        while index < NSMaxRange(lineRange),
+            ns.character(at: index) == 0x20 || ns.character(at: index) == 0x09
+        {
+            let character = ns.substring(with: NSRange(location: index, length: 1))
+            storage.addAttribute(
+                .kern, value: -width(of: character, font: baseFont),
+                range: NSRange(location: index, length: 1))
+            index += 1
+        }
         let paragraph = makeParagraphStyle()
-        paragraph.firstLineHeadIndent = max(0, contentOffset - width(of: String(leading), font: baseFont))
+        paragraph.firstLineHeadIndent = contentOffset
         paragraph.headIndent = contentOffset
         storage.addAttribute(.paragraphStyle, value: paragraph, range: lineRange)
     }
@@ -819,8 +841,10 @@ struct MinimalTextEditor: NSViewRepresentable {
                 let lineContent = NSRange(
                     location: lineRange.location, length: lineEnd - lineRange.location)
                 // A nested empty item steps out a level per press; only a
-                // flush-left one leaves the list.
-                if let outdented = SmartEditing.outdentedEmptyItem(line, unit: lastIndent.unit) {
+                // flush-left one leaves the list. A selection reaching past
+                // the line is a delete first, which the strip path does.
+                if selection.length == 0,
+                    let outdented = SmartEditing.outdentedEmptyItem(line, unit: lastIndent.unit) {
                     replace(in: textView, range: lineContent, with: outdented)
                     return true
                 }

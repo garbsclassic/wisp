@@ -25,7 +25,7 @@ public enum SmartEditing {
         // Before the plain bullet, which this would otherwise match as a
         // bullet whose content is `[ ]`. The next box is always empty —
         // a new task starts undone whatever the one above it says.
-        if let match = line.firstMatch(of: /^([ \t]*)([-*+]) \[[ xX]\]\s/) {
+        if let match = line.firstMatch(of: /^([ \t]*)([-*+])[ \t]+\[[ xX]\]\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
             return "\(match.1)\(match.2) [ ] "
         }
@@ -161,9 +161,9 @@ public enum SmartEditing {
             // `- [ ] ` and `- [x] `. The box needs whitespace after it
             // like any marker does; `- [ ]` alone at the end of a line is
             // a bullet whose content is the box, until the space arrives.
-            if let checked = taskBox(at: index, before: contentEnd, in: text) {
-                marker = .task(checked: checked)
-                index += 4
+            if let box = taskBox(at: index, before: contentEnd, in: text) {
+                marker = .task(checked: box.checked)
+                index = box.end
             }
         } else {
             var digits = 0
@@ -316,17 +316,24 @@ public enum SmartEditing {
         return bulletGlyphs[((depth % count) + count) % count]
     }
 
-    /// ` [ ]` or ` [x]` starting at `index`, followed by whitespace.
-    private static func taskBox(at index: Int, before end: Int, in text: NSString) -> Bool? {
-        guard index + 4 < end,
-              text.character(at: index) == 0x20,
-              text.character(at: index + 1) == 0x5B,
-              text.character(at: index + 3) == 0x5D,
-              isSpaceOrTab(text.character(at: index + 4))
+    /// Whitespace, then `[ ]` or `[x]`, then more whitespace, starting at
+    /// `index`. Any run of whitespace before the box, not one space: a
+    /// tab-separated `-\t[ ] foo` is a task too, and ⌘⇧L puts the box
+    /// after whatever whitespace the marker already had. `end` is the
+    /// index one past the closing bracket.
+    private static func taskBox(
+        at index: Int, before end: Int, in text: NSString
+    ) -> (checked: Bool, end: Int)? {
+        var i = index
+        while i < end, isSpaceOrTab(text.character(at: i)) { i += 1 }
+        guard i > index, i + 3 < end,
+              text.character(at: i) == 0x5B,
+              text.character(at: i + 2) == 0x5D,
+              isSpaceOrTab(text.character(at: i + 3))
         else { return nil }
-        switch text.character(at: index + 2) {
-        case 0x20: return false
-        case 0x78, 0x58: return true
+        switch text.character(at: i + 1) {
+        case 0x20: return (false, i + 3)
+        case 0x78, 0x58: return (true, i + 3)
         default: return nil
         }
     }

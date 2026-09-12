@@ -541,12 +541,12 @@ struct ToggleTaskItemsTests {
         #expect(apply(edit, to: text) == "- [ ] foo")
     }
 
-    @Test("An ordered item keeps its number and only gains the box")
+    @Test("An ordered item trades its number for a bullet — a box can't show a number")
     func ordered() {
-        let text = "1. foo"
+        let text = "  1. foo"
         let edit = LineEdits.toggleTaskItems(
-            in: text as NSString, selection: NSRange(location: 3, length: 0))
-        #expect(apply(edit, to: text) == "1. [ ] foo")
+            in: text as NSString, selection: NSRange(location: 5, length: 0))
+        #expect(apply(edit, to: text) == "  - [ ] foo")
     }
 
     @Test("An all-unchecked block gets checked")

@@ -155,14 +155,19 @@ final class NotesTextView: NSTextView {
     /// glyph's own rectangle rather than the character index under the
     /// mouse, so a click in the whitespace beside the box, or on the
     /// item's first word, still places the caret as it always did.
+    ///
+    /// The later clicks of a double- or triple-click on the box are
+    /// swallowed: the first already toggled it, and `super` would select
+    /// the hidden marker text under the glyph.
     override func mouseDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard event.clickCount == 1, modifiers.isEmpty, !isSourceView,
+            .subtracting([.capsLock, .function, .numericPad])
+        guard modifiers.isEmpty, !isSourceView,
             let layoutManager, let textContainer,
             let edit = taskToggle(at: convert(event.locationInWindow, from: nil),
                                   layoutManager: layoutManager, container: textContainer)
         else { return super.mouseDown(with: event) }
-        apply(edit)
+        if event.clickCount == 1 { apply(edit) }
     }
 
     /// Raw mode shows the `[ ]` as text, and text is for placing a caret in.

@@ -281,9 +281,11 @@ public enum LineEdits {
     /// the key is reaching for, and unticking the done half would lose
     /// state the user set on purpose.
     ///
-    /// A plain line gets the whole `- [ ] `; an existing bullet or
-    /// ordered item keeps its marker and gains the box after it, which is
-    /// GFM's spelling for both.
+    /// A plain line gets the whole `- [ ] `; a bullet keeps its marker and
+    /// gains the box after it. An ordered item trades its number for a
+    /// bullet, the way Apple Notes converts a numbered list to a
+    /// checklist: GFM does spell `1. [ ] foo`, but a box drawn in place of
+    /// the number would hide the one thing an ordered marker is for.
     public static func toggleTaskItems(in text: NSString, selection: NSRange) -> Edit {
         let block = lineBlock(in: text, covering: selection)
         let allTasks = everyLine(of: block, in: text) { line in
@@ -307,9 +309,16 @@ public enum LineEdits {
                 return (inserted: head as String, removed: item.contentStart)
             }
             if let item {
-                guard !item.marker.isTask else { return (inserted: "", removed: 0) }
-                return (inserted: ns.substring(to: item.contentStart) + "[ ] ",
-                        removed: item.contentStart)
+                switch item.marker {
+                case .task:
+                    return (inserted: "", removed: 0)
+                case .bullet:
+                    return (inserted: ns.substring(to: item.contentStart) + "[ ] ",
+                            removed: item.contentStart)
+                case .ordered:
+                    return (inserted: ns.substring(to: item.indentWidth) + "- [ ] ",
+                            removed: item.contentStart)
+                }
             }
             let indent = body.prefix { $0 == " " || $0 == "\t" }
             return (inserted: indent + "- [ ] ", removed: indent.count)

@@ -214,3 +214,15 @@
   fixed `KeymapTests` still naming `toggleTheme` after 33af5fe renamed it — the test target hadn't
   compiled since. 239 tests. Verified on screen with CGEvent-posted clicks and ⌘C/⌘V/⌘Z: hovered `?`
   measures `#D7D6CE` against `#8F8E8A` at rest; paste landed above and undid cleanly.
+- 2026-09-12 — [list-editing](plan-list-editing.md): ↵ at column 0 of an item was doubling the marker
+  (`- - foo`); now the item moves down intact. Then the behaviours the other note apps agree on: ⌫ at
+  content start strips the marker, ↵ on an empty nested item outdents a level per press, ⇧↵ writes a
+  continuation line, and `- [ ]` is a task — one hidden five-character marker drawn as ☐/☑, ⌘⇧L to
+  make or check, click on the box to toggle. ⌘L replaces ⌥L. Two things found on the way: nested
+  items were already indenting twice (kept, see intent.md) but wrapped lines hung short by that
+  much; and a continuation line's spaces can be *wider* than a task's content column, so they are
+  kerned to zero rather than subtracted from the indent. Review caught ⌘⇧L stacking boxes on
+  ordered items (now converts to a bullet), a selection surviving ↵ on an empty nested item, and
+  Caps Lock disabling the box click. 313 tests. Verified on screen in both themes with a dev
+  instance under `XDG_CONFIG_HOME` and an isolated note: task, wrapped nested, and continuation
+  text all land on the same x; ⌫/⇧↵/⌘⇧L/click driven by System Events and CGEvent.

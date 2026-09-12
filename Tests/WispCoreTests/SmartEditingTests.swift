@@ -399,6 +399,16 @@ struct TaskListItemTests {
         #expect(item?.indentWidth == 2)
     }
 
+    @Test("Any run of whitespace between the bullet and the box is allowed")
+    func tabBeforeBox() {
+        let text = "-\t[ ] foo" as NSString
+        let item = SmartEditing.listItem(lineRange: NSRange(location: 0, length: text.length), in: text)
+        #expect(item?.marker == .task(checked: false))
+        #expect(item?.markerRange == NSRange(location: 0, length: 5))
+        #expect(item?.contentStart == 6)
+        #expect(SmartEditing.nextListMarker(for: "-\t[ ] foo") == "- [ ] ")
+    }
+
     @Test("An uppercase X checks the box too")
     func uppercaseChecked() {
         #expect(parse("- [X] foo")?.marker == .task(checked: true))
