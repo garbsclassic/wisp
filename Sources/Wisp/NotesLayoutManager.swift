@@ -27,6 +27,12 @@ final class NotesLayoutManager: NSLayoutManager {
     /// typed with the user's own Tab key steps glyphs at the same rate it
     /// steps columns.
     var indentWidth: Int = Indent().width
+    /// The indent unit as typed, for measuring where each nesting level's
+    /// marker column lands.
+    var indentUnit: String = Indent().unit
+    /// Guides down the left of nested items, one per ancestor level, in
+    /// the faintest text tier: they are structure, not content.
+    var guideColor: NSColor = .separatorColor
     /// Raw mode draws neither rules nor bullets: both stand in for characters
     /// the styling pass hides, and in raw mode nothing is hidden.
     var isSourceView: Bool = false
@@ -49,11 +55,16 @@ final class NotesLayoutManager: NSLayoutManager {
             if SmartEditing.isHorizontalRuleLine(lineRange: lineRange, in: nsString) {
                 drawRule(for: lineRange, at: origin, in: context)
             } else if let item = SmartEditing.listItem(lineRange: lineRange, in: nsString) {
+                drawGuides(for: lineRange, depth: item.depth(indentWidth: indentWidth), at: origin)
                 if case .task(let checked) = item.marker {
                     drawTaskBox(checked: checked, for: item, at: origin)
                 } else if let glyph = item.glyph(indentWidth: indentWidth) {
                     drawMarker(glyph, for: item, at: origin)
                 }
+            } else if let continued = SmartEditing.continuedItem(lineRange: lineRange, in: nsString) {
+                drawGuides(
+                    for: lineRange, depth: continued.item.depth(indentWidth: indentWidth),
+                    at: origin)
             }
             lineStart = lineRange.location + lineRange.length
         }
@@ -104,6 +115,34 @@ final class NotesLayoutManager: NSLayoutManager {
             // The text view is flipped, so `draw(at:)` takes the top-left
             // of the glyph's line box rather than its baseline.
             y: baseline - bulletFont.ascender))
+    }
+
+    // MARK: Indent guides
+
+    /// A one-point line for each ancestor level of a nested item, running
+    /// the full height of the line's paragraph — wrapped lines included —
+    /// so consecutive items join into one unbroken guide. Each sits at the
+    /// centre of the bullet an item at that level would carry: the leading
+    /// whitespace is indented by its own width on top of rendering itself
+    /// (see `styleLists`), so a level's marker column is twice its
+    /// whitespace's width in.
+    private func drawGuides(for lineRange: NSRange, depth: Int, at origin: NSPoint) {
+        guard depth > 0 else { return }
+        let glyphRange = self.glyphRange(forCharacterRange: lineRange, actualCharacterRange: nil)
+        guard glyphRange.length > 0 else { return }
+        let rect = boundingRect(forGlyphRange: glyphRange, in: textContainers[0])
+        let bulletCentre = NSAttributedString(
+            string: SmartEditing.bulletGlyph(depth: 0), attributes: [.font: bulletFont]
+        ).size().width / 2
+
+        guideColor.setFill()
+        for level in 0..<depth {
+            let whitespace = NSAttributedString(
+                string: String(repeating: indentUnit, count: level), attributes: [.font: bulletFont]
+            ).size().width
+            let x = (origin.x + whitespace * 2 + bulletCentre).rounded() - 0.5
+            NSRect(x: x, y: origin.y + rect.minY, width: 1, height: rect.height).fill()
+        }
     }
 
     // MARK: Task boxes

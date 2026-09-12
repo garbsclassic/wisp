@@ -238,6 +238,8 @@ struct MinimalTextEditor: NSViewRepresentable {
             lm.bulletColor = palette.text
             lm.bulletFont = font
             lm.indentWidth = indent.width
+            lm.indentUnit = indent.unit
+            lm.guideColor = palette.faint
             lm.isSourceView = isSourceView
         }
         if let storage = textView.textStorage {

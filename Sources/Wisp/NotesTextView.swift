@@ -220,17 +220,18 @@ final class NotesTextView: NSTextView {
         }
     }
 
-    /// The pointing hand over a box, the way links get one: AppKit sets
-    /// the I-beam from `mouseMoved`, so the override has to win there,
-    /// and `cursorUpdate` covers the first entry into the view.
+    /// The arrow over a box, as over any control, rather than the I-beam
+    /// text gets. AppKit sets the I-beam from `mouseMoved`, so the
+    /// override has to win there; `cursorUpdate` covers the first entry
+    /// into the view.
     override func mouseMoved(with event: NSEvent) {
         guard taskBoxIndex(under: event) != nil else { return super.mouseMoved(with: event) }
-        NSCursor.pointingHand.set()
+        NSCursor.arrow.set()
     }
 
     override func cursorUpdate(with event: NSEvent) {
         guard taskBoxIndex(under: event) != nil else { return super.cursorUpdate(with: event) }
-        NSCursor.pointingHand.set()
+        NSCursor.arrow.set()
     }
 
     /// Raw mode shows the `[ ]` as text, and text is for placing a caret in.

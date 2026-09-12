@@ -243,3 +243,8 @@
   away, click toggles, ↵↵ on `- last` leaves `- last` + blank, ↵×3 on a nested task walks out.
   Driver gotcha: a CGEvent mouse click posted after a chord inherits the chord's modifiers and lands
   as a ctrl-click — clear `flags` on mouse events.
+- 2026-09-12 — [list-editing](plan-list-editing.md): box cursor changed to the arrow (a control, not
+  a link). Indent guides: `NotesLayoutManager.drawGuides` draws a 1pt `faint` line per ancestor level
+  at that level's bullet centre — twice the whitespace width in, plus half a `•` — for the full
+  paragraph rect, so wraps join up; continuation lines take their item's depth via `continuedItem`.
+  Measured: guides at px 55–56 / 89–90 against bullet centres 56 / 89.5, both themes.

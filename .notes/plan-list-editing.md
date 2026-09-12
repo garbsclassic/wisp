@@ -62,11 +62,13 @@ Asked for after the first pass landed.
 | --- | --- | --- | --- |
 | ↵ on an empty flush-left item | Strip the marker in place, caret stays on the now-blank line | Strip and add a newline (the first pass) | The blank line is what the user wanted; every other note app leaves the caret there |
 | Task box | Drawn: a rounded square one ascender tall, stroked, tick inside | Typeset `☐` / `☑` | The two fall back to different fonts (Apple Symbols, system) at different sizes, the empty one barely x-height tall; drawn, both are the same size and as large as the line allows |
-| Cursor over a box | Pointing hand, over the same rectangle the click tests | I-beam everywhere | A clickable thing that shows an I-beam is a bullet with a border |
+| Cursor over a box | The arrow, over the same rectangle the click tests | Pointing hand; I-beam everywhere | A box is a control, and macOS controls get the arrow; the hand is for links. An I-beam says "place a caret here" |
+| Indent guides | One-point line per ancestor level, at that level's bullet centre, in `faint`, spanning wraps and continuation lines | None; guides only under the direct parent | Obsidian's guides are what makes a deep list readable; `faint` is the tier for structure that is not content |
 
 - [x] ↵ on an empty flush-left item exits in place — `handleEnter`
 - [x] Task box drawn at the text's ascender — `NotesLayoutManager.taskBoxSide`, `drawTaskBox`, `styleLists`
-- [x] Pointing hand over a box — `NotesTextView.mouseMoved`, `cursorUpdate`, `taskBoxIndex`
+- [x] Arrow cursor over a box — `NotesTextView.mouseMoved`, `cursorUpdate`, `taskBoxIndex`
+- [x] Indent guides — `NotesLayoutManager.drawGuides`
 
 ## Verification
 
