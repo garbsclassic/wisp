@@ -163,7 +163,12 @@ final class NotesTextView: NSTextView {
     /// width ahead of it. Re-entered through `didChangeText` while
     /// applying; the flag makes that a no-op.
     func renumberLists() {
-        guard !isApplyingEdit else { return }
+        // Undo restores old markers through `didChangeText` too; putting
+        // them back in sequence mid-undo would register onto the redo
+        // stack and leave the step a visible no-op.
+        guard !isApplyingEdit,
+            undoManager?.isUndoing != true, undoManager?.isRedoing != true
+        else { return }
         let edits = SmartEditing.renumber(in: string as NSString)
         guard !edits.isEmpty else { return }
         isApplyingEdit = true

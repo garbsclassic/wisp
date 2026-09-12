@@ -902,6 +902,16 @@ struct RenumberTests {
         #expect(SmartEditing.renumber(in: "" as NSString).isEmpty)
     }
 
+    @Test("A marker too long to be a count is left alone and ends the run")
+    func longMarkerEndsRun() {
+        let text = "9223372036854775807. a\n5. b\n"
+        #expect(apply(text) == text)
+        let text2 = "1. a\n99999999999999999999. b\n7. c\n"
+        #expect(apply(text2) == text2)
+        let nine = "1. a\n999999999. b\n7. c\n"
+        #expect(apply(nine) == "1. a\n2. b\n3. c\n")
+    }
+
     @Test("Two interleaved depths keep separate counters")
     func interleavedDepthsSeparateCounters() {
         #expect(

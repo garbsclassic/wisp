@@ -139,7 +139,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         if context.coordinator.lastWrapToken != wrapToken {
             context.coordinator.lastWrapToken = wrapToken
             if textView.window?.firstResponder === textView {
-                MarkdownWrap.toggle(in: textView, markers: wrapMarkers)
+                textView.performEdit { MarkdownWrap.toggle(in: textView, markers: wrapMarkers) }
             }
         }
         if context.coordinator.lastDuplicateToken != duplicateToken {
@@ -663,10 +663,14 @@ struct MinimalTextEditor: NSViewRepresentable {
 
             // Emoji shortcode replacement runs first — it may rewrite a
             // chunk of text, after which we restyle against the result.
-            if !lastSourceView { EmojiReplace.replaceIfMatched(in: textView) }
-            // AppKit's own edits renumber from here; hand-rolled ones do it
-            // themselves once their selection is set (`performEdit`).
-            (textView as? NotesTextView)?.renumberLists()
+            // Both hand-rolled edits go through `performEdit`, so the
+            // renumber they may trigger waits for the caret they set.
+            // AppKit's own edits renumber from here, with the selection
+            // already where the keystroke left it.
+            if let notes = textView as? NotesTextView {
+                if !lastSourceView { notes.performEdit { EmojiReplace.replaceIfMatched(in: notes) } }
+                notes.renumberLists()
+            }
 
             // Live-restyle: reset font, foreground, and paragraph style to
             // base across the storage, then re-apply the content passes.
@@ -734,7 +738,8 @@ struct MinimalTextEditor: NSViewRepresentable {
                 let event = NSApp.currentEvent, event.type == .keyDown,
                 event.characters == typed,
                 let markers = MarkdownWrap.surroundMarkers(for: typed) {
-                MarkdownWrap.wrap(in: textView, range: affectedCharRange, markers: markers)
+                let wrap = { MarkdownWrap.wrap(in: textView, range: affectedCharRange, markers: markers) }
+                if let notes = textView as? NotesTextView { notes.performEdit(wrap) } else { wrap() }
                 return false
             }
 

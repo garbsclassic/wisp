@@ -317,6 +317,10 @@ public enum SmartEditing {
     /// non-list line, a bullet at the run's depth, or an item at a
     /// shallower depth all end it. The result is the set of markers
     /// that differ from what the sequence says, as pre-edit ranges.
+    /// Digits beyond this are a serial number, not a position, and are
+    /// left alone. Also keeps `value + 1` clear of overflow.
+    public static let maxCountedDigits = 9
+
     public static func renumber(in text: NSString) -> [LineEdits.Edit] {
         enum Kind { case digits, upper, lower }
         struct Run { let kind: Kind; var next: Int }
@@ -346,13 +350,16 @@ public enum SmartEditing {
                 with: NSRange(location: item.markerRange.location, length: item.markerRange.length - 1))
             let kind: Kind
             let value: Int
-            if let n = Int(marker) {
-                kind = .digits
-                value = n
-            } else if let c = marker.first?.asciiValue, marker.count == 1 {
+            if marker.count == 1, let c = marker.first?.asciiValue, !isDigit(unichar(c)) {
                 kind = c >= 0x61 ? .lower : .upper
                 value = Int(c - (kind == .lower ? 0x61 : 0x41))
+            } else if marker.count <= maxCountedDigits, let n = Int(marker) {
+                kind = .digits
+                value = n
             } else {
+                // A marker too long to be a count is left as typed, and
+                // ends the run rather than being counted across.
+                runs[item.indentWidth] = nil
                 continue
             }
 

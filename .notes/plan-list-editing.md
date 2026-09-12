@@ -42,6 +42,20 @@ Plus the bug that started it — ↵ at column 0 doubled the marker — and ⌘L
 - [x] ⇧↵ continuation line and its rendering — `SmartEditing.continuationLine`, `handleEnter`, `styleLists`
 - [x] Task items: parse, continue, draw, ⌘⇧L, click — `ListItem.Marker.task`, `nextListMarker`, `styleLists`, `NotesLayoutManager`, `LineEdits.toggleTaskItems`, `KeymapAction.toggleTaskItem`
 
+## Follow-up, same branch
+
+Asked for after the first pass landed.
+
+| Decision | Chosen | Rejected | Why |
+| --- | --- | --- | --- |
+| When to renumber | After every edit, first item's value kept | Only on ↵/⇥/⌥↑↓ (Obsidian's smart lists) | Notes and Bear never show a wrong number; keeping the first value still lets a list start at 3 |
+| Where the renumber runs | Hand-rolled edits renumber after setting their selection (`performEdit`); AppKit's own edits from `textDidChange` | Everything from `textDidChange` | Mid-edit the delegate sees the pre-edit selection; shifting that and then having the caller overwrite it leaves the caret off by a digit at the `9.`→`10.` boundary |
+| Renumber during undo | Skipped | — | Undo restores the old marker through `didChangeText`; renumbering there registers onto the redo stack and makes the step a visible no-op |
+| Long markers | Nine digits or fewer count; longer ends the run untouched | Parse whatever `Int` accepts | `Int.max` parses and `+ 1` traps on the first keystroke, every launch, once it is in the file |
+
+- [x] Ordered runs renumber after every edit — `SmartEditing.renumber`, `NotesTextView.renumberLists`
+- [x] ↵ on a continuation line starts the next item — `SmartEditing.continuedItem`, `handleEnter`
+
 ## Verification
 
 Unit: `scripts/test.sh`. On screen, both themes: a task list with a checked item; a continuation

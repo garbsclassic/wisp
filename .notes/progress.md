@@ -226,3 +226,10 @@
   Caps Lock disabling the box click. 313 tests. Verified on screen in both themes with a dev
   instance under `XDG_CONFIG_HOME` and an isolated note: task, wrapped nested, and continuation
   text all land on the same x; ⌫/⇧↵/⌘⇧L/click driven by System Events and CGEvent.
+- 2026-09-12 — [list-editing](plan-list-editing.md): ordered runs renumber after every edit, first
+  value kept, nested items and continuation lines inside a run don't break it; ↵ on a continuation
+  line starts the next item. Hand-rolled edits renumber once their caret is set (`performEdit`) and
+  one ⌘Z takes the edit and its renumber back together. Review found `Int.max.` trapping on the
+  first keystroke and undo fighting the renumber; markers over nine digits now end a run untouched,
+  and renumbering skips undo/redo. 342 tests. Undo sequence checked on screen: `5. x` → `2. ` →
+  `5. ` → empty.
