@@ -723,6 +723,16 @@ struct MinimalTextEditor: NSViewRepresentable {
                 return true
             }
 
+            if selection.length == 0,
+                let edit = SmartEditing.newlineBeforeItem(in: s, cursor: cursor) {
+                guard textView.replaceText(in: edit.range, with: edit.replacement) else {
+                    return true
+                }
+                textView.setSelectedRange(edit.selection)
+                textView.scrollRangeToVisible(edit.selection)
+                return true
+            }
+
             guard let marker = SmartEditing.nextListMarker(for: line) else {
                 // Not a list, but an indented line still carries its indent
                 // onto the next one — AppKit's own newline would land the

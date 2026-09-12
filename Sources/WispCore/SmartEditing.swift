@@ -165,6 +165,23 @@ public enum SmartEditing {
         return cursor == item.contentStart ? line.location : item.contentStart
     }
 
+    /// ↵ with the caret before a list item's text — at column 0, or inside
+    /// the indent or marker. There is nothing to split there: continuing
+    /// the list would put a fresh marker in front of the one already on
+    /// the line (`- - foo`). Instead the item moves down intact and the
+    /// caret rides with it, which is what Obsidian and iA Writer do. Nil
+    /// off a list line or once the caret reaches the content, where the
+    /// ordinary continuation applies.
+    public static func newlineBeforeItem(in text: NSString, cursor: Int) -> LineEdits.Edit? {
+        let line = LineEdits.lineRange(in: text, at: cursor)
+        guard let item = listItem(lineRange: line, in: text), cursor < item.contentStart else {
+            return nil
+        }
+        return LineEdits.Edit(
+            range: NSRange(location: line.location, length: 0), replacement: "\n",
+            selection: NSRange(location: line.location + 1, length: 0))
+    }
+
     /// The glyph drawn in place of a hidden bullet marker at each nesting
     /// level.
     public static let bulletGlyphs = ["•", "◦", "▪"]

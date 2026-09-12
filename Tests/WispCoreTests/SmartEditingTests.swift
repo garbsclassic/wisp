@@ -298,3 +298,57 @@ struct HomeTargetTests {
         #expect(target(text, cursor: 5) == 7)  // at column 0 -> content start
     }
 }
+
+@Suite("SmartEditing: Enter before a list item's text")
+struct NewlineBeforeItemTests {
+    private func edit(_ text: String, cursor: Int) -> LineEdits.Edit? {
+        SmartEditing.newlineBeforeItem(in: text as NSString, cursor: cursor)
+    }
+
+    private func applied(_ text: String, cursor: Int) -> (String, Int)? {
+        guard let e = edit(text, cursor: cursor) else { return nil }
+        let ns = NSMutableString(string: text)
+        ns.replaceCharacters(in: e.range, with: e.replacement)
+        return (ns as String, e.selection.location)
+    }
+
+    @Test(
+        "Column 0, the indent, and the marker all move the item down intact",
+        arguments: [
+            ("- item", 0, "\n- item", 1),
+            ("- item", 1, "\n- item", 1),
+            ("  - item", 0, "\n  - item", 1),
+            ("  - item", 2, "\n  - item", 1),
+            ("  - item", 3, "\n  - item", 1),
+            ("12. item", 2, "\n12. item", 1),
+        ] as [(String, Int, String, Int)]
+    )
+    func beforeContent(text: String, cursor: Int, expected: String, caret: Int) {
+        let result = applied(text, cursor: cursor)
+        #expect(result?.0 == expected)
+        #expect(result?.1 == caret)
+    }
+
+    @Test("At content start and beyond, the ordinary continuation applies")
+    func atOrPastContent() {
+        #expect(edit("- item", cursor: 2) == nil)
+        #expect(edit("- item", cursor: 4) == nil)
+    }
+
+    @Test("Non-list lines yield nil", arguments: ["plain", "-word", "", "  indented"])
+    func nonList(line: String) {
+        #expect(edit(line, cursor: 0) == nil)
+    }
+
+    @Test("An empty item at column 0 moves down too, rather than being stripped")
+    func emptyItem() {
+        #expect(applied("- ", cursor: 0)?.0 == "\n- ")
+    }
+
+    @Test("Offsets are document-absolute on a later line")
+    func laterLine() {
+        let result = applied("para\n- item\n", cursor: 5)
+        #expect(result?.0 == "para\n\n- item\n")
+        #expect(result?.1 == 6)
+    }
+}
