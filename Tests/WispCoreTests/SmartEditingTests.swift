@@ -694,3 +694,218 @@ struct ToggledTaskTests {
         #expect(toggled("- [ ] a", at: 0, selection: selection)?.1 == selection)
     }
 }
+
+@Suite("SmartEditing: continuedItem")
+struct ContinuedItemTests {
+    private func result(_ text: String, lineAt offset: Int) -> (marker: SmartEditing.ListItem.Marker, line: NSRange)? {
+        let ns = text as NSString
+        let lineRange = LineEdits.lineRange(in: ns, at: offset)
+        guard let found = SmartEditing.continuedItem(lineRange: lineRange, in: ns) else { return nil }
+        return (found.item.marker, found.line)
+    }
+
+    @Test("A continuation one level up finds the item")
+    func directContinuation() {
+        let text = "- item\n  more\n"
+        let ns = text as NSString
+        let secondLine = LineEdits.lineRange(in: ns, at: 7)
+        let found = SmartEditing.continuedItem(lineRange: secondLine, in: ns)
+        #expect(found?.line == NSRange(location: 0, length: 7))
+    }
+
+    @Test("A continuation two lines down walks over the first continuation")
+    func walksOverContinuation() {
+        let text = "- item\n  more\n  even more\n"
+        let ns = text as NSString
+        let thirdLine = LineEdits.lineRange(in: ns, at: 14)
+        let found = SmartEditing.continuedItem(lineRange: thirdLine, in: ns)
+        #expect(found?.line == NSRange(location: 0, length: 7))
+    }
+
+    @Test("One space short of the content column is not a continuation")
+    func shortOfColumn() {
+        let text = "- item\n more\n"
+        let ns = text as NSString
+        let secondLine = LineEdits.lineRange(in: ns, at: 7)
+        #expect(SmartEditing.continuedItem(lineRange: secondLine, in: ns) == nil)
+    }
+
+    @Test("A blank line breaks the chain")
+    func blankLineBreaksChain() {
+        let text = "- item\n\n  more\n"
+        let ns = text as NSString
+        let thirdLine = LineEdits.lineRange(in: ns, at: 8)
+        #expect(SmartEditing.continuedItem(lineRange: thirdLine, in: ns) == nil)
+    }
+
+    @Test("A flush non-list line breaks the chain")
+    func flushLineBreaksChain() {
+        let text = "- item\nplain\n  more\n"
+        let ns = text as NSString
+        let thirdLine = LineEdits.lineRange(in: ns, at: 13)
+        #expect(SmartEditing.continuedItem(lineRange: thirdLine, in: ns) == nil)
+    }
+
+    @Test("A list line itself is not a continuation")
+    func listLineYieldsNil() {
+        let text = "- item\n  more\n"
+        let ns = text as NSString
+        let firstLine = LineEdits.lineRange(in: ns, at: 0)
+        #expect(SmartEditing.continuedItem(lineRange: firstLine, in: ns) == nil)
+    }
+
+    @Test("The first line of the document has nothing above it")
+    func firstLineYieldsNil() {
+        let text = "plain\n"
+        let ns = text as NSString
+        let firstLine = LineEdits.lineRange(in: ns, at: 0)
+        #expect(SmartEditing.continuedItem(lineRange: firstLine, in: ns) == nil)
+    }
+
+    @Test("A nested item is found at its own, deeper column")
+    func nestedItem() {
+        let text = "  - nested\n    more\n"
+        let ns = text as NSString
+        let secondLine = LineEdits.lineRange(in: ns, at: 11)
+        let found = SmartEditing.continuedItem(lineRange: secondLine, in: ns)
+        #expect(found?.line == NSRange(location: 0, length: 11))
+    }
+
+    @Test("The nearest item wins, not an ancestor further up")
+    func nearestItemWins() {
+        let text = "- a\n  - b\n    more\n"
+        let ns = text as NSString
+        let thirdLine = LineEdits.lineRange(in: ns, at: 10)
+        let found = SmartEditing.continuedItem(lineRange: thirdLine, in: ns)
+        #expect(found?.line == NSRange(location: 4, length: 6))
+    }
+
+    @Test("A task item is found like any other")
+    func taskItem() {
+        let text = "- [ ] task\n      more\n"
+        let ns = text as NSString
+        let secondLine = LineEdits.lineRange(in: ns, at: 11)
+        let found = SmartEditing.continuedItem(lineRange: secondLine, in: ns)
+        #expect(found?.line == NSRange(location: 0, length: 11))
+        #expect(found?.item.marker.isTask == true)
+    }
+}
+
+@Suite("SmartEditing: renumber")
+struct RenumberTests {
+    private func apply(_ text: String) -> String {
+        let ns = NSMutableString(string: text)
+        let edits = SmartEditing.renumber(in: ns)
+        for edit in edits.sorted(by: { $0.range.location > $1.range.location }) {
+            ns.replaceCharacters(in: edit.range, with: edit.replacement)
+        }
+        return ns as String
+    }
+
+    @Test("An already-sequential run yields no edits")
+    func alreadySequential() {
+        let text = "1. a\n2. b\n3. c\n"
+        #expect(SmartEditing.renumber(in: text as NSString).isEmpty)
+        #expect(apply(text) == text)
+    }
+
+    @Test("A gap in the sequence is closed")
+    func gapClosed() {
+        #expect(apply("1. a\n2. b\n5. c\n") == "1. a\n2. b\n3. c\n")
+    }
+
+    @Test("The first item's value is kept as the run's start")
+    func firstValueKept() {
+        #expect(apply("3. a\n7. b\n") == "3. a\n4. b\n")
+    }
+
+    @Test("Repeated markers are put in sequence")
+    func repeatedMarkers() {
+        #expect(apply("1. a\n1. b\n1. c\n") == "1. a\n2. b\n3. c\n")
+    }
+
+    @Test("A width change from single to double digits is handled")
+    func widthGrows() {
+        let text = "9. a\n9. b\n"
+        let edits = SmartEditing.renumber(in: text as NSString)
+        #expect(edits.count == 1)
+        #expect(edits.first?.range == NSRange(location: 5, length: 1))
+        #expect(edits.first?.replacement == "10")
+        #expect(apply(text) == "9. a\n10. b\n")
+    }
+
+    @Test("Nested items don't break the parent run")
+    func nestedDoesNotBreakParent() {
+        #expect(
+            apply("1. a\n  1. x\n  5. y\n7. b\n")
+                == "1. a\n  1. x\n  2. y\n2. b\n")
+    }
+
+    @Test("Continuation and indented lines don't break the run")
+    func continuationDoesNotBreak() {
+        #expect(apply("1. a\n   more\n5. b\n") == "1. a\n   more\n2. b\n")
+    }
+
+    @Test("A blank line ends the run")
+    func blankLineEndsRun() {
+        let text = "1. a\n\n5. b\n"
+        #expect(apply(text) == text)
+    }
+
+    @Test("A flush non-list line ends the run")
+    func flushLineEndsRun() {
+        let text = "1. a\nplain\n5. b\n"
+        #expect(apply(text) == text)
+    }
+
+    @Test("A bullet at the same depth ends the run")
+    func bulletEndsRun() {
+        let text = "1. a\n- x\n5. b\n"
+        #expect(apply(text) == text)
+    }
+
+    @Test("A shallower item ends a deeper run")
+    func shallowerItemEndsDeeperRun() {
+        let text = "  1. a\n- x\n  5. b\n"
+        #expect(apply(text) == text)
+    }
+
+    @Test("A change of kind starts a new run rather than continuing")
+    func changeOfKindStartsNewRun() {
+        let text = "1. a\nA. b\n5. c\n"
+        #expect(apply(text) == text)
+    }
+
+    @Test("Uppercase alpha runs are renumbered")
+    func uppercaseAlphaRun() {
+        #expect(apply("A. a\nC. b\n") == "A. a\nB. b\n")
+    }
+
+    @Test("Lowercase alpha runs are renumbered")
+    func lowercaseAlphaRun() {
+        #expect(apply("a. a\nc. b\n") == "a. a\nb. b\n")
+    }
+
+    @Test("Past Z there is nothing to count with, so it is left as typed")
+    func pastZUnchanged() {
+        let text = "Z. a\nZ. b\n"
+        #expect(apply(text) == text)
+    }
+
+    @Test("The last line, with no trailing newline, is still renumbered")
+    func noTrailingNewline() {
+        #expect(apply("1. a\n5. b") == "1. a\n2. b")
+    }
+
+    @Test("An empty document yields no edits")
+    func emptyDocument() {
+        #expect(SmartEditing.renumber(in: "" as NSString).isEmpty)
+    }
+
+    @Test("Two interleaved depths keep separate counters")
+    func interleavedDepthsSeparateCounters() {
+        #expect(
+            apply("1. a\n  1. x\n2. b\n  1. y\n  5. z\n")
+                == "1. a\n  1. x\n2. b\n  1. y\n  2. z\n")
+    }
+}
