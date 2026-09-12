@@ -63,12 +63,13 @@ Asked for after the first pass landed.
 | ↵ on an empty flush-left item | Strip the marker in place, caret stays on the now-blank line | Strip and add a newline (the first pass) | The blank line is what the user wanted; every other note app leaves the caret there |
 | Task box | Drawn: a rounded square one ascender tall, stroked, tick inside | Typeset `☐` / `☑` | The two fall back to different fonts (Apple Symbols, system) at different sizes, the empty one barely x-height tall; drawn, both are the same size and as large as the line allows |
 | Cursor over a box | The arrow, over the same rectangle the click tests | Pointing hand; I-beam everywhere | A box is a control, and macOS controls get the arrow; the hand is for links. An I-beam says "place a caret here" |
-| Indent guides | One-point line per ancestor level, at that level's bullet centre, in `faint`, spanning wraps and continuation lines | None; guides only under the direct parent | Obsidian's guides are what makes a deep list readable; `faint` is the tier for structure that is not content |
+| Indent guides | One-point line per ancestor level, centred on the actual ancestor's marker, in `faint`, spanning wraps, continuation lines, and blank lines inside the list | Computed column per level; break at a blank line | Obsidian's guides are what makes a deep list readable; a guide off a box's centre or broken by a loose list's gap looks like a glitch. `faint` is the tier for structure that is not content |
+| Guide start | One cap height below the parent's marker centre | The child's fragment top | The fragment top butts against the parent's descenders and reads as hanging off its marker; one cap down matches Obsidian's start (measured 37% vs 38% of the row pitch) |
 
 - [x] ↵ on an empty flush-left item exits in place — `handleEnter`
 - [x] Task box drawn at the text's ascender — `NotesLayoutManager.taskBoxSide`, `drawTaskBox`, `styleLists`
 - [x] Arrow cursor over a box — `NotesTextView.mouseMoved`, `cursorUpdate`, `taskBoxIndex`
-- [x] Indent guides — `NotesLayoutManager.drawGuides`
+- [x] Indent guides — `SmartEditing.guideDepth`, `ancestors`, `NotesLayoutManager.drawGuides`
 
 ## Verification
 

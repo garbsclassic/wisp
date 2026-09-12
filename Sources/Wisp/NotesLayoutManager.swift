@@ -54,17 +54,15 @@ final class NotesLayoutManager: NSLayoutManager {
             let lineRange = nsString.lineRange(for: NSRange(location: lineStart, length: 0))
             if SmartEditing.isHorizontalRuleLine(lineRange: lineRange, in: nsString) {
                 drawRule(for: lineRange, at: origin, in: context)
-            } else if let item = SmartEditing.listItem(lineRange: lineRange, in: nsString) {
-                drawGuides(for: lineRange, depth: item.depth(indentWidth: indentWidth), at: origin)
-                if case .task(let checked) = item.marker {
-                    drawTaskBox(checked: checked, for: item, at: origin)
-                } else if let glyph = item.glyph(indentWidth: indentWidth) {
-                    drawMarker(glyph, for: item, at: origin)
+            } else {
+                drawGuides(for: lineRange, in: nsString, at: origin)
+                if let item = SmartEditing.listItem(lineRange: lineRange, in: nsString) {
+                    if case .task(let checked) = item.marker {
+                        drawTaskBox(checked: checked, for: item, at: origin)
+                    } else if let glyph = item.glyph(indentWidth: indentWidth) {
+                        drawMarker(glyph, for: item, at: origin)
+                    }
                 }
-            } else if let continued = SmartEditing.continuedItem(lineRange: lineRange, in: nsString) {
-                drawGuides(
-                    for: lineRange, depth: continued.item.depth(indentWidth: indentWidth),
-                    at: origin)
             }
             lineStart = lineRange.location + lineRange.length
         }
@@ -119,30 +117,91 @@ final class NotesLayoutManager: NSLayoutManager {
 
     // MARK: Indent guides
 
-    /// A one-point line for each ancestor level of a nested item, running
-    /// the full height of the line's paragraph — wrapped lines included —
-    /// so consecutive items join into one unbroken guide. Each sits at the
-    /// centre of the bullet an item at that level would carry: the leading
-    /// whitespace is indented by its own width on top of rendering itself
-    /// (see `styleLists`), so a level's marker column is twice its
-    /// whitespace's width in.
-    private func drawGuides(for lineRange: NSRange, depth: Int, at origin: NSPoint) {
-        guard depth > 0 else { return }
+    /// A one-point line for each level a nested line hangs under, centred
+    /// on that ancestor's own marker — bullet, box, or number — and
+    /// running the full height of the line's paragraph, wrapped lines
+    /// included, so consecutive lines join into one unbroken guide.
+    /// Blank lines inside a list carry the guides across the gap (see
+    /// `SmartEditing.guideDepth`).
+    ///
+    /// The first line under a parent starts its guide one cap height
+    /// below the parent's marker centre — half a cap clear of the
+    /// parent's letters, which end half a cap below that centre — rather
+    /// than at its own fragment's top, which butts against the parent's
+    /// descenders and reads as hanging off the marker. A line with no
+    /// ancestor at some level — a hand-typed jump of two levels — falls
+    /// back to where a marker at that level would sit, starting at its
+    /// own ascender line.
+    private func drawGuides(for lineRange: NSRange, in text: NSString, at origin: NSPoint) {
+        guard let depth = SmartEditing.guideDepth(
+                lineRange: lineRange, in: text, indentWidth: indentWidth), depth > 0
+        else { return }
         let glyphRange = self.glyphRange(forCharacterRange: lineRange, actualCharacterRange: nil)
         guard glyphRange.length > 0 else { return }
-        let rect = boundingRect(forGlyphRange: glyphRange, in: textContainers[0])
-        let bulletCentre = NSAttributedString(
-            string: SmartEditing.bulletGlyph(depth: 0), attributes: [.font: bulletFont]
-        ).size().width / 2
+
+        let first = lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+        let last = lineFragmentRect(forGlyphAt: NSMaxRange(glyphRange) - 1, effectiveRange: nil)
+        let fragmentTop = origin.y + first.minY
+        let ascenderTop = fragmentTop + location(forGlyphAt: glyphRange.location).y
+            - bulletFont.ascender
+        let bottom = origin.y + last.maxY
+
+        let depthAbove: Int
+        if lineRange.location > 0 {
+            depthAbove = SmartEditing.guideDepth(
+                lineRange: LineEdits.lineRange(in: text, at: lineRange.location - 1), in: text,
+                indentWidth: indentWidth) ?? 0
+        } else {
+            depthAbove = 0
+        }
+        let ancestors = SmartEditing.ancestors(
+            of: lineRange, depth: depth, in: text, indentWidth: indentWidth)
 
         guideColor.setFill()
         for level in 0..<depth {
-            let whitespace = NSAttributedString(
-                string: String(repeating: indentUnit, count: level), attributes: [.font: bulletFont]
-            ).size().width
-            let x = (origin.x + whitespace * 2 + bulletCentre).rounded() - 0.5
-            NSRect(x: x, y: origin.y + rect.minY, width: 1, height: rect.height).fill()
+            let ancestor = ancestors[level]
+            let centre = ancestor.map { markerCentre(of: $0.item) }
+                ?? fallbackMarkerCentre(level: level)
+            let top: CGFloat
+            if depthAbove > level {
+                top = fragmentTop
+            } else if let ancestor {
+                top = origin.y + baseline(of: ancestor.item) + bulletFont.capHeight / 2
+            } else {
+                top = ascenderTop
+            }
+            NSRect(x: (origin.x + centre).rounded() - 0.5, y: top, width: 1, height: bottom - top)
+                .fill()
         }
+    }
+
+    /// Container-relative y of the baseline an item's marker sits on.
+    private func baseline(of item: SmartEditing.ListItem) -> CGFloat {
+        let glyph = glyphRange(forCharacterRange: item.markerRange, actualCharacterRange: nil).location
+        return lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY
+            + location(forGlyphAt: glyph).y
+    }
+
+    /// Container-relative x of the middle of an item's marker. Bullets
+    /// and boxes fill the width the marker is kerned to, and an ordered
+    /// marker is the visible text, so the reserved rectangle's middle is
+    /// the mark's middle in every case.
+    private func markerCentre(of item: SmartEditing.ListItem) -> CGFloat {
+        let glyphs = glyphRange(forCharacterRange: item.markerRange, actualCharacterRange: nil)
+        return boundingRect(forGlyphRange: glyphs, in: textContainers[0]).midX
+    }
+
+    /// Where a bullet at `level` would sit: the leading whitespace is
+    /// indented by its own width on top of rendering itself (see
+    /// `styleLists`), so the marker column is twice the whitespace in.
+    private func fallbackMarkerCentre(level: Int) -> CGFloat {
+        let whitespace = NSAttributedString(
+            string: String(repeating: indentUnit, count: level), attributes: [.font: bulletFont]
+        ).size().width
+        let bullet = NSAttributedString(
+            string: SmartEditing.bulletGlyph(depth: 0), attributes: [.font: bulletFont]
+        ).size().width
+        return whitespace * 2 + bullet / 2
     }
 
     // MARK: Task boxes

@@ -315,6 +315,96 @@ public enum SmartEditing {
         return nil
     }
 
+    // MARK: Indent guides
+
+    /// How deep a line sits for the purpose of indent guides, or nil when
+    /// it is outside any list. An item is its own depth; a continuation
+    /// line takes its item's; a blank line between two list lines takes
+    /// the shallower of the two, so a loose list keeps its guides through
+    /// the gaps. Any other line is outside the list.
+    public static func guideDepth(
+        lineRange: NSRange, in text: NSString, indentWidth: Int
+    ) -> Int? {
+        if let depth = listDepth(lineRange: lineRange, in: text, indentWidth: indentWidth) {
+            return depth
+        }
+        guard isBlank(lineRange, in: text),
+              let above = nearestListDepth(
+                from: lineRange, in: text, indentWidth: indentWidth, stepping: lineAbove),
+              let below = nearestListDepth(
+                from: lineRange, in: text, indentWidth: indentWidth, stepping: lineBelow)
+        else { return nil }
+        return min(above, below)
+    }
+
+    /// The items a nested line hangs under, one slot per level from 0 to
+    /// `depth - 1`, found by walking up over deeper items, continuation
+    /// lines, and blanks until a line outside the list. An item at a
+    /// shallower level than the one being sought fills every slot down
+    /// to its own — a hand-typed jump of two levels still hangs under
+    /// the one parent it has. A slot stays nil when nothing above is
+    /// shallow enough.
+    public static func ancestors(
+        of lineRange: NSRange, depth: Int, in text: NSString, indentWidth: Int
+    ) -> [(item: ListItem, line: NSRange)?] {
+        var slots = [(item: ListItem, line: NSRange)?](repeating: nil, count: max(depth, 0))
+        var level = depth - 1
+        var line = lineRange
+        while level >= 0, let above = lineAbove(line, in: text) {
+            if let item = listItem(lineRange: above, in: text) {
+                let itemDepth = item.depth(indentWidth: indentWidth)
+                if itemDepth <= level {
+                    for slot in itemDepth...level { slots[slot] = (item, above) }
+                    level = itemDepth - 1
+                }
+            } else if !isBlank(above, in: text), continuedItem(lineRange: above, in: text) == nil {
+                break
+            }
+            line = above
+        }
+        return slots
+    }
+
+    private static func listDepth(
+        lineRange: NSRange, in text: NSString, indentWidth: Int
+    ) -> Int? {
+        if let item = listItem(lineRange: lineRange, in: text) {
+            return item.depth(indentWidth: indentWidth)
+        }
+        return continuedItem(lineRange: lineRange, in: text)?.item.depth(indentWidth: indentWidth)
+    }
+
+    /// Skipping blank lines, the depth of the first list line in the
+    /// direction `step` walks; nil at a non-list line or the document's edge.
+    private static func nearestListDepth(
+        from lineRange: NSRange, in text: NSString, indentWidth: Int,
+        stepping step: (NSRange, NSString) -> NSRange?
+    ) -> Int? {
+        var line = lineRange
+        while let next = step(line, text) {
+            if let depth = listDepth(lineRange: next, in: text, indentWidth: indentWidth) {
+                return depth
+            }
+            guard isBlank(next, in: text) else { return nil }
+            line = next
+        }
+        return nil
+    }
+
+    private static func isBlank(_ lineRange: NSRange, in text: NSString) -> Bool {
+        text.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private static func lineAbove(_ lineRange: NSRange, in text: NSString) -> NSRange? {
+        guard lineRange.location > 0 else { return nil }
+        return LineEdits.lineRange(in: text, at: lineRange.location - 1)
+    }
+
+    private static func lineBelow(_ lineRange: NSRange, in text: NSString) -> NSRange? {
+        guard NSMaxRange(lineRange) < text.length else { return nil }
+        return LineEdits.lineRange(in: text, at: NSMaxRange(lineRange))
+    }
+
     /// Ordered markers put back in sequence. A run is consecutive items
     /// at one indent with one kind of marker — `1.`, `A.`, or `a.` —
     /// and the first item's value is kept, so a list can start at 3 or

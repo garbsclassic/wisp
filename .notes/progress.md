@@ -248,3 +248,10 @@
   at that level's bullet centre — twice the whitespace width in, plus half a `•` — for the full
   paragraph rect, so wraps join up; continuation lines take their item's depth via `continuedItem`.
   Measured: guides at px 55–56 / 89–90 against bullet centres 56 / 89.5, both themes.
+- 2026-09-12 — [list-editing](plan-list-editing.md): guides reworked after a first look. Each level
+  now centres on its actual ancestor's marker (`SmartEditing.ancestors` walks up; `markerCentre` is
+  the kerned marker rect's midX, which holds for bullet, box, and `1.`), blank lines inside a list
+  carry the guides across (`guideDepth`: the shallower of the list lines either side), and a run
+  starts one cap height below the parent's marker centre rather than at the child's fragment top.
+  Measured: guide under a box at px 63–64 vs box centre 62.5; under `1.` 57–58 vs ~58; start at 37%
+  of the row pitch below the parent's centre against Obsidian's 38%.

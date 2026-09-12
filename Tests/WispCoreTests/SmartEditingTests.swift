@@ -926,3 +926,158 @@ struct RenumberTests {
                 == "1. a\n  1. x\n2. b\n  1. y\n  2. z\n")
     }
 }
+
+@Suite("SmartEditing: guideDepth")
+struct GuideDepthTests {
+    private func depth(_ text: String, at offset: Int, indentWidth: Int = 2) -> Int? {
+        let ns = text as NSString
+        let lineRange = LineEdits.lineRange(in: ns, at: offset)
+        return SmartEditing.guideDepth(lineRange: lineRange, in: ns, indentWidth: indentWidth)
+    }
+
+    @Test("A list item's depth matches its indent level")
+    func listItemDepth() {
+        #expect(depth("- a\n", at: 0) == 0)
+        #expect(depth("  - b\n", at: 0) == 1)
+        #expect(depth("    - c\n", at: 0) == 2)
+    }
+
+    @Test("A continuation line takes its item's depth")
+    func continuationDepth() {
+        let text = "- a\n  cont\n"
+        #expect(depth(text, at: 4) == 0)
+    }
+
+    @Test("A blank line between two list lines takes the shallower depth")
+    func blankBetweenListLinesTakesShallower() {
+        #expect(depth("  - a\n\n    - b\n", at: 6) == 1)
+        #expect(depth("    - a\n\n  - b\n", at: 8) == 1)
+        #expect(depth("  - a\n\n  - b\n", at: 6) == 1)
+    }
+
+    @Test("A whitespace-only line between list lines counts as blank")
+    func whitespaceOnlyLineCountsAsBlank() {
+        let text = "  - a\n   \n    - b\n"
+        #expect(depth(text, at: 6) == 1)
+    }
+
+    @Test("Two consecutive blank lines between list lines both get the depth")
+    func twoConsecutiveBlankLines() {
+        let text = "  - a\n\n\n    - b\n"
+        #expect(depth(text, at: 6) == 1)
+        #expect(depth(text, at: 7) == 1)
+    }
+
+    @Test("A blank line followed by prose is outside the list")
+    func blankFollowedByProseIsNil() {
+        let text = "  - a\n\nprose\n"
+        #expect(depth(text, at: 6) == nil)
+    }
+
+    @Test("A blank line with no list line above is outside the list")
+    func blankWithNoListAboveIsNil() {
+        let text = "\n  - a\n"
+        #expect(depth(text, at: 0) == nil)
+    }
+
+    @Test("A blank line at the document end is outside the list")
+    func blankAtDocumentEndIsNil() {
+        let text = "  - a\n\n"
+        #expect(depth(text, at: 6) == nil)
+    }
+
+    @Test("An ordinary prose line is outside the list")
+    func proseLineIsNil() {
+        #expect(depth("just prose\n", at: 0) == nil)
+    }
+
+    @Test("A heading is outside the list")
+    func headingIsNil() {
+        #expect(depth("# Heading\n", at: 0) == nil)
+    }
+}
+
+@Suite("SmartEditing: ancestors")
+struct AncestorsTests {
+    private func ancestors(
+        _ text: String, at offset: Int, depth: Int, indentWidth: Int = 2
+    ) -> [(item: SmartEditing.ListItem, line: NSRange)?] {
+        let ns = text as NSString
+        let lineRange = LineEdits.lineRange(in: ns, at: offset)
+        return SmartEditing.ancestors(of: lineRange, depth: depth, in: ns, indentWidth: indentWidth)
+    }
+
+    @Test("A direct child has one slot pointing to the parent's line")
+    func directChild() {
+        let text = "- p\n  - c\n"
+        let ns = text as NSString
+        let parentLine = LineEdits.lineRange(in: ns, at: 0)
+        let result = ancestors(text, at: 4, depth: 1)
+        #expect(result.count == 1)
+        #expect(result[0]?.line == parentLine)
+    }
+
+    @Test("Three levels of nesting fill one slot per ancestor")
+    func threeLevels() {
+        let text = "- a\n  - b\n    - c\n"
+        let ns = text as NSString
+        let lineA = LineEdits.lineRange(in: ns, at: 0)
+        let lineB = LineEdits.lineRange(in: ns, at: 4)
+        let result = ancestors(text, at: 10, depth: 2)
+        #expect(result.count == 2)
+        #expect(result[0]?.line == lineA)
+        #expect(result[1]?.line == lineB)
+    }
+
+    @Test("A sibling's deeper subtree is skipped on the walk up")
+    func siblingSubtreeSkipped() {
+        let text = "- a\n  - b\n    - bb\n  - c\n"
+        let ns = text as NSString
+        let lineA = LineEdits.lineRange(in: ns, at: 0)
+        let result = ancestors(text, at: 19, depth: 1)
+        #expect(result.count == 1)
+        #expect(result[0]?.line == lineA)
+    }
+
+    @Test("A blank line and a continuation line between parent and child don't break the walk")
+    func blankAndContinuationDoNotBreakWalk() {
+        let text = "- p\n  more\n\n  - c\n"
+        let ns = text as NSString
+        let parentLine = LineEdits.lineRange(in: ns, at: 0)
+        let result = ancestors(text, at: 12, depth: 1)
+        #expect(result.count == 1)
+        #expect(result[0]?.line == parentLine)
+    }
+
+    @Test("A hand-typed jump of two levels hangs every slot under the one parent")
+    func jumpOfTwoLevels() {
+        let text = "- a\n    - c\n"
+        let ns = text as NSString
+        let lineA = LineEdits.lineRange(in: ns, at: 0)
+        let result = ancestors(text, at: 4, depth: 2)
+        #expect(result.count == 2)
+        #expect(result[0]?.line == lineA)
+        #expect(result[1]?.line == lineA)
+    }
+
+    @Test("A prose line above the child breaks the walk")
+    func proseLineBreaksWalk() {
+        let text = "- a\nprose\n  - c\n"
+        let result = ancestors(text, at: 10, depth: 1)
+        #expect(result.count == 1)
+        #expect(result[0] == nil)
+    }
+
+    @Test("Depth zero yields an empty array")
+    func depthZeroYieldsEmpty() {
+        let result = ancestors("- a\n  - c\n", at: 4, depth: 0)
+        #expect(result.isEmpty)
+    }
+
+    @Test("Nothing above the first line yields a single nil slot")
+    func noLinesAboveYieldsNilSlot() {
+        let result = ancestors("- a\n", at: 0, depth: 1)
+        #expect(result.count == 1)
+        #expect(result[0] == nil)
+    }
+}
