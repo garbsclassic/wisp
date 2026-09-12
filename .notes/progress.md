@@ -255,3 +255,11 @@
   starts one cap height below the parent's marker centre rather than at the child's fragment top.
   Measured: guide under a box at px 63–64 vs box centre 62.5; under `1.` 57–58 vs ~58; start at 37%
   of the row pitch below the parent's centre against Obsidian's 38%.
+- 2026-09-12 — [list-editing](plan-list-editing.md): two ⇧↵ bugs. `isContinuation` rejected
+  whitespace-only lines, so the line ⇧↵ had just written rendered as plain spaces — caret at the
+  bullet column on nested items, jumping to the content column on the first keystroke. It now
+  counts any line whose whitespace reaches the column; `continuedItem` lets whitespace-only lines
+  sit in a chain too (an empty line still ends it). `continuationLine` only knew items, so ⇧↵ on a
+  continuation line was a plain newline; it now resolves the line's item. 364 tests. On screen:
+  caret at x=141px after ⇧↵ under a depth-2 item, same as its text; ⇧↵ ⇧↵ chains. Driver gotcha
+  #2: confirm the panel frame before typing — keystrokes with no panel land in whatever is key.

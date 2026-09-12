@@ -70,6 +70,7 @@ Asked for after the first pass landed.
 - [x] Task box drawn at the text's ascender — `NotesLayoutManager.taskBoxSide`, `drawTaskBox`, `styleLists`
 - [x] Arrow cursor over a box — `NotesTextView.mouseMoved`, `cursorUpdate`, `taskBoxIndex`
 - [x] Indent guides — `SmartEditing.guideDepth`, `ancestors`, `NotesLayoutManager.drawGuides`
+- [x] ⇧↵ fixes: a fresh whitespace-only line styles as the continuation it is; ⇧↵ works from a continuation line — `isContinuation`, `continuationLine`
 
 ## Verification
 

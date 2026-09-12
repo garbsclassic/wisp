@@ -265,19 +265,32 @@ public enum SmartEditing {
     /// Nil off a list line or with the caret before the content.
     public static func continuationLine(in text: NSString, cursor: Int) -> String? {
         let line = LineEdits.lineRange(in: text, at: cursor)
-        guard let item = listItem(lineRange: line, in: text), cursor >= item.contentStart else {
+        let item: ListItem
+        let itemLine: NSRange
+        if let own = listItem(lineRange: line, in: text) {
+            guard cursor >= own.contentStart else { return nil }
+            (item, itemLine) = (own, line)
+        } else if let continued = continuedItem(lineRange: line, in: text) {
+            // On a continuation line the caret has to be past the
+            // whitespace, the same as being past an item's marker.
+            guard cursor >= line.location + leadingIndent(of: text.substring(with: line)).utf16.count
+            else { return nil }
+            (item, itemLine) = continued
+        } else {
             return nil
         }
         let indent = text.substring(
-            with: NSRange(location: line.location, length: item.indentWidth))
-        let markerColumns = item.contentStart - line.location - item.indentWidth
+            with: NSRange(location: itemLine.location, length: item.indentWidth))
+        let markerColumns = item.contentStart - itemLine.location - item.indentWidth
         return "\n" + indent + String(repeating: " ", count: markerColumns)
     }
 
     /// Whether a non-list line is a continuation of the item above it:
-    /// its leading whitespace reaches the item's content column. Blank
-    /// lines don't count — whitespace with nothing after it is not a
-    /// paragraph.
+    /// its leading whitespace reaches the item's content column. Text
+    /// after the whitespace is not required — a whitespace-only line
+    /// that reaches the column is what ⇧↵ has just written, and it has
+    /// to be styled as the continuation it is about to become or the
+    /// caret sits at the wrong column until the first character lands.
     public static func isContinuation(
         lineRange: NSRange, in text: NSString, of item: ListItem, itemLine: NSRange
     ) -> Bool {
@@ -285,8 +298,7 @@ public enum SmartEditing {
         var index = lineRange.location
         let end = NSMaxRange(lineRange)
         while index < end, isSpaceOrTab(text.character(at: index)) { index += 1 }
-        guard index - lineRange.location >= contentColumn, index < end else { return false }
-        return text.character(at: index) != 0x0A
+        return index - lineRange.location >= contentColumn
     }
 
     /// The item a continuation line belongs to: walking up over any
@@ -305,10 +317,9 @@ public enum SmartEditing {
                 return isContinuation(lineRange: lineRange, in: text, of: item, itemLine: line)
                     ? (item, line) : nil
             }
-            // Only whitespace-led, non-blank lines can sit between an
-            // item and its continuation.
-            guard line.length > 0, isSpaceOrTab(text.character(at: line.location)),
-                  text.substring(with: line).trimmingCharacters(in: .whitespacesAndNewlines) != ""
+            // Only whitespace-led lines can sit between an item and its
+            // continuation; an empty line ends the item.
+            guard line.length > 0, isSpaceOrTab(text.character(at: line.location))
             else { return nil }
             cursor = line.location
         }

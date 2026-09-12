@@ -595,6 +595,22 @@ struct ContinuationLineTests {
         #expect(line("  - item", cursor: 8) == "\n    ")
     }
 
+    @Test("On a continuation line, the same padding as the item it belongs to")
+    func fromContinuationLine() {
+        #expect(line("  - item\n    more", cursor: 17) == "\n    ")
+        #expect(line("- [ ] task\n      more", cursor: 21) == "\n      ")
+    }
+
+    @Test("On a fresh, whitespace-only continuation line the caret is already past the whitespace")
+    func fromFreshContinuationLine() {
+        #expect(line("- item\n  ", cursor: 9) == "\n  ")
+    }
+
+    @Test("Inside a continuation line's whitespace, this is not the edit")
+    func insideContinuationWhitespace() {
+        #expect(line("  - item\n    more", cursor: 11) == nil)
+    }
+
     @Test("A tab indent is copied verbatim, only the marker's width is spaces")
     func tabIndent() {
         #expect(line("\t- item", cursor: 7) == "\n\t  ")
@@ -654,9 +670,11 @@ struct IsContinuationTests {
         #expect(check("  - item\n    more\n"))
     }
 
-    @Test("A whitespace-only line is not a continuation")
+    @Test("A whitespace-only line reaching the column is a continuation — it is what ⇧↵ writes")
     func whitespaceOnly() {
-        #expect(!check("- item\n  \n"))
+        #expect(check("- item\n  \n"))
+        #expect(check("- item\n  "))
+        #expect(!check("- item\n \n"))
     }
 }
 
