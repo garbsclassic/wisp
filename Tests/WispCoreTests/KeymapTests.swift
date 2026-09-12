@@ -31,6 +31,12 @@ struct KeymapTests {
         #expect(Set(all).count == all.count)
     }
 
+    @Test("Toggling a task item and toggling a bulleted list keep their dedicated defaults")
+    func taskAndBulletedListDefaults() {
+        #expect(KeymapAction.toggleTaskItem.defaultChords == "cmd+shift+l")
+        #expect(KeymapAction.toggleBulletedList.defaultChords == "cmd+l")
+    }
+
     @Test("A partial keymap object keeps the defaults for everything else")
     func partialOverlay() throws {
         let config = try decode(#"{ "keymap": { "bold": "cmd+shift+b" } }"#)

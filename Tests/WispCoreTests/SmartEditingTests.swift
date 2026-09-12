@@ -352,3 +352,335 @@ struct NewlineBeforeItemTests {
         #expect(result?.1 == 6)
     }
 }
+
+@Suite("SmartEditing: next list marker")
+struct NextListMarkerTests {
+    @Test("A task's next box is always unchecked, whichever way this one goes")
+    func taskAlwaysUnchecked() {
+        #expect(SmartEditing.nextListMarker(for: "- [ ] foo") == "- [ ] ")
+        #expect(SmartEditing.nextListMarker(for: "- [x] foo") == "- [ ] ")
+        #expect(SmartEditing.nextListMarker(for: "  * [X] foo") == "  * [ ] ")
+    }
+
+    @Test("An empty task line signals exit rather than continuing")
+    func emptyTaskExits() {
+        #expect(SmartEditing.nextListMarker(for: "- [ ] ") == "")
+    }
+
+    @Test("A box with nothing after it is a bullet whose content is the box")
+    func unfinishedBoxIsPlainBullet() {
+        #expect(SmartEditing.nextListMarker(for: "- [ ]") == "- ")
+    }
+}
+
+@Suite("SmartEditing: task items")
+struct TaskListItemTests {
+    private func parse(_ line: String) -> SmartEditing.ListItem? {
+        let ns = line as NSString
+        return SmartEditing.listItem(
+            lineRange: NSRange(location: 0, length: ns.length), in: ns)
+    }
+
+    @Test("An unchecked task")
+    func unchecked() {
+        let item = parse("- [ ] foo")
+        #expect(item?.marker == .task(checked: false))
+        #expect(item?.markerRange == NSRange(location: 0, length: 5))
+        #expect(item?.contentStart == 6)
+        #expect(item?.indentWidth == 0)
+    }
+
+    @Test("An indented, checked task")
+    func indentedChecked() {
+        let item = parse("  - [x] foo")
+        #expect(item?.marker == .task(checked: true))
+        #expect(item?.markerRange == NSRange(location: 2, length: 5))
+        #expect(item?.contentStart == 8)
+        #expect(item?.indentWidth == 2)
+    }
+
+    @Test("An uppercase X checks the box too")
+    func uppercaseChecked() {
+        #expect(parse("- [X] foo")?.marker == .task(checked: true))
+    }
+
+    @Test("A box with no space after it is a plain bullet, box included in content")
+    func boxWithNoTrailingSpace() {
+        let item = parse("- [ ]foo")
+        #expect(item?.marker == .bullet)
+        #expect(item?.contentStart == 2)
+    }
+
+    @Test("A box alone at the end of the line is a plain bullet")
+    func boxAloneAtEndOfLine() {
+        let item = parse("- [ ]")
+        #expect(item?.marker == .bullet)
+        #expect(item?.contentStart == 2)
+    }
+
+    @Test("An invalid box character is not a task")
+    func invalidBoxCharacter() {
+        #expect(parse("- [y] foo")?.marker == .bullet)
+    }
+
+    @Test("Only bullets get boxes — an ordered marker with brackets is still ordered")
+    func orderedWithBracketsStaysOrdered() {
+        #expect(parse("1. [ ] foo")?.marker == .ordered)
+    }
+
+    @Test("The task state index is the character inside the box")
+    func taskStateIndex() {
+        #expect(parse("- [x] foo")?.taskStateIndex == 3)
+        #expect(parse("- foo")?.taskStateIndex == nil)
+    }
+
+    @Test("isTask is true only for the task case")
+    func isTask() {
+        #expect(parse("- [ ] foo")?.marker.isTask == true)
+        #expect(parse("- foo")?.marker.isTask == false)
+        #expect(parse("1. foo")?.marker.isTask == false)
+    }
+
+    @Test("A task's glyph comes from SmartEditing.taskGlyph, unaffected by depth")
+    func glyph() {
+        #expect(parse("- [ ] foo")?.glyph(indentWidth: 2) == SmartEditing.taskGlyph(checked: false))
+        #expect(parse("- [x] foo")?.glyph(indentWidth: 2) == SmartEditing.taskGlyph(checked: true))
+        #expect(parse("- foo")?.glyph(indentWidth: 2) == "•")
+        #expect(parse("1. foo")?.glyph(indentWidth: 2) == nil)
+    }
+}
+
+@Suite("SmartEditing: backspace at item start")
+struct BackspaceAtItemStartTests {
+    private func edit(_ text: String, cursor: Int) -> LineEdits.Edit? {
+        SmartEditing.backspaceAtItemStart(in: text as NSString, cursor: cursor)
+    }
+
+    private func applied(_ text: String, cursor: Int) -> (String, NSRange)? {
+        guard let e = edit(text, cursor: cursor) else { return nil }
+        let ns = NSMutableString(string: text)
+        ns.replaceCharacters(in: e.range, with: e.replacement)
+        return (ns as String, e.selection)
+    }
+
+    @Test("A bullet's marker and following space are removed")
+    func bullet() {
+        let result = applied("- item", cursor: 2)
+        #expect(result?.0 == "item")
+        #expect(result?.1 == NSRange(location: 0, length: 0))
+    }
+
+    @Test("The indent survives, only the marker goes")
+    func indentedBullet() {
+        let result = applied("  - item", cursor: 4)
+        #expect(result?.0 == "  item")
+        #expect(result?.1 == NSRange(location: 2, length: 0))
+    }
+
+    @Test("A task's whole marker, box included, is removed")
+    func task() {
+        let result = applied("- [ ] item", cursor: 6)
+        #expect(result?.0 == "item")
+        #expect(result?.1 == NSRange(location: 0, length: 0))
+    }
+
+    @Test("An ordered marker is removed the same way")
+    func ordered() {
+        let result = applied("3. item", cursor: 3)
+        #expect(result?.0 == "item")
+    }
+
+    @Test("Anywhere else on the line, this is not the edit", arguments: [0, 1, 4])
+    func elsewhereOnLine(cursor: Int) {
+        #expect(edit("- item", cursor: cursor) == nil)
+    }
+
+    @Test("A non-list line yields nil")
+    func nonList() {
+        #expect(edit("plain text", cursor: 3) == nil)
+    }
+
+    @Test("Offsets are document-absolute on a later line")
+    func laterLine() {
+        let result = applied("para\n  - item\n", cursor: 9)
+        #expect(result?.0 == "para\n  item\n")
+        #expect(result?.1 == NSRange(location: 7, length: 0))
+    }
+
+    @Test("An empty item is emptied entirely")
+    func emptyItem() {
+        let result = applied("- ", cursor: 2)
+        #expect(result?.0 == "")
+    }
+}
+
+@Suite("SmartEditing: outdented empty item")
+struct OutdentedEmptyItemTests {
+    @Test("A four-space indent under a two-space unit drops one level")
+    func fourUnderTwo() {
+        #expect(SmartEditing.outdentedEmptyItem("    - ", unit: "  ") == "  - ")
+    }
+
+    @Test("A two-space indent under a two-space unit reaches the margin")
+    func twoUnderTwo() {
+        #expect(SmartEditing.outdentedEmptyItem("  - ", unit: "  ") == "- ")
+    }
+
+    @Test("A flush-left item has nothing left to outdent")
+    func flushLeft() {
+        #expect(SmartEditing.outdentedEmptyItem("- ", unit: "  ") == nil)
+    }
+
+    @Test("A leading tab is removed whole, regardless of the configured unit")
+    func leadingTab() {
+        #expect(SmartEditing.outdentedEmptyItem("\t- ", unit: "\t") == "- ")
+    }
+
+    @Test("Only one tab comes off a doubly-nested tab-indented item")
+    func onlyOneTabComesOff() {
+        #expect(SmartEditing.outdentedEmptyItem("\t\t1. ", unit: "\t") == "\t1. ")
+    }
+
+    @Test("Fewer spaces than the unit removes only what is actually there")
+    func fewerSpacesThanUnit() {
+        #expect(SmartEditing.outdentedEmptyItem(" - ", unit: "  ") == "- ")
+    }
+
+    @Test("More spaces than the unit removes only the unit's width")
+    func moreSpacesThanUnit() {
+        #expect(SmartEditing.outdentedEmptyItem("  - ", unit: "    ") == "- ")
+    }
+}
+
+@Suite("SmartEditing: continuation line")
+struct ContinuationLineTests {
+    private func line(_ text: String, cursor: Int) -> String? {
+        SmartEditing.continuationLine(in: text as NSString, cursor: cursor)
+    }
+
+    @Test("A flush bullet pads out to the content column")
+    func flushBullet() {
+        #expect(line("- item", cursor: 6) == "\n  ")
+    }
+
+    @Test("At content start, the same padding applies")
+    func atContentStart() {
+        #expect(line("- item", cursor: 2) == "\n  ")
+    }
+
+    @Test("Before the content, this is not the edit")
+    func beforeContent() {
+        #expect(line("- item", cursor: 1) == nil)
+    }
+
+    @Test("An indented bullet's indent is copied, then padded for the marker")
+    func indentedBullet() {
+        #expect(line("  - item", cursor: 8) == "\n    ")
+    }
+
+    @Test("A tab indent is copied verbatim, only the marker's width is spaces")
+    func tabIndent() {
+        #expect(line("\t- item", cursor: 7) == "\n\t  ")
+    }
+
+    @Test("A two-digit ordered marker pads to its own width")
+    func orderedMarker() {
+        #expect(line("12. item", cursor: 8) == "\n    ")
+    }
+
+    @Test("A task's box counts toward the padding width")
+    func taskMarker() {
+        #expect(line("- [ ] item", cursor: 10) == "\n      ")
+    }
+
+    @Test("A non-list line yields nil")
+    func nonList() {
+        #expect(line("plain text", cursor: 3) == nil)
+    }
+}
+
+@Suite("SmartEditing: is continuation")
+struct IsContinuationTests {
+    private func check(_ text: String) -> Bool {
+        let ns = text as NSString
+        let itemLine = ns.lineRange(for: NSRange(location: 0, length: 0))
+        guard let item = SmartEditing.listItem(lineRange: itemLine, in: ns) else {
+            fatalError("first line of \(text) is not a list item")
+        }
+        let secondLine = ns.lineRange(for: NSRange(location: NSMaxRange(itemLine), length: 0))
+        return SmartEditing.isContinuation(
+            lineRange: secondLine, in: ns, of: item, itemLine: itemLine)
+    }
+
+    @Test("Whitespace reaching the content column is a continuation")
+    func reachesColumn() {
+        #expect(check("- item\n  more\n"))
+    }
+
+    @Test("One space short of the column is not a continuation")
+    func shortOfColumn() {
+        #expect(!check("- item\n more\n"))
+    }
+
+    @Test("A blank line is never a continuation")
+    func blankLine() {
+        #expect(!check("- item\n\n"))
+    }
+
+    @Test("More whitespace than the column still counts")
+    func moreThanColumn() {
+        #expect(check("- item\n     deeper\n"))
+    }
+
+    @Test("An indented item's own, deeper column is honored")
+    func indentedItemColumn() {
+        #expect(check("  - item\n    more\n"))
+    }
+
+    @Test("A whitespace-only line is not a continuation")
+    func whitespaceOnly() {
+        #expect(!check("- item\n  \n"))
+    }
+}
+
+@Suite("SmartEditing: toggled task")
+struct ToggledTaskTests {
+    private func toggled(_ text: String, at index: Int, selection: NSRange = NSRange(location: 0, length: 0)) -> (String, NSRange)? {
+        guard let e = SmartEditing.toggledTask(in: text as NSString, lineAt: index, selection: selection)
+        else { return nil }
+        let ns = NSMutableString(string: text)
+        ns.replaceCharacters(in: e.range, with: e.replacement)
+        return (ns as String, e.selection)
+    }
+
+    @Test("Checking an unchecked task")
+    func check() {
+        #expect(toggled("- [ ] a", at: 0)?.0 == "- [x] a")
+    }
+
+    @Test("Unchecking a checked task")
+    func uncheck() {
+        #expect(toggled("- [x] a", at: 0)?.0 == "- [ ] a")
+    }
+
+    @Test("An uppercase checked box unchecks too")
+    func uncheckUppercase() {
+        #expect(toggled("- [X] a", at: 0)?.0 == "- [ ] a")
+    }
+
+    @Test("A bullet line has no box to toggle")
+    func bulletYieldsNil() {
+        #expect(toggled("- a", at: 0) == nil)
+    }
+
+    @Test("Works from any index on the line, not just its start")
+    func fromMidLine() {
+        #expect(toggled("- [ ] a", at: 6)?.0 == "- [x] a")
+    }
+
+    @Test("The selection passes through untouched")
+    func selectionUnchanged() {
+        let selection = NSRange(location: 6, length: 1)
+        #expect(toggled("- [ ] a", at: 0, selection: selection)?.1 == selection)
+    }
+}
