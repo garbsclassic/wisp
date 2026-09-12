@@ -138,6 +138,49 @@ final class NotesTextView: NSTextView {
         apply(LineEdits.toggleTaskItems(in: string as NSString, selection: selectedRange()))
     }
 
+    /// True while a hand-rolled edit is between its replacement and the
+    /// selection it sets. `textDidChange` fires in the middle of that,
+    /// when the selection is still the pre-edit one — the wrong thing to
+    /// shift by a renumber — so the delegate holds off and the edit
+    /// renumbers itself once its selection is in place. AppKit's own
+    /// edits (typing, ⌫, paste) have already moved the selection by the
+    /// time the delegate hears, and renumber straight from there.
+    private(set) var isApplyingEdit = false
+
+    /// Runs `body` as one hand-rolled edit: renumbering waits for the
+    /// selection it sets. The first call's ⌘Z takes back the whole thing
+    /// — the renumber lands in the same event, so the same undo group.
+    func performEdit(_ body: () -> Void) {
+        let wasApplying = isApplyingEdit
+        isApplyingEdit = true
+        body()
+        isApplyingEdit = wasApplying
+        if !wasApplying { renumberLists() }
+    }
+
+    /// Puts every ordered run back in sequence. Applied back to front so
+    /// earlier ranges stay valid. The caret shifts by whatever changed
+    /// width ahead of it. Re-entered through `didChangeText` while
+    /// applying; the flag makes that a no-op.
+    func renumberLists() {
+        guard !isApplyingEdit else { return }
+        let edits = SmartEditing.renumber(in: string as NSString)
+        guard !edits.isEmpty else { return }
+        isApplyingEdit = true
+        defer { isApplyingEdit = false }
+        var selection = selectedRange()
+        for edit in edits.reversed() {
+            guard replaceText(in: edit.range, with: edit.replacement) else { continue }
+            let delta = (edit.replacement as NSString).length - edit.range.length
+            if edit.range.location < selection.location {
+                selection.location += delta
+            } else if edit.range.location < NSMaxRange(selection) {
+                selection.length += delta
+            }
+        }
+        setSelectedRange(selection)
+    }
+
     /// ⌫ at the start of an item's text takes the marker off instead of
     /// the space after it. Everything else is `super`'s.
     override func deleteBackward(_ sender: Any?) {
@@ -292,10 +335,12 @@ final class NotesTextView: NSTextView {
     /// Runs one `LineEdits.Edit` through the delegate/undo bookkeeping and
     /// restores the selection it names.
     private func apply(_ edit: LineEdits.Edit) {
-        guard replaceText(in: edit.range, with: edit.replacement) else { return }
-        setSelectedRange(edit.selection)
-        // Hand-rolled edits bypass the keyDown path, so NSTextView's own
-        // "scroll the caret into view" never fires.
-        scrollRangeToVisible(edit.selection)
+        performEdit {
+            guard replaceText(in: edit.range, with: edit.replacement) else { return }
+            setSelectedRange(edit.selection)
+            // Hand-rolled edits bypass the keyDown path, so NSTextView's own
+            // "scroll the caret into view" never fires.
+            scrollRangeToVisible(edit.selection)
+        }
     }
 }

@@ -664,6 +664,9 @@ struct MinimalTextEditor: NSViewRepresentable {
             // Emoji shortcode replacement runs first — it may rewrite a
             // chunk of text, after which we restyle against the result.
             if !lastSourceView { EmojiReplace.replaceIfMatched(in: textView) }
+            // AppKit's own edits renumber from here; hand-rolled ones do it
+            // themselves once their selection is set (`performEdit`).
+            (textView as? NotesTextView)?.renumberLists()
 
             // Live-restyle: reset font, foreground, and paragraph style to
             // base across the storage, then re-apply the content passes.
@@ -812,11 +815,21 @@ struct MinimalTextEditor: NSViewRepresentable {
 
             if selection.length == 0,
                 let edit = SmartEditing.newlineBeforeItem(in: s, cursor: cursor) {
-                guard textView.replaceText(in: edit.range, with: edit.replacement) else {
-                    return true
-                }
-                textView.setSelectedRange(edit.selection)
-                textView.scrollRangeToVisible(edit.selection)
+                replace(in: textView, range: edit.range, with: edit.replacement)
+                return true
+            }
+
+            // ↵ on a continuation line starts the next item, at the depth
+            // and with the marker of the item the line belongs to.
+            if let continued = SmartEditing.continuedItem(lineRange: lineRange, in: s),
+                cursor >= lineRange.location + SmartEditing.leadingIndent(of: line).utf16.count,
+                let marker = SmartEditing.nextListMarker(
+                    for: s.substring(with: NSRange(
+                        location: continued.line.location,
+                        length: LineEdits.contentLength(of: continued.line, in: s)))),
+                !marker.isEmpty
+            {
+                replace(in: textView, range: selection, with: "\n" + marker)
                 return true
             }
 
@@ -878,15 +891,18 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
 
         private func replace(in textView: NSTextView, range: NSRange, with replacement: String) {
-            guard textView.replaceText(in: range, with: replacement) else { return }
-            let newCursor = range.location + (replacement as NSString).length
-            let newRange = NSRange(location: newCursor, length: 0)
-            textView.setSelectedRange(newRange)
-            // Hand-rolled edits bypass NSTextView's keyDown path, so its
-            // built-in "scroll caret into view" doesn't fire. Without
-            // this, hitting Enter at the bottom edge leaves the new
-            // line off-screen until the user scrolls manually.
-            textView.scrollRangeToVisible(newRange)
+            let body = {
+                guard textView.replaceText(in: range, with: replacement) else { return }
+                let newCursor = range.location + (replacement as NSString).length
+                let newRange = NSRange(location: newCursor, length: 0)
+                textView.setSelectedRange(newRange)
+                // Hand-rolled edits bypass NSTextView's keyDown path, so its
+                // built-in "scroll caret into view" doesn't fire. Without
+                // this, hitting Enter at the bottom edge leaves the new
+                // line off-screen until the user scrolls manually.
+                textView.scrollRangeToVisible(newRange)
+            }
+            if let notes = textView as? NotesTextView { notes.performEdit(body) } else { body() }
         }
     }
 }

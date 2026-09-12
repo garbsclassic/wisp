@@ -356,7 +356,7 @@ public enum LineEdits {
     }
 
     /// A line's length without its trailing newline.
-    private static func contentLength(of line: NSRange, in text: NSString) -> Int {
+    public static func contentLength(of line: NSRange, in text: NSString) -> Int {
         endsWithNewline(line, in: text) ? line.length - 1 : line.length
     }
 

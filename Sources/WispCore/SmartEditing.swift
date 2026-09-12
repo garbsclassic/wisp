@@ -283,6 +283,101 @@ public enum SmartEditing {
         return text.character(at: index) != 0x0A
     }
 
+    /// The item a continuation line belongs to: walking up over any
+    /// continuation lines, the first list item whose content column the
+    /// line's whitespace reaches. Nil when the line isn't a continuation
+    /// of anything. `nextListMarker` on the item's line is then what ↵
+    /// continues with.
+    public static func continuedItem(
+        lineRange: NSRange, in text: NSString
+    ) -> (item: ListItem, line: NSRange)? {
+        guard listItem(lineRange: lineRange, in: text) == nil else { return nil }
+        var cursor = lineRange.location
+        while cursor > 0 {
+            let line = LineEdits.lineRange(in: text, at: cursor - 1)
+            if let item = listItem(lineRange: line, in: text) {
+                return isContinuation(lineRange: lineRange, in: text, of: item, itemLine: line)
+                    ? (item, line) : nil
+            }
+            // Only whitespace-led, non-blank lines can sit between an
+            // item and its continuation.
+            guard line.length > 0, isSpaceOrTab(text.character(at: line.location)),
+                  text.substring(with: line).trimmingCharacters(in: .whitespacesAndNewlines) != ""
+            else { return nil }
+            cursor = line.location
+        }
+        return nil
+    }
+
+    /// Ordered markers put back in sequence. A run is consecutive items
+    /// at one indent with one kind of marker — `1.`, `A.`, or `a.` —
+    /// and the first item's value is kept, so a list can start at 3 or
+    /// at C. Deeper items, continuation lines, and any indented line
+    /// sit inside a run without breaking it; a blank line, a flush
+    /// non-list line, a bullet at the run's depth, or an item at a
+    /// shallower depth all end it. The result is the set of markers
+    /// that differ from what the sequence says, as pre-edit ranges.
+    public static func renumber(in text: NSString) -> [LineEdits.Edit] {
+        enum Kind { case digits, upper, lower }
+        struct Run { let kind: Kind; var next: Int }
+        var runs: [Int: Run] = [:]
+        var edits: [LineEdits.Edit] = []
+
+        var lineStart = 0
+        while lineStart < text.length {
+            let line = LineEdits.lineRange(in: text, at: lineStart)
+            defer { lineStart = NSMaxRange(line) }
+
+            guard let item = listItem(lineRange: line, in: text) else {
+                let blankOrFlush =
+                    line.length == 0 || !isSpaceOrTab(text.character(at: line.location))
+                    || text.substring(with: line)
+                        .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                if blankOrFlush { runs.removeAll() }
+                continue
+            }
+            for depth in runs.keys where depth > item.indentWidth { runs[depth] = nil }
+            guard item.marker == .ordered else {
+                runs[item.indentWidth] = nil
+                continue
+            }
+
+            let marker = text.substring(
+                with: NSRange(location: item.markerRange.location, length: item.markerRange.length - 1))
+            let kind: Kind
+            let value: Int
+            if let n = Int(marker) {
+                kind = .digits
+                value = n
+            } else if let c = marker.first?.asciiValue, marker.count == 1 {
+                kind = c >= 0x61 ? .lower : .upper
+                value = Int(c - (kind == .lower ? 0x61 : 0x41))
+            } else {
+                continue
+            }
+
+            guard let run = runs[item.indentWidth], run.kind == kind else {
+                runs[item.indentWidth] = Run(kind: kind, next: value + 1)
+                continue
+            }
+            let expected: String
+            switch kind {
+            case .digits: expected = String(run.next)
+            case .upper, .lower:
+                // Past Z there is nothing to count with; leave it as typed.
+                guard run.next < 26 else { runs[item.indentWidth] = nil; continue }
+                expected = String(UnicodeScalar(UInt8(run.next) + (kind == .lower ? 0x61 : 0x41)))
+            }
+            runs[item.indentWidth]!.next = run.next + 1
+            if expected != marker {
+                let range = NSRange(
+                    location: item.markerRange.location, length: item.markerRange.length - 1)
+                edits.append(LineEdits.Edit(range: range, replacement: expected, selection: range))
+            }
+        }
+        return edits
+    }
+
     /// Flips the box on the task line at `index`: `[ ]` to `[x]` or back.
     /// A one-character swap, so `selection` survives it untouched. Nil
     /// off a task line.
