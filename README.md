@@ -40,7 +40,7 @@ first leaves a dangling login item.
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic / Highlight** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`)
 - **Line editing** — ⌘D duplicates the line or selection; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
-- **⌥L** makes the line a bulleted list item, or unmakes it
+- **⌘L** makes the line a bulleted list item, or unmakes it
 - **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
 - **Menu bar icon** — left click for the menu, right click to summon the panel
 - **Launch at Login** — toggle in the menu bar menu
@@ -98,7 +98,7 @@ An action can take a list instead of a single chord, and every entry binds —
 | `bold` / `italic` / `highlight` / `underline` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+e` |
 | `toggleTheme`                             | `cmd+t` |
 | `sourceView`                                 | `cmd+return` |
-| `duplicateLine` / `toggleBulletedList`        | `cmd+d` / `opt+l` |
+| `duplicateLine` / `toggleBulletedList`        | `cmd+d` / `cmd+l` |
 | `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
 | `increaseFontScale` / `decreaseFontScale` / `resetFontScale` | `cmd+=` / `cmd+-` / `cmd+0` |
 

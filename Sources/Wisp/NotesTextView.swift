@@ -128,7 +128,7 @@ final class NotesTextView: NSTextView {
         apply(edit)
     }
 
-    /// ⌥L.
+    /// ⌘L.
     func toggleBulletedList() {
         apply(LineEdits.toggleBulletedList(in: string as NSString, selection: selectedRange()))
     }

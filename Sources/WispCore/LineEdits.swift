@@ -238,7 +238,7 @@ public enum LineEdits {
             selection: NSRange(location: blockStart + offset, length: selection.length))
     }
 
-    /// ⌥L. Makes every line the selection touches a bullet item, or strips
+    /// ⌘L. Makes every line the selection touches a bullet item, or strips
     /// the marker if they all already are.
     ///
     /// Mixed blocks become a list rather than losing their markers: "make

@@ -279,7 +279,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     ///
     /// Headings are parsed from the storage here rather than taken from
     /// `EditorModel.headings`. An edit made from inside `updateNSView` —
-    /// every token-driven one: ⌘D, ⌥L, ⌥↑/↓, the wrap toggles — reaches
+    /// every token-driven one: ⌘D, ⌘L, ⌥↑/↓, the wrap toggles — reaches
     /// `textDidChange` while SwiftUI is still mid-update, and a write to an
     /// `@ObservedObject` binding there is deferred, so the model's headings
     /// still describe the text from before the edit. Their offsets then
@@ -642,7 +642,7 @@ struct MinimalTextEditor: NSViewRepresentable {
             // alone, which cannot tell a keystroke from a programmatic
             // replace. Every hand-rolled edit in the app re-enters this
             // delegate with whatever text it is putting back, and plenty of
-            // those are one character: ⌥L unsetting `- *` puts back `*`,
+            // those are one character: ⌘L unsetting `- *` puts back `*`,
             // ⌘E unwrapping `` `*` `` puts back `*`, and AppKit's own undo
             // restores exactly the character you replaced. Each was being
             // wrapped instead of applied.

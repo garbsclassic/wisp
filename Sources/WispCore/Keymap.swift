@@ -124,7 +124,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .underline: return "cmd+u"
         case .code: return "cmd+e"
         case .duplicateLine: return "cmd+d"
-        case .toggleBulletedList: return "opt+l"
+        case .toggleBulletedList: return "cmd+l"
         case .moveLineUp: return "opt+up"
         case .moveLineDown: return "opt+down"
         case .increaseFontScale: return "cmd+="
