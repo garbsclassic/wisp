@@ -187,12 +187,20 @@ final class NotesTextView: NSTextView {
     }
 
     /// ⌫ at the start of an item's text takes the marker off instead of
-    /// the space after it. Everything else is `super`'s.
+    /// the space after it, and ⌫ inside a line's leading indent takes a
+    /// level off instead of a character. The two can't both match — one
+    /// needs a marker before the caret, the other only whitespace.
+    /// Everything else is `super`'s.
     override func deleteBackward(_ sender: Any?) {
         let selection = selectedRange()
+        let text = string as NSString
         if selection.length == 0,
-            let edit = SmartEditing.backspaceAtItemStart(
-                in: string as NSString, cursor: selection.location) {
+            let edit = SmartEditing.backspaceAtItemStart(in: text, cursor: selection.location) {
+            apply(edit)
+            return
+        }
+        if let edit = LineEdits.backspaceInIndent(
+            in: text, selection: selection, unit: indentUnit) {
             apply(edit)
             return
         }

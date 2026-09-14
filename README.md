@@ -35,7 +35,7 @@ first leaves a dangling login item.
 - **⌃⌥.** to summon from anywhere (rebindable)
 - **Light / dark / system** appearance — one-click cycle, follows macOS by default
 - **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
-- **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item; ⌫ at the start of the text takes the marker off; ↵ on an empty nested item steps out a level; ⇧↵ continues an item on a new line
+- **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item, and ⌫ inside the indent un-nests too; ⌫ at the start of the text takes the marker off; ↵ on an empty nested item steps out a level; ⇧↵ continues an item on a new line
 - **Task lists** — `- [ ]` renders as a checkbox; click it, or ⌘⇧L, to check it off
 - **Headings** — `#` through `######` render bold, each level its own colour; the header strip lists `#` and `##` for click-to-jump, and ⌃⇧↑ / ⌃⇧↓ walk every level
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more

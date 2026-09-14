@@ -187,6 +187,42 @@ public enum LineEdits {
             selection: NSRange(location: range.location, length: 0))
     }
 
+    /// ⌫ with a bare cursor and nothing but whitespace between it and the
+    /// line start: one indent level comes off, not one character. Obsidian's
+    /// behaviour, and the one that makes ⇥ ⌫ a round trip at the head of a
+    /// line. Nil anywhere else, so the caller falls through to a plain
+    /// delete.
+    ///
+    /// The mirror image of `outdentAtCursor`: that one wants the whitespace
+    /// run to stop short of the line start, this one wants it to reach it.
+    public static func backspaceInIndent(
+        in text: NSString, selection: NSRange, unit: String
+    ) -> Edit? {
+        guard selection.length == 0 else { return nil }
+        let cursor = max(0, min(selection.location, text.length))
+        let line = lineRange(in: text, at: cursor)
+        guard cursor > line.location else { return nil }
+        for index in line.location..<cursor where !isSpaceOrTab(text.character(at: index)) {
+            return nil
+        }
+
+        let removed: Int
+        if text.character(at: cursor - 1) == tab {
+            removed = 1
+        } else {
+            var spaces = 0
+            while cursor - spaces - 1 >= line.location,
+                text.character(at: cursor - spaces - 1) == space {
+                spaces += 1
+            }
+            removed = min(spaces, (unit as NSString).length)
+        }
+        let range = NSRange(location: cursor - removed, length: removed)
+        return Edit(
+            range: range, replacement: "",
+            selection: NSRange(location: range.location, length: 0))
+    }
+
     // MARK: Move and toggle
 
     /// ⌥↑ / ⌥↓. Swaps the block of lines the selection touches with its
