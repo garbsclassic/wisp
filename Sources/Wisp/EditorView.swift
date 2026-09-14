@@ -573,7 +573,7 @@ struct EditorView: View {
                         isSourceView: model.isSourceView
                     )
                     .padding(.horizontal, 24)
-                    .padding(.top, barHeadings.isEmpty ? 26 : 2)
+                    .padding(.top, barHeadings.isEmpty ? 24 : 4)
                     .padding(.bottom, 4)
                     if model.text.isEmpty {
                         Text(model.placeholder)

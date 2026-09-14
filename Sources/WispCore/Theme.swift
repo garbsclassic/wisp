@@ -220,7 +220,7 @@ public enum Metrics {
     /// is `level - 1`.
     public static let headingRatios: [CGFloat] = [1.08, 1.06, 1.04, 1.02, 1, 0.98]
     /// Generous leading — this is a writing surface, not a dense list.
-    public static let bodyLineHeightMultiple: CGFloat = 1.35
+    public static let bodyLineHeightMultiple: CGFloat = 1.40
 
     // MARK: Chrome
 
