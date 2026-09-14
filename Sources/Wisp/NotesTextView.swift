@@ -16,6 +16,22 @@ final class NotesTextView: NSTextView {
     /// writes what `indent.style` and `indent.size` currently say.
     var indentUnit: String = Indent().unit
 
+    /// How the caret moves and blinks. Applied on the next reposition.
+    var caretStyle: Caret {
+        get { caret.style }
+        set {
+            caret.style = newValue
+            refreshCaret(animated: false)
+        }
+    }
+
+    private let caret = CaretLayer()
+
+    /// Text length at the last caret update. A move that arrives with a
+    /// change here is an edit — typing, ⌫, paste, undo — and places the
+    /// caret without animating, so nothing ever lags a keystroke.
+    private var lengthAtLastCaretUpdate = 0
+
     /// Builds the whole scroll view / storage / layout manager / container
     /// stack. The pieces have to be assembled in this order — a container
     /// added to a layout manager that isn't yet attached to storage lays
@@ -41,6 +57,56 @@ final class NotesTextView: NSTextView {
         let scrollView = NSScrollView()
         scrollView.documentView = textView
         return (scrollView, textView)
+    }
+
+    // MARK: Caret
+
+    /// AppKit's own caret is switched off in favour of `CaretLayer`.
+    /// Returning false here is what stops the blink timer; the empty
+    /// `drawInsertionPoint` covers the draw call in case it is made anyway.
+    override var shouldDrawInsertionPoint: Bool { false }
+
+    override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {}
+
+    /// AppKit calls this wherever its caret would move or repaint —
+    /// selection, focus, key window, and text changes — which makes it the
+    /// one hook the overlay needs.
+    override func updateInsertionPointStateAndRestartTimer(_ restartFlag: Bool) {
+        super.updateInsertionPointStateAndRestartTimer(restartFlag)
+        refreshCaret(animated: true)
+    }
+
+    /// A reflow moves the caret without any selection change.
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        refreshCaret(animated: false)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        refreshCaret(animated: false)
+    }
+
+    private func refreshCaret(animated: Bool) {
+        let length = (string as NSString).length
+        let edited = length != lengthAtLastCaretUpdate
+        lengthAtLastCaretUpdate = length
+
+        // `super` is AppKit's verdict — first responder, key window, no
+        // selection — untouched by the override above.
+        guard super.shouldDrawInsertionPoint, let window else {
+            caret.update(to: nil, color: insertionPointColor, animated: false)
+            return
+        }
+        if caret.layer.superlayer !== layer {
+            wantsLayer = true
+            layer?.addSublayer(caret.layer)
+        }
+        // The `NSTextInputClient` contract: an empty range yields the
+        // insertion point, the same rect the IME candidate window keys off.
+        let onScreen = firstRect(forCharacterRange: selectedRange(), actualRange: nil)
+        let rect = convert(window.convertFromScreen(onScreen), from: nil)
+        caret.update(to: rect, color: insertionPointColor, animated: animated && !edited)
     }
 
     // MARK: Whole-line copy, cut, and paste

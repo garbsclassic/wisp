@@ -171,6 +171,45 @@ public struct Indent: Codable, Equatable, Sendable {
     }
 }
 
+/// How the caret gets from where it was to where it is going.
+public enum CaretMotion: String, Codable, CaseIterable, Sendable {
+    /// Lands almost at once and settles — most of the distance in the
+    /// first third of a short animation, then a soft stop.
+    case snappy
+    /// The slower slide that makes a jump easy to follow with the eye.
+    case gliding
+    /// The stock teleport.
+    case off
+}
+
+/// The caret's animation: how it moves, and whether it blinks.
+///
+/// Drawn by `NotesTextView` as a Core Animation layer rather than by
+/// AppKit, so both the move and the fade run on the render server.
+public struct Caret: Codable, Equatable, Sendable {
+    public var motion: CaretMotion
+    /// A fade in and out rather than the stock on/off. Off leaves the
+    /// caret solid.
+    public var blink: Bool
+
+    public init(motion: CaretMotion = .snappy, blink: Bool = true) {
+        self.motion = motion
+        self.blink = blink
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let diagnostics = decoder.configDiagnostics
+        let defaults = Caret()
+        motion = container.lenientValue(
+            forKey: .motion, default: defaults.motion, diagnostics: diagnostics,
+            pathPrefix: "caret.")
+        blink = container.lenientValue(
+            forKey: .blink, default: defaults.blink, diagnostics: diagnostics,
+            pathPrefix: "caret.")
+    }
+}
+
 /// Where the panel opens.
 public enum PanelPosition: String, Codable, CaseIterable, Sendable {
     /// Centred horizontally, top edge a tenth of the way down the screen.
@@ -272,6 +311,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
     public var keymap: Keymap
     /// What the Tab key writes, and the step smart list indentation moves by.
     public var indent: Indent
+    /// How the caret moves and blinks.
+    public var caret: Caret
     /// Absent until the panel has been shown and hidden once.
     public var panel: PanelFrame?
 
@@ -288,6 +329,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         scratchpadPath: String = "",
         keymap: Keymap = Keymap(),
         indent: Indent = Indent(),
+        caret: Caret = Caret(),
         panel: PanelFrame? = nil
     ) {
         self.theme = theme
@@ -302,6 +344,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.scratchpadPath = scratchpadPath
         self.keymap = keymap
         self.indent = indent
+        self.caret = caret
         self.panel = panel
     }
 
@@ -338,6 +381,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .keymap, default: defaults.keymap, diagnostics: diagnostics)
         indent = container.lenientValue(
             forKey: .indent, default: defaults.indent, diagnostics: diagnostics)
+        caret = container.lenientValue(
+            forKey: .caret, default: defaults.caret, diagnostics: diagnostics)
         // `T` is `PanelFrame?` here, so a missing key and an explicit null
         // both land on "no remembered frame".
         panel = container.lenientValue(

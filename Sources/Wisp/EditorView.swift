@@ -556,6 +556,7 @@ struct EditorView: View {
                             ? NSRange(location: 0, length: 0) : model.findHighlightRange,
                         fontScale: model.fontScale,
                         indent: model.settings.config.indent,
+                        caret: model.settings.config.caret,
                         theme: model.theme,
                         isSourceView: model.isSourceView
                     )

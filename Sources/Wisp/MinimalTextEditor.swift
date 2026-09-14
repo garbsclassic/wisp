@@ -40,6 +40,9 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// left the body at its old size until the next keystroke restyled it.
     var fontScale: Double
     var indent: Indent
+    /// Applied on the text view directly; no restyle, since it changes
+    /// nothing in the storage.
+    var caret: Caret
     var theme: Theme
     /// ⌘↩. Every styling pass is skipped and the body is set in the code
     /// face, so the screen shows the file. Compared in `updateNSView` like
@@ -72,6 +75,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         textView.textContainerInset = .zero
         textView.textContainer?.lineFragmentPadding = 0
         textView.indentUnit = indent.unit
+        textView.caretStyle = caret
         textView.string = text
 
         Self.applyPalette(
@@ -108,6 +112,9 @@ struct MinimalTextEditor: NSViewRepresentable {
             context.coordinator.lastSourceView = isSourceView
             textView.indentUnit = indent.unit
             restyle(textView)
+        }
+        if textView.caretStyle != caret {
+            textView.caretStyle = caret
         }
         if context.coordinator.lastTheme != theme {
             context.coordinator.lastTheme = theme

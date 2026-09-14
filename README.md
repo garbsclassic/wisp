@@ -74,6 +74,8 @@ ignored.
 | `defaultFontScale`      | `1.0`                     | What ⌘0 resets `fontScale` to                                                                                                |
 | `indent.style`          | `"spaces"`                | `spaces` or `tabs` — what Tab writes                                                                                         |
 | `indent.size`           | `2`                       | Spaces per level. Ignored under `tabs`                                                                                       |
+| `caret.motion`          | `"snappy"`                | How the caret travels: `snappy` lands at once and settles, `gliding` slides, `off` teleports. Reduce Motion forces `off`     |
+| `caret.blink`           | `true`                    | Fade the caret in and out while idle; `false` keeps it solid                                                                 |
 | `vibrancy`              | `true`                    | Blurs whatever is behind the panel                                                                                           |
 | `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on                                                                        |
 | `dismissOnOutsideClick` | `true`                    | Clicking another app dismisses the panel                                                                                        |
