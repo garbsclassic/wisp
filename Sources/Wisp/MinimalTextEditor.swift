@@ -299,35 +299,35 @@ struct MinimalTextEditor: NSViewRepresentable {
         let marks = Escapes.scan(storage.string)
         styleHorizontalRules(in: storage)
         styleLists(in: storage, baseFont: baseFont, indent: indent, palette: palette)
-        styleHeadings(in: storage, baseFont: baseFont, headings: storage.string.extractHeadings())
+        styleHeadings(
+            in: storage, baseFont: baseFont, palette: palette,
+            headings: storage.string.extractHeadings())
         styleInlineMarkup(in: storage, baseFont: baseFont, palette: palette, marks: marks)
     }
 
-    /// Apply bold + scaled font to lines that begin with a markdown heading
-    /// marker (`#` through `######`). Plain text on disk; this is just a
-    /// per-range font attribute so the heading reads as a section title
-    /// without leaving plain-text mode.
-    private static func styleHeadings(in storage: NSTextStorage, baseFont: NSFont, headings: [Heading]) {
+    /// Apply bold, a per-level size, and a per-level colour to lines that
+    /// begin with a markdown heading marker (`#` through `######`). Plain
+    /// text on disk; these are per-range attributes so the heading reads as
+    /// a section title without leaving plain-text mode.
+    private static func styleHeadings(
+        in storage: NSTextStorage, baseFont: NSFont, palette: Palette, headings: [Heading]
+    ) {
         let ns = storage.string as NSString
         for heading in headings {
             let font = headingFont(level: heading.level, baseFont: baseFont)
+            let color = palette.headings[heading.level - 1]
             var styleRange = ns.lineRange(for: NSRange(location: heading.lineStart, length: 0))
             if styleRange.length > 0,
                ns.character(at: styleRange.location + styleRange.length - 1) == 0x0A {
                 styleRange.length -= 1
             }
             storage.addAttribute(.font, value: font, range: styleRange)
+            storage.addAttribute(.foregroundColor, value: color, range: styleRange)
         }
     }
 
     private static func headingFont(level: Int, baseFont: NSFont) -> NSFont {
-        let baseSize = baseFont.pointSize
-        let scaledSize: CGFloat
-        switch level {
-        case 1: scaledSize = baseSize * Metrics.headingLevel1Ratio
-        case 2: scaledSize = baseSize * Metrics.headingLevel2Ratio
-        default: scaledSize = baseSize
-        }
+        let scaledSize = baseFont.pointSize * Metrics.headingRatios[level - 1]
         let boldDescriptor = baseFont.fontDescriptor.withSymbolicTraits(.bold)
         return NSFont(descriptor: boldDescriptor, size: scaledSize) ?? baseFont
     }

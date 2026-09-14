@@ -94,6 +94,11 @@ public struct Palette {
     /// survivable because only the *current* find match is painted and
     /// the view scrolls to it.
     public let highlight: NSColor
+    /// One colour per heading level, `#` first: red, orange, yellow, green,
+    /// blue, purple. Flexoki's own hue ramp in both themes — the 400s on
+    /// dark and the 600s on light — since Modernist has only green and
+    /// blue and the light `danger` already borrows Flexoki red-600.
+    public let headings: [NSColor]
 
     public static func `for`(_ theme: Theme) -> Palette {
         switch theme {
@@ -113,7 +118,11 @@ public struct Palette {
                 border: rgb(0xCECDC3, 0.10),
                 selection: rgb(0x3AA99F, 0.20),
                 findHighlight: rgb(0xD0A215, 0.38),
-                highlight: rgb(0xD0A215, 0.24)
+                highlight: rgb(0xD0A215, 0.24),
+                headings: [
+                    rgb(0xD14D41), rgb(0xDA702C), rgb(0xD0A215),
+                    rgb(0x879A39), rgb(0x4385BE), rgb(0x8B7EC8),
+                ]
             )
         case .light:
             // Modernist Light — near-black ink on warm paper, vermilion
@@ -132,7 +141,11 @@ public struct Palette {
                 border: rgb(0x201E1D, 0.12),
                 selection: rgb(0xEC3013, 0.14),
                 findHighlight: rgb(0xD0A215, 0.50),
-                highlight: rgb(0xD0A215, 0.34)
+                highlight: rgb(0xD0A215, 0.34),
+                headings: [
+                    rgb(0xAF3029), rgb(0xBC5215), rgb(0xAD8301),
+                    rgb(0x66800B), rgb(0x205EA6), rgb(0x5E409D),
+                ]
             )
         }
     }
@@ -200,11 +213,11 @@ public enum Metrics {
     /// three-step enum and the continuous scale were merged into one
     /// control, so a default config renders exactly as it used to.
     public static let bodySize: CGFloat = 15
-    /// `#` and `##` step up off the body; `###` and below are bold at
-    /// body size, which is enough to read as a heading without a
-    /// six-level ramp that runs out of headroom.
-    public static let headingLevel1Ratio: CGFloat = 1.08
-    public static let headingLevel2Ratio: CGFloat = 1.04
+    /// Every heading level steps up off the body, one point of scale per
+    /// level, `#` first. Deliberately shallow: the ramp is there to be
+    /// felt rather than seen, and `Palette.headings` carries the tier a
+    /// reader actually keys on. Index is `level - 1`.
+    public static let headingRatios: [CGFloat] = [1.06, 1.05, 1.04, 1.03, 1.02, 1.01]
     /// Generous leading — this is a writing surface, not a dense list.
     public static let bodyLineHeightMultiple: CGFloat = 1.35
 

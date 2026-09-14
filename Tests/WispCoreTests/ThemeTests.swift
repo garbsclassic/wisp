@@ -69,10 +69,19 @@ struct MetricsTests {
             == Metrics.fontScaleRange.lowerBound)
     }
 
-    @Test("Headings step up off the body, largest first")
+    @Test("Six heading levels, every one above body size, strictly shrinking")
     func headingRatios() {
-        #expect(Metrics.headingLevel1Ratio > Metrics.headingLevel2Ratio)
-        #expect(Metrics.headingLevel2Ratio > 1)
+        let ratios = Metrics.headingRatios
+        #expect(ratios.count == 6)
+        #expect(ratios.allSatisfy { $0 > 1 })
+        #expect(zip(ratios, ratios.dropFirst()).allSatisfy { $0 > $1 })
+    }
+
+    @Test("Each theme colours all six heading levels distinctly", arguments: Theme.allCases)
+    func headingColors(theme: Theme) {
+        let colors = Palette.for(theme).headings
+        #expect(colors.count == Metrics.headingRatios.count)
+        #expect(Set(colors.map(\.description)).count == colors.count)
     }
 }
 
