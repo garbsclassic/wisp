@@ -39,7 +39,7 @@ first leaves a dangling login item.
 - **Task lists** — `- [ ]` renders as a checkbox; click it, or ⌘⇧L, to check it off
 - **Headings** — `#`, `##`, `###` render styled with click-to-jump navigation
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
-- **Bold / Italic / Highlight** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`)
+- **Bold / Italic / Highlight / Strikethrough** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`), ⌘⇧S (`~~text~~`)
 - **Line editing** — ⌘D duplicates the line or selection; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
 - **⌘L** makes the line a bulleted list item, or unmakes it; **⌘⇧L** makes it a task, or checks it off
 - **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
@@ -96,7 +96,7 @@ An action can take a list instead of a single chord, and every entry binds —
 | `find` / `settings` / `refresh`           | `cmd+f` / `cmd+,` / `cmd+r` |
 | `reveal`                              | `opt+cmd+r` |
 | `help`                                    | `["f1", "cmd+/"]` |
-| `bold` / `italic` / `highlight` / `underline` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+e` |
+| `bold` / `italic` / `highlight` / `underline` / `strikethrough` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+shift+s` / `cmd+e` |
 | `toggleTheme`                             | `cmd+t` |
 | `sourceView`                                 | `cmd+return` |
 | `duplicateLine` / `toggleBulletedList` / `toggleTaskItem` | `cmd+d` / `cmd+l` / `cmd+shift+l` |
@@ -108,7 +108,9 @@ function keys"** (Keyboard settings). Otherwise F1 dims the display and the
 app never sees it — press fn+F1, or use the `cmd+/` alias.
 
 Underline writes `<u>…</u>`: markdown has none, `__` is already bold here,
-and `<u>` is what Obsidian's own underline command inserts. Code wraps in
+and `<u>` is what Obsidian's own underline command inserts. Strikethrough
+writes `~~text~~`, which is Obsidian's spelling and Notion's export; a single
+`~text~`, what Notion accepts when typing, renders too. Code wraps in
 single backticks and renders in `fonts.code`; fenced blocks aren't styled,
 only inline spans.
 
@@ -118,8 +120,8 @@ continuation on ↵ keeps working; the two aids that *rewrite* the line,
 `---`→rule and `:rocket:`→🚀, are off while it is on.
 
 With a selection, typing `` ` `` `_` `'` or `"` wraps it in that character,
-and `*` or `=` wraps it in two — bold and highlight. It only ever wraps, never
-unwraps, so a second press nests. To replace a selection with one of those six
+and `*`, `=`, or `~` wraps it in two — bold, highlight, and strikethrough. It only ever wraps, never
+unwraps, so a second press nests. To replace a selection with one of those seven
 characters, clear the selection first.
 
 A backslash escapes the character after it: `` \` `` is a literal backtick and

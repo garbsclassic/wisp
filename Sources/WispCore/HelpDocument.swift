@@ -74,11 +74,11 @@ public struct HelpDocument: Equatable, Sendable {
                 Row(chord(.toggleTaskItem), "toggle task · check it off"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
                 Row(
-                    group(.bold, .highlight, .italic, .underline, .code),
-                    "bold · highlight · italic · underline · code"),
+                    group(.bold, .highlight, .italic, .underline, .strikethrough, .code),
+                    "bold · highlight · italic · underline · strikethrough · code"),
                 Row("⇥ · ⇧⇥", "increase · decrease indentation"),
                 Row("⇧↵", "continue an item on a new line"),
-                Row("` · _ · ' · \" · ** · ==", "wrap selection"),
+                Row("` · _ · ' · \" · ** · == · ~~", "wrap selection"),
                 Row(chord(.sourceView), "source view — raw text"),
             ]),
             Section("Insert", [

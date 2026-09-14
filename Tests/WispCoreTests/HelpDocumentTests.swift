@@ -53,19 +53,23 @@ struct HelpDocumentTests {
     }
 
     /// Every row that names a chord reads it from the keymap. Reveal,
-    /// underline and code were literals or absent before their actions
-    /// existed, so these are the ones worth pinning.
+    /// underline, strikethrough and code were literals or absent before
+    /// their actions existed, so these are the ones worth pinning.
     @Test("Late-added rows follow the keymap like every other one")
     func lateBoundRowsFollowTheKeymap() {
         let rebound = Keymap([
-            .reveal: "ctrl+shift+f", .underline: "ctrl+shift+u", .code: "ctrl+shift+e",
+            .reveal: "ctrl+shift+f", .underline: "ctrl+shift+u",
+            .strikethrough: "ctrl+shift+x", .code: "ctrl+shift+e",
         ])
         let rows = HelpDocument.make(keymap: rebound).sections.flatMap(\.rows)
 
         #expect(rows.first { $0.detail == "reveal note in finder" }?.key == "⌃⇧F")
 
-        let format = rows.first { $0.detail == "bold · highlight · italic · underline · code" }?.key
+        let format = rows.first {
+            $0.detail == "bold · highlight · italic · underline · strikethrough · code"
+        }?.key
         #expect(format?.contains("⌃⇧U") == true)
+        #expect(format?.contains("⌃⇧X") == true)
         // Last in the row, and the row's order is the description's order.
         #expect(format?.hasSuffix("⌃⇧E") == true)
     }

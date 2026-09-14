@@ -4,9 +4,9 @@ import Foundation
 ///
 /// Obsidian's set, since these notes are read there too, extended with the
 /// markers Wisp renders that Obsidian's list doesn't name (`=` for
-/// `==highlight==`, `<` for `<u>`, `+` for a bullet). `|` and `~` mean nothing
-/// here — no tables, no strikethrough — but a `\|` typed in Obsidian should
-/// still read as an escape rather than as a stray backslash.
+/// `==highlight==`, `<` for `<u>`, `+` for a bullet). `|` means nothing here
+/// — no tables — but a `\|` typed in Obsidian should still read as an escape
+/// rather than as a stray backslash.
 ///
 /// Most of what an escape has to stop, the parsers already refuse on their
 /// own: `\# foo` doesn't match the heading pattern, `\- foo` isn't a bullet

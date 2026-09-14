@@ -63,6 +63,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case italic
     case highlight
     case underline
+    case strikethrough
     case code
 
     case duplicateLine
@@ -91,6 +92,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .italic: return "Italic"
         case .highlight: return "Highlight"
         case .underline: return "Underline"
+        case .strikethrough: return "Strikethrough"
         case .code: return "Code"
         case .duplicateLine: return "Duplicate Line"
         case .toggleBulletedList: return "Toggle Bulleted List"
@@ -124,6 +126,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         // `<u>` is HTML, not markdown — which is also what Obsidian's own
         // underline command inserts, and this note is read there too.
         case .underline: return "cmd+u"
+        // Notion's chord, and the one the user's Obsidian is set to.
+        case .strikethrough: return "cmd+shift+s"
         case .code: return "cmd+e"
         case .duplicateLine: return "cmd+d"
         case .toggleBulletedList: return "cmd+l"

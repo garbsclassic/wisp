@@ -298,6 +298,9 @@ final class EditorModel: ObservableObject {
     /// underline command inserts — which matters, because these notes are
     /// read there too.
     func toggleUnderline() { wrap(.init("<u>", "</u>")) }
+    /// `~~` rather than `~`: both render, but the doubled form is what
+    /// Obsidian writes and what Notion exports.
+    func toggleStrikethrough() { wrap(.init("~~")) }
     func toggleCode() { wrap(.init("`")) }
 
     private func wrap(_ markers: MarkdownWrap.Markers) {

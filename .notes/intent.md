@@ -14,7 +14,7 @@ turning it into something else. Auto-surround fires only on a selection you deli
 and inserts exactly the character you pressed, twice. It is an edit you asked for by name.
 
 The cost is real and accepted: in raw mode, as everywhere, a selection cannot be replaced by
-typing one of `` ` `` `_` `'` `"` `*` `=`. Clear the selection first.
+typing one of `` ` `` `_` `'` `"` `*` `=` `~`. Clear the selection first.
 
 ## `faint` is not `tx-3` on light
 

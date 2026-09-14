@@ -81,14 +81,15 @@ enum MarkdownWrap {
     /// What typing `typed` over a selection wraps it in, or nil for a
     /// character that means nothing here.
     ///
-    /// Doubled for `*` and `=` because that is the emphasis those characters
-    /// are reached for — a lone `*` is italic, but `_` already covers italic,
-    /// and `=` alone is not markup at all. `'` and `"` aren't markup either;
-    /// they are the other thing a selection gets wrapped in.
+    /// Doubled for `*`, `=`, and `~` because that is the emphasis those
+    /// characters are reached for — a lone `*` is italic, but `_` already
+    /// covers italic, `=` alone is not markup at all, and `~~` is the
+    /// strikethrough Obsidian writes. `'` and `"` aren't markup either; they
+    /// are the other thing a selection gets wrapped in.
     static func surroundMarkers(for typed: String) -> Markers? {
         switch typed {
         case "`", "_", "'", "\"": return Markers(typed)
-        case "*", "=": return Markers(typed + typed)
+        case "*", "=", "~": return Markers(typed + typed)
         default: return nil
         }
     }

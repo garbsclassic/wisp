@@ -510,6 +510,20 @@ struct MinimalTextEditor: NSViewRepresentable {
                 .underlineStyle, value: NSUnderlineStyle.single.rawValue,
                 range: NSRange(match.range, in: text))
         }
+        // `~~struck~~`, and `~struck~` too: GFM allows either, and a single
+        // tilde is what Notion accepts when typing. Same adjacency filter as
+        // italic, so the inside of a doubled run isn't matched twice.
+        for match in text.matches(of: /~~([^~\n]+)~~/) where isLive(match.range, 2) {
+            storage.addAttribute(
+                .strikethroughStyle, value: NSUnderlineStyle.single.rawValue,
+                range: NSRange(match.range, in: text))
+        }
+        for match in text.matches(of: /~([^~\n]+)~/)
+        where !isAdjacent(to: "~", match.range, in: text) && isLive(match.range, 1) {
+            storage.addAttribute(
+                .strikethroughStyle, value: NSUnderlineStyle.single.rawValue,
+                range: NSRange(match.range, in: text))
+        }
         styleHighlights(in: storage, palette: palette, marks: marks)
 
         // Last, so nothing above can repaint over it. A backslash that
