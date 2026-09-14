@@ -22,7 +22,8 @@ a caret that animates on every keystroke reads as input lag.
 | --- | --- | --- |
 | Where it draws | A `CALayer` sublayer of the text view; AppKit's caret suppressed | Core Animation runs the move and the blink on the render server: no timer, no main-thread wakeups, no dirty rect per tick. Cheaper than the stock caret |
 | Suppressing the stock caret | `shouldDrawInsertionPoint` → `false`, `drawInsertionPoint` a no-op | The first stops the blink timer; the second is belt and braces for the TextKit 1 draw path |
-| When to reposition | `updateInsertionPointStateAndRestartTimer(_:)` | AppKit calls it on every selection, focus, key-window, and text change — the exact set of moments the stock caret repaints. `super.shouldDrawInsertionPoint` supplies AppKit's own visibility verdict |
+| When to reposition | `updateInsertionPointStateAndRestartTimer(_:)` | AppKit calls it on every selection, focus, key-window, and text change — the exact set of moments the stock caret repaints |
+| Whether to show | Own bookkeeping: first-responder flag, `isKeyWindow`, empty selection | `super.shouldDrawInsertionPoint` answered true through a focus loss (review probe, and two carets on screen with the find bar open), so it isn't the verdict it looks like |
 | Where the caret is | `firstRect(forCharacterRange:)` | The `NSTextInputClient` contract: a zero-length range yields the insertion point. Same rect the IME candidate window keys off, so it agrees with where AppKit would have drawn |
 | Typing vs navigation | A move that coincides with a change in text length is instant | Catches typing, delete, paste, undo, and every hand-rolled edit without threading a flag through them. A same-length replacement animating is the accepted miss |
 | Snappy curve | 90 ms, control points (0.05, 0.7, 0.1, 1) | Nearly all of the distance in the first third, then a soft stop |

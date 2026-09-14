@@ -289,4 +289,9 @@
   A staggered-capture burst caught the ⌘↓ jump mid-settle; 5 s idle with the panel up and the
   caret blinking consumed 0 CPU time. Selection, dismiss, resummon, off/no-blink, both themes
   checked. 389 tests.
+- 2026-09-14 — [smooth-caret](plan-smooth-caret.md): review found `super.shouldDrawInsertionPoint`
+  answering true through a focus loss — ⌘F showed two carets. Visibility is now a first-responder
+  flag, `isKeyWindow` (observed), and an empty selection. On screen: find bar and help hide it,
+  Esc brings it back, an outside click with `dismissOnOutsideClick: false` hides it, a click back
+  restores it. Rect is `backingAlignedRect` now for 1x displays; still x 99–102 at 2x. 388 tests.
 

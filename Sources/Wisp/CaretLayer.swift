@@ -12,7 +12,7 @@ import WispCore
 /// `update` from the same hook AppKit uses to reposition its own.
 final class CaretLayer {
     /// Width and corner radius match the modern AppKit indicator.
-    private static let width: CGFloat = 2
+    static let width: CGFloat = 2
 
     /// Solid after every move, then a fade rather than a switch. Durations
     /// in seconds: 0.45 solid, 0.1 out, 0.35 off, 0.1 in.
@@ -33,19 +33,15 @@ final class CaretLayer {
         layer.zPosition = 1
     }
 
-    /// Moves the caret to `rect` — or hides it — animating the move when
+    /// Moves the caret to `frame` — or hides it — animating the move when
     /// `animated` and the style allow. Restarts the blink so the caret is
     /// solid for a moment after every move, which is what keeps it solid
     /// while typing.
-    func update(to rect: CGRect?, color: NSColor, animated: Bool) {
-        guard let rect else {
+    func update(to frame: CGRect?, color: NSColor, animated: Bool) {
+        guard let frame else {
             hide()
             return
         }
-        // Centred on the insertion boundary, as AppKit's indicator is.
-        var frame = rect
-        frame.origin.x -= Self.width / 2
-        frame.size.width = Self.width
         let curve = animated ? style.motion.curve : nil
         let wasVisible = !layer.isHidden
 

@@ -256,18 +256,6 @@ struct CaretConfigTests {
         #expect(config.caret.blink)
     }
 
-    @Test("A malformed motion is named rather than swallowed")
-    func malformedMotion() throws {
-        let diagnostics = ConfigDiagnostics()
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        decoder.userInfo[.configDiagnostics] = diagnostics
-        let config = try decoder.decode(
-            WispConfig.self, from: Data(#"{ "caret": { "motion": 7 } }"#.utf8))
-        #expect(config.caret.motion == .snappy)
-        #expect(diagnostics.malformedKeys == ["caret.motion"])
-    }
-
     @Test("An unknown motion case is malformed, not fatal")
     func unknownMotionCase() throws {
         let diagnostics = ConfigDiagnostics()

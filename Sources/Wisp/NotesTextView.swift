@@ -32,6 +32,12 @@ final class NotesTextView: NSTextView {
     /// caret without animating, so nothing ever lags a keystroke.
     private var lengthAtLastCaretUpdate = 0
 
+    /// Tracked by hand: `resignFirstResponder` runs while `window.firstResponder`
+    /// still points here, and AppKit's own `shouldDrawInsertionPoint` was
+    /// seen answering true through a focus loss.
+    private var hasFocus = false
+    private var keyWindowObservers: [any NSObjectProtocol] = []
+
     /// Builds the whole scroll view / storage / layout manager / container
     /// stack. The pieces have to be assembled in this order — a container
     /// added to a layout manager that isn't yet attached to storage lays
@@ -76,15 +82,49 @@ final class NotesTextView: NSTextView {
         refreshCaret(animated: true)
     }
 
-    /// A reflow moves the caret without any selection change.
+    /// AppKit reaches the hook above on a resize too; this is insurance
+    /// for a reflow that somehow doesn't, and a no-op when the rect holds.
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         refreshCaret(animated: false)
     }
 
+    override func becomeFirstResponder() -> Bool {
+        guard super.becomeFirstResponder() else { return false }
+        hasFocus = true
+        refreshCaret(animated: false)
+        return true
+    }
+
+    override func resignFirstResponder() -> Bool {
+        guard super.resignFirstResponder() else { return false }
+        hasFocus = false
+        refreshCaret(animated: false)
+        return true
+    }
+
+    /// The panel losing key — another app clicked with
+    /// `dismissOnOutsideClick` off — takes the caret with it.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        keyWindowObservers.forEach(NotificationCenter.default.removeObserver)
+        keyWindowObservers = []
+        if let window {
+            for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+                keyWindowObservers.append(
+                    NotificationCenter.default.addObserver(
+                        forName: name, object: window, queue: .main
+                    ) { [weak self] _ in
+                        MainActor.assumeIsolated { self?.refreshCaret(animated: false) }
+                    })
+            }
+        }
         refreshCaret(animated: false)
+    }
+
+    private var caretIsWanted: Bool {
+        hasFocus && isEditable && selectedRange().length == 0
+            && window?.isKeyWindow == true
     }
 
     private func refreshCaret(animated: Bool) {
@@ -92,9 +132,7 @@ final class NotesTextView: NSTextView {
         let edited = length != lengthAtLastCaretUpdate
         lengthAtLastCaretUpdate = length
 
-        // `super` is AppKit's verdict — first responder, key window, no
-        // selection — untouched by the override above.
-        guard super.shouldDrawInsertionPoint, let window else {
+        guard caretIsWanted, let window else {
             caret.update(to: nil, color: insertionPointColor, animated: false)
             return
         }
@@ -105,8 +143,13 @@ final class NotesTextView: NSTextView {
         // The `NSTextInputClient` contract: an empty range yields the
         // insertion point, the same rect the IME candidate window keys off.
         let onScreen = firstRect(forCharacterRange: selectedRange(), actualRange: nil)
-        let rect = convert(window.convertFromScreen(onScreen), from: nil)
-        caret.update(to: rect, color: insertionPointColor, animated: animated && !edited)
+        var frame = convert(window.convertFromScreen(onScreen), from: nil)
+        // Centred on the boundary as AppKit's indicator is, then snapped to
+        // device pixels so a 1x display doesn't smear it over three columns.
+        frame.origin.x -= CaretLayer.width / 2
+        frame.size.width = CaretLayer.width
+        frame = backingAlignedRect(frame, options: .alignAllEdgesNearest)
+        caret.update(to: frame, color: insertionPointColor, animated: animated && !edited)
     }
 
     // MARK: Whole-line copy, cut, and paste
