@@ -263,3 +263,12 @@
   continuation line was a plain newline; it now resolves the line's item. 364 tests. On screen:
   caret at x=141px after ⇧↵ under a depth-2 item, same as its text; ⇧↵ ⇧↵ chains. Driver gotcha
   #2: confirm the panel frame before typing — keystrokes with no panel land in whatever is key.
+- 2026-09-14 — [headings-and-more](plan-headings-and-more.md): six-level heading ramp (1.06→1.01,
+  Flexoki 400/600 red→purple), `hyper` in chords with `string()` writing it back, `~~`/`~`
+  strikethrough on ⌘⇧S plus `~` auto-surround, footer `L:C · N words`, ⌃⇧↑/↓ heading walk over every
+  level, header strip filtered to `#`/`##`, ⌫ in leading whitespace removes one indent level.
+  Two things found on screen: the single-tilde pass lost `~b~` after a rejected `~ and ~` match, so
+  doubled runs are now blanked out of the text it reads; and the Nerd Font build of Inter maps the
+  `tnum` colon between digits to an icon glyph (`17:1` drew a globe), so `Typography.ui(tabularDigits:)`
+  turns `calt` off. 390 tests. Verified both themes; `hyper+.` summons the installed build after the
+  chezmoi apply. Driver gotcha #3: `hyper+f7` never arrived — F7 is a media key — use a plain key.

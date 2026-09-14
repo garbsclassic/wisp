@@ -25,6 +25,6 @@ Seven refinements batched on 2026-09-14. Full design in the session plan; this i
 - [x] `previousHeading` / `nextHeading` actions, `[Heading].heading(before:/after:)`
 - [x] Header strip filtered to level ≤ 2
 - [x] `LineEdits.backspaceInIndent`, `deleteBackward` order
-- [ ] Tests via `tester`: CaretPosition, backspaceInIndent, heading(before/after), keymap defaults
-- [ ] Visual verification both themes; install
-- [ ] chezmoi: `summon` → `hyper+.`, new keymap keys
+- [x] Tests via `tester`: CaretPosition, backspaceInIndent, heading(before/after), keymap defaults
+- [x] Visual verification both themes; install
+- [x] chezmoi: `summon` → `hyper+.`, new keymap keys
