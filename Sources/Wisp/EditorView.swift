@@ -531,7 +531,7 @@ struct EditorView: View {
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
-                HeaderBar(headings: model.headings) { heading in
+                HeaderBar(headings: barHeadings) { heading in
                     model.jumpTo(heading)
                 }
                 ZStack(alignment: .topLeading) {
@@ -560,7 +560,7 @@ struct EditorView: View {
                         isSourceView: model.isSourceView
                     )
                     .padding(.horizontal, 24)
-                    .padding(.top, model.headings.isEmpty ? 26 : 2)
+                    .padding(.top, barHeadings.isEmpty ? 26 : 2)
                     .padding(.bottom, 4)
                     if model.text.isEmpty {
                         Text(model.placeholder)
@@ -570,7 +570,7 @@ struct EditorView: View {
                             .foregroundStyle(Color(palette.muted))
                             .allowsHitTesting(false)
                             .padding(.horizontal, 24)
-                            .padding(.top, model.headings.isEmpty ? 26 : 2)
+                            .padding(.top, barHeadings.isEmpty ? 26 : 2)
                     }
                 }
                 BottomBar(
@@ -649,6 +649,12 @@ struct EditorView: View {
     }
 
     private var palette: Palette { Palette.for(model.theme) }
+
+    /// What the header strip indexes: `#` and `##` only. Six levels in a
+    /// one-line strip is a run of ellipses, and `###` down are subsections
+    /// a reader scrolls to rather than jumps to. Styling and the ⌃⇧↑/↓
+    /// walk still see every level.
+    private var barHeadings: [Heading] { model.headings.filter { $0.level <= 2 } }
 
     private var wordCount: Int {
         var count = 0

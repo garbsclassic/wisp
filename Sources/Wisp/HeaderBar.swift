@@ -1,8 +1,8 @@
 import SwiftUI
 import WispCore
 
-/// The heading strip along the top of the panel — every `#` heading in the
-/// note, click to jump.
+/// The heading strip along the top of the panel — every `#` and `##`
+/// heading in the note, click to jump.
 ///
 /// Scrolls horizontally, and says so: once the list is wider than the bar,
 /// an ellipsis appears at the trailing edge. The scroll view is doing the
