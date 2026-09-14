@@ -19,8 +19,8 @@ already was the first; the second is new. Both take effect live, which `vibrancy
 
 ## Steps
 
-- [ ] `Background` config struct; `vibrancy` removed; tests moved
-- [ ] `PanelController.applyTheme` reads it; `adoptSettings` re-applies chrome
-- [ ] README rows; the "everything but `vibrancy`" sentence
-- [ ] Visual verification: measured panel luminance at 0.3 / default / 1.0, blur off, both themes
-- [ ] Progress line
+- [x] `Background` config struct; `vibrancy` removed; tests moved
+- [x] `PanelController.applyTheme` reads it; `adoptSettings` re-applies chrome
+- [x] README rows; the "everything but `vibrancy`" sentence
+- [x] Visual verification: measured panel luminance at 0.3 / default / 1.0, blur off, both themes
+- [x] Progress line

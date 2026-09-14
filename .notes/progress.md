@@ -294,4 +294,10 @@
   flag, `isKeyWindow` (observed), and an empty selection. On screen: find bar and help hide it,
   Esc brings it back, an outside click with `dismissOnOutsideClick: false` hides it, a click back
   restores it. Rect is `backingAlignedRect` now for 1x displays; still x 99–102 at 2x. 388 tests.
+- 2026-09-14 — [panel-background](plan-panel-background.md): `vibrancy` → `background.blur`, plus
+  `background.opacity` 0–1 (nil keeps the theme's own tint alpha; blur off applies it to `panel`).
+  `adoptSettings` re-fires the chrome callback, so both apply live — the README's "everything but
+  `vibrancy`" caveat is gone. Measured: opacity 1 composites to exactly `#100F0F` / `#E8E6E6`,
+  0.2 lifts dark from 24 to 31, 7 clamps to 1. Review: the chezmoi template still emitted
+  `vibrancy` and would have stripped `background` on apply — renamed there and applied. 397 tests.
 
