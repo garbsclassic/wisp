@@ -88,7 +88,9 @@ Every binding lives under `keymap`, written out in full on first run. A chord
 is modifiers plus a key, in any order — `cmd+shift+d`, `opt+up`, `ctrl+opt+.`.
 
 An action can take a list instead of a single chord, and every entry binds —
-`"help": ["f1", "cmd+/"]` reaches the same page two ways.
+`"help": ["f1", "cmd+/"]` reaches the same page two ways. `hyper` stands for
+all four modifiers at once — `hyper+.` is `ctrl+opt+shift+cmd+.`, which is
+what a Caps Lock remapped to a hyperkey sends.
 
 | Action                                    | Default    |
 | ----------------------------------------- | ---------- |
