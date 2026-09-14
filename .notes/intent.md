@@ -25,7 +25,7 @@ assertion in `ThemeTests` meaningless.
 
 ## Escapes touch only the inline passes
 
-`Escapes.Marks.isLive` is consulted by `styleInlineMarkup` and `styleHighlights` and by nothing
+`Escapes.Marks.masking` is consulted by `styleInlineMarkup` and `styleHighlights` and by nothing
 else, which looks like a gap next to a README that advertises `\#` and `\-`. It isn't: the
 structural parsers already refuse those on their own. `\# foo` misses `^(#{1,6})\s+`; `\- foo`
 isn't a bullet because `\` is not a bullet character; `1\. foo` isn't ordered because the dot is

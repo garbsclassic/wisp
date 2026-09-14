@@ -276,3 +276,8 @@
   never reset, so a strike outlived its markers (`~~gone~~` ⌫ stayed struck); now removed in
   `resetBaseAttributes` with the other baseless attributes. Ramp retuned to 1.08→0.98 — `#####` at
   body size, `######` under it. 392 tests. Verified on screen: ⌫ on the closing tilde clears the line.
+- 2026-09-14 — [headings-and-more](plan-headings-and-more.md): `Escapes.Marks.isLive` replaced by
+  `masking`: the inline passes scan the text with escaped characters blanked, so a rejected match
+  can no longer eat the opener of a real run (`~a\~ b~`, `_a\_ b_`, `` `x\` y` `` all render to
+  the real closer now). Same for `styleHighlights`. 382 tests. Verified on screen. Known and kept:
+  only the first character of a delimiter is escapable, so `**a\** b**` is still the malformed case.

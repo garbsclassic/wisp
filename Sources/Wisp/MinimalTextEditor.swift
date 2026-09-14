@@ -471,16 +471,16 @@ struct MinimalTextEditor: NSViewRepresentable {
     private static func styleInlineMarkup(
         in storage: NSTextStorage, baseFont: NSFont, palette: Palette, marks: Escapes.Marks
     ) {
-        let text = storage.string
-        func isLive(_ range: Range<String.Index>, _ closeLength: Int) -> Bool {
-            marks.isLive(NSRange(range, in: text), closeLength: closeLength)
-        }
+        // Every pass scans the text with its escaped characters blanked, so
+        // an escaped marker can neither open a run nor close one. Ranges
+        // carry straight over to the storage — see `Escapes.Marks.masking`.
+        let text = marks.masking(storage.string)
 
-        for match in text.matches(of: /\*\*([^*\n]+)\*\*/) where isLive(match.range, 2) {
+        for match in text.matches(of: /\*\*([^*\n]+)\*\*/) {
             applyTrait(.bold, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
         for match in text.matches(of: /__([^_\n]+)__/)
-        where isFreestanding(match.range, in: text) && isLive(match.range, 2) {
+        where isFreestanding(match.range, in: text) {
             applyTrait(.bold, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
         // Italic: a single marker, skipping any match that touches another
@@ -488,12 +488,11 @@ struct MinimalTextEditor: NSViewRepresentable {
         // the inside of a bold run. Swift Regex literals have no lookbehind,
         // so this filters after matching instead.
         for match in text.matches(of: /\*([^*\n]+)\*/)
-        where !isAdjacent(to: "*", match.range, in: text) && isLive(match.range, 1) {
+        where !isAdjacent(to: "*", match.range, in: text) {
             applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
         for match in text.matches(of: /_([^_\n]+)_/)
-        where !isAdjacent(to: "_", match.range, in: text) && isFreestanding(match.range, in: text)
-            && isLive(match.range, 1) {
+        where !isAdjacent(to: "_", match.range, in: text) && isFreestanding(match.range, in: text) {
             applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
         }
         // `` `code` ``: a whole different family, so it replaces the font
@@ -501,7 +500,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         // at that offset, which is what lets a span inside a heading keep
         // the heading's size. Triple-backtick fences are left alone —
         // `[^`\n]+` can't match across the second backtick of a fence.
-        for match in text.matches(of: /`([^`\n]+)`/) where isLive(match.range, 1) {
+        for match in text.matches(of: /`([^`\n]+)`/) {
             let range = NSRange(match.range, in: text)
             let size = currentFont(in: storage, at: range.location, fallback: baseFont).pointSize
             storage.addAttribute(
@@ -509,7 +508,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
         // `<u>…</u>`: an attribute rather than a symbolic trait, so it
         // can't go through `applyTrait` with the others.
-        for match in text.matches(of: /<u>([^<\n]+)<\/u>/) where isLive(match.range, 4) {
+        for match in text.matches(of: /<u>([^<\n]+)<\/u>/) {
             storage.addAttribute(
                 .underlineStyle, value: NSUnderlineStyle.single.rawValue,
                 range: NSRange(match.range, in: text))
@@ -521,7 +520,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         // still been consumed, so `~~a~~ and ~b~` lost `~b~` to a rejected
         // `~ and ~`. Blanking keeps every offset where it was.
         let masked = NSMutableString(string: text)
-        for match in text.matches(of: /~~([^~\n]+)~~/) where isLive(match.range, 2) {
+        for match in text.matches(of: /~~([^~\n]+)~~/) {
             let range = NSRange(match.range, in: text)
             storage.addAttribute(
                 .strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
@@ -529,8 +528,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
         let maskedText = masked as String
         for match in maskedText.matches(of: /~([^~\n]+)~/)
-        where !isAdjacent(to: "~", match.range, in: maskedText)
-            && marks.isLive(NSRange(match.range, in: maskedText), closeLength: 1) {
+        where !isAdjacent(to: "~", match.range, in: maskedText) {
             storage.addAttribute(
                 .strikethroughStyle, value: NSUnderlineStyle.single.rawValue,
                 range: NSRange(match.range, in: maskedText))
@@ -557,9 +555,8 @@ struct MinimalTextEditor: NSViewRepresentable {
     static func styleHighlights(
         in storage: NSTextStorage, palette: Palette, marks: Escapes.Marks
     ) {
-        let text = storage.string
-        for match in text.matches(of: /==([^=\n]+)==/)
-        where marks.isLive(NSRange(match.range, in: text), closeLength: 2) {
+        let text = marks.masking(storage.string)
+        for match in text.matches(of: /==([^=\n]+)==/) {
             storage.addAttribute(
                 .backgroundColor, value: palette.highlight,
                 range: NSRange(match.range, in: text))

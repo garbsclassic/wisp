@@ -49,18 +49,25 @@ public enum Escapes {
 
         public func isEscaped(_ offset: Int) -> Bool { escaped.contains(offset) }
 
-        /// True when a delimited run is real markup rather than an escaped
-        /// one — the test the inline styling passes apply to every match.
+        /// The text with every escaped character blanked to a space, for the
+        /// inline passes to scan instead of the real thing. Offsets are
+        /// unchanged — every escapable character is one UTF-16 unit — so a
+        /// match on the masked text is a range into the storage.
         ///
-        /// Checked on the *first* character of the delimiter at each end,
-        /// which is the only place a backslash can sit and mean anything:
-        /// `\\**bold**` is escaped, `*\\*bold**` is a different and
-        /// malformed thing. `closeLength` is the closing delimiter's own
-        /// length, which is not always the opening one's — `<u>…</u>`.
-        public func isLive(_ range: NSRange, closeLength: Int) -> Bool {
-            guard !isEmpty else { return true }
-            return !isEscaped(range.location)
-                && !isEscaped(range.location + range.length - closeLength)
+        /// Masking rather than filtering matches after the fact: a regex
+        /// scan is left-to-right and non-overlapping, so a match that a
+        /// filter then rejects has still consumed its characters, and the
+        /// real run that began inside it never gets a turn. `~a\~ b~` found
+        /// `~a\~`, threw it away, and had only ` b~` left to look at. With
+        /// the escaped tilde blanked there is nothing for the scanner to
+        /// pair wrongly in the first place.
+        public func masking(_ text: String) -> String {
+            guard !isEmpty else { return text }
+            let masked = NSMutableString(string: text)
+            for offset in escaped where offset < masked.length {
+                masked.replaceCharacters(in: NSRange(location: offset, length: 1), with: " ")
+            }
+            return masked as String
         }
     }
 
