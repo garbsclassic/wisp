@@ -226,6 +226,80 @@ struct IndentConfigTests {
     }
 }
 
+@Suite("Caret")
+struct CaretConfigTests {
+    private func decode(_ json: String) throws -> WispConfig {
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
+    }
+
+    @Test("Defaults to snappy motion with blink on")
+    func defaults() throws {
+        let config = try decode("{}")
+        #expect(config.caret == Caret())
+        #expect(config.caret.motion == .snappy)
+        #expect(config.caret.blink)
+    }
+
+    @Test("Both fields are decoded")
+    func bothFields() throws {
+        let config = try decode(#"{ "caret": { "motion": "gliding", "blink": false } }"#)
+        #expect(config.caret.motion == .gliding)
+        #expect(!config.caret.blink)
+    }
+
+    @Test("A partial caret object keeps blink at its default")
+    func partial() throws {
+        let config = try decode(#"{ "caret": { "motion": "off" } }"#)
+        #expect(config.caret.motion == .off)
+        #expect(config.caret.blink)
+    }
+
+    @Test("A malformed motion is named rather than swallowed")
+    func malformedMotion() throws {
+        let diagnostics = ConfigDiagnostics()
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        decoder.userInfo[.configDiagnostics] = diagnostics
+        let config = try decoder.decode(
+            WispConfig.self, from: Data(#"{ "caret": { "motion": 7 } }"#.utf8))
+        #expect(config.caret.motion == .snappy)
+        #expect(diagnostics.malformedKeys == ["caret.motion"])
+    }
+
+    @Test("An unknown motion case is malformed, not fatal")
+    func unknownMotionCase() throws {
+        let diagnostics = ConfigDiagnostics()
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        decoder.userInfo[.configDiagnostics] = diagnostics
+        let config = try decoder.decode(
+            WispConfig.self, from: Data(#"{ "caret": { "motion": "bouncy" } }"#.utf8))
+        #expect(config.caret.motion == .snappy)
+        #expect(diagnostics.malformedKeys == ["caret.motion"])
+    }
+
+    @Test("A caret that isn't an object falls back to defaults and is named at the top level")
+    func malformedTopLevel() throws {
+        let diagnostics = ConfigDiagnostics()
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        decoder.userInfo[.configDiagnostics] = diagnostics
+        let config = try decoder.decode(
+            WispConfig.self, from: Data(#"{ "caret": "snappy" }"#.utf8))
+        #expect(config.caret == Caret())
+        #expect(diagnostics.malformedKeys == ["caret"])
+    }
+
+    @Test("A round trip through JSON preserves an override")
+    func roundTrip() throws {
+        let caret = Caret(motion: .gliding, blink: false)
+        let decoded = try JSONDecoder().decode(Caret.self, from: JSONEncoder().encode(caret))
+        #expect(decoded == caret)
+    }
+}
+
 @Suite("Default font scale")
 struct DefaultFontScaleTests {
     @Test("Defaults to 1.0 and is clamped like the live value")
