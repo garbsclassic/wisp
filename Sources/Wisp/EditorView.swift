@@ -456,6 +456,9 @@ final class EditorModel: ObservableObject {
         // published property, so nothing above forces the re-render that
         // picks up a changed face.
         objectWillChange.send()
+        // The chrome reads `background` straight from the config, and
+        // only re-applies on a theme flip; a reload has to ask for it.
+        onThemeChange?(theme)
     }
 
     func refreshPlaceholder() {

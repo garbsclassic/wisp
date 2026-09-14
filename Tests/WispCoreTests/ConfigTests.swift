@@ -38,11 +38,11 @@ struct ConfigDecodingTests {
                 // the summon chord
                 "keymap": { "summon": "cmd+opt+w" },
                 /* block */
-                "vibrancy": false,
+                "saveIndicator": false,
             }
             """)
         #expect(config.keymap.chord(for: .summon) == "cmd+opt+w")
-        #expect(!config.vibrancy)
+        #expect(!config.saveIndicator)
     }
 
     @Test("Nested keys default independently")
@@ -107,10 +107,10 @@ struct ConfigDiagnosticsTests {
     @Test("A malformed key is named and its default still applies")
     func malformedKey() throws {
         let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "vibrancy": "yes please" }"#, diagnostics: diagnostics)
-        #expect(config.vibrancy == WispConfig().vibrancy)
-        #expect(diagnostics.malformedKeys == ["vibrancy"])
-        #expect(diagnostics.summary == "Ignored unreadable config key: vibrancy")
+        let config = try decode(#"{ "saveIndicator": "yes please" }"#, diagnostics: diagnostics)
+        #expect(config.saveIndicator == WispConfig().saveIndicator)
+        #expect(diagnostics.malformedKeys == ["saveIndicator"])
+        #expect(diagnostics.summary == "Ignored unreadable config key: saveIndicator")
     }
 
     /// A bare "summon" would leave you hunting for which section it's in.
@@ -139,8 +139,8 @@ struct ConfigDiagnosticsTests {
     @Test("Several bad keys are summarised together")
     func plural() throws {
         let diagnostics = ConfigDiagnostics()
-        _ = try decode(#"{ "vibrancy": 1.5, "theme": [] }"#, diagnostics: diagnostics)
-        #expect(diagnostics.summary == "Ignored unreadable config keys: theme, vibrancy")
+        _ = try decode(#"{ "saveIndicator": 1.5, "theme": [] }"#, diagnostics: diagnostics)
+        #expect(diagnostics.summary == "Ignored unreadable config keys: theme, saveIndicator")
     }
 }
 
@@ -285,6 +285,96 @@ struct CaretConfigTests {
         let caret = Caret(motion: .gliding, blink: false)
         let decoded = try JSONDecoder().decode(Caret.self, from: JSONEncoder().encode(caret))
         #expect(decoded == caret)
+    }
+}
+
+@Suite("Background")
+struct BackgroundConfigTests {
+    private func decode(_ json: String) throws -> WispConfig {
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
+    }
+
+    @Test("Defaults to blur on with no opacity override")
+    func defaults() throws {
+        let config = try decode("{}")
+        #expect(config.background == Background())
+        #expect(config.background.blur)
+        #expect(config.background.opacity == nil)
+        #expect(config.background.clampedOpacity == nil)
+    }
+
+    @Test("Both fields are decoded")
+    func bothFields() throws {
+        let config = try decode(#"{ "background": { "blur": false, "opacity": 0.3 } }"#)
+        #expect(!config.background.blur)
+        #expect(config.background.opacity == 0.3)
+    }
+
+    @Test("A partial background object keeps blur at its default")
+    func partial() throws {
+        let config = try decode(#"{ "background": { "opacity": 1 } }"#)
+        #expect(config.background.blur)
+        #expect(config.background.opacity == 1)
+    }
+
+    @Test("An explicit null opacity is no override")
+    func explicitNullOpacity() throws {
+        let config = try decode(#"{ "background": { "opacity": null } }"#)
+        #expect(config.background.opacity == nil)
+    }
+
+    @Test(
+        "Opacity is clamped to 0...1 on the way out",
+        arguments: [(1.7, 1.0), (-0.2, 0.0), (0.5, 0.5)]
+    )
+    func opacityClamp(raw: Double, clamped: Double) {
+        #expect(Background(opacity: raw).clampedOpacity == clamped)
+    }
+
+    @Test("A nil opacity has no clamped value")
+    func opacityClampNil() {
+        #expect(Background(opacity: nil).clampedOpacity == nil)
+    }
+
+    @Test("A blur that isn't a bool is malformed, not fatal")
+    func malformedBlur() throws {
+        let diagnostics = ConfigDiagnostics()
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        decoder.userInfo[.configDiagnostics] = diagnostics
+        let config = try decoder.decode(
+            WispConfig.self, from: Data(#"{ "background": { "blur": "yes" } }"#.utf8))
+        #expect(config.background.blur)
+        #expect(diagnostics.malformedKeys == ["background.blur"])
+    }
+
+    @Test(
+        "A background that isn't an object falls back to defaults and is named at the top level")
+    func malformedTopLevel() throws {
+        let diagnostics = ConfigDiagnostics()
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        decoder.userInfo[.configDiagnostics] = diagnostics
+        let config = try decoder.decode(
+            WispConfig.self, from: Data(#"{ "background": true }"#.utf8))
+        #expect(config.background == Background())
+        #expect(diagnostics.malformedKeys == ["background"])
+    }
+
+    /// The key was renamed when `Background` replaced the old vibrancy
+    /// toggle, so a config written by an earlier build should load cleanly.
+    @Test("A stale vibrancy key from before the rename is ignored silently")
+    func staleVibrancyKey() throws {
+        let diagnostics = ConfigDiagnostics()
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        decoder.userInfo[.configDiagnostics] = diagnostics
+        let config = try decoder.decode(
+            WispConfig.self, from: Data(#"{ "vibrancy": true }"#.utf8))
+        #expect(config.background == Background())
+        #expect(diagnostics.malformedKeys.isEmpty)
     }
 }
 

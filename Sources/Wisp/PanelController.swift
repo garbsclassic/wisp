@@ -308,13 +308,15 @@ final class PanelController {
         panel.appearance = NSAppearance(named: chrome.appearance)
         visualEffect.material = chrome.material
         visualEffect.appearance = NSAppearance(named: chrome.appearance)
-        // With vibrancy off the tint is composited over nothing, so it has
-        // to carry the panel on its own; the palette records what the
-        // translucent version composites to.
-        let vibrancy = settings.config.vibrancy
-        visualEffect.isHidden = !vibrancy
-        tint.layer?.backgroundColor =
-            (vibrancy ? chrome.tintColor : Palette.for(theme).panel).cgColor
+        // With blur off the tint is composited over nothing, so it starts
+        // from the palette's `panel` — what the translucent version
+        // composites to — rather than the chrome tint. A configured
+        // opacity replaces either base's own alpha.
+        let background = settings.config.background
+        visualEffect.isHidden = !background.blur
+        let base = background.blur ? chrome.tintColor : Palette.for(theme).panel
+        let color = background.clampedOpacity.map { base.withAlphaComponent($0) } ?? base
+        tint.layer?.backgroundColor = color.cgColor
         // Border is rendered by SwiftUI in EditorView via .overlay.
     }
 

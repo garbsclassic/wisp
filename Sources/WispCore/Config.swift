@@ -210,6 +210,38 @@ public struct Caret: Codable, Equatable, Sendable {
     }
 }
 
+/// The panel's backdrop, Ghostty's `background-blur` and `background-opacity`.
+public struct Background: Codable, Equatable, Sendable {
+    /// Blurs whatever is behind the panel.
+    public var blur: Bool
+    /// Alpha of the panel's tint, 0–1. Nil takes the theme's own value —
+    /// the two themes tune it differently, so one number can't be the
+    /// default for both.
+    public var opacity: Double?
+
+    public init(blur: Bool = true, opacity: Double? = nil) {
+        self.blur = blur
+        self.opacity = opacity
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let diagnostics = decoder.configDiagnostics
+        let defaults = Background()
+        blur = container.lenientValue(
+            forKey: .blur, default: defaults.blur, diagnostics: diagnostics,
+            pathPrefix: "background.")
+        opacity = container.lenientValue(
+            forKey: .opacity, default: defaults.opacity, diagnostics: diagnostics,
+            pathPrefix: "background.")
+    }
+
+    /// Bounded at use so a typo stays visible in the file, like `fontScale`.
+    public var clampedOpacity: Double? {
+        opacity.map { min(max($0, 0), 1) }
+    }
+}
+
 /// Where the panel opens.
 public enum PanelPosition: String, Codable, CaseIterable, Sendable {
     /// Centred horizontally, top edge a tenth of the way down the screen.
@@ -293,9 +325,9 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// What ⌘0 returns `fontScale` to. Separate from the live value so
     /// "reset" means *your* normal size rather than a constant 1.0.
     public var defaultFontScale: Double
-    /// Blurs whatever is behind the panel. On by default in both themes —
-    /// the tints are translucent so the blur is the panel's whole substance.
-    public var vibrancy: Bool
+    /// Blur and tint alpha. Blur is on by default in both themes — the
+    /// tints are translucent so the blur is the panel's whole substance.
+    public var background: Background
     public var monitor: MonitorTarget
     /// Auto-placed on every summon, or left wherever it was last dragged.
     public var position: PanelPosition
@@ -321,7 +353,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         fonts: FontSet = FontSet(),
         fontScale: Double = 1.0,
         defaultFontScale: Double = 1.0,
-        vibrancy: Bool = true,
+        background: Background = Background(),
         monitor: MonitorTarget = .primary,
         position: PanelPosition = .auto,
         dismissOnOutsideClick: Bool = true,
@@ -336,7 +368,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.fonts = fonts
         self.fontScale = fontScale
         self.defaultFontScale = defaultFontScale
-        self.vibrancy = vibrancy
+        self.background = background
         self.monitor = monitor
         self.position = position
         self.dismissOnOutsideClick = dismissOnOutsideClick
@@ -364,8 +396,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
         defaultFontScale = container.lenientValue(
             forKey: .defaultFontScale, default: defaults.defaultFontScale,
             diagnostics: diagnostics)
-        vibrancy = container.lenientValue(
-            forKey: .vibrancy, default: defaults.vibrancy, diagnostics: diagnostics)
+        background = container.lenientValue(
+            forKey: .background, default: defaults.background, diagnostics: diagnostics)
         monitor = container.lenientValue(
             forKey: .monitor, default: defaults.monitor, diagnostics: diagnostics)
         position = container.lenientValue(

@@ -76,7 +76,8 @@ ignored.
 | `indent.size`           | `2`                       | Spaces per level. Ignored under `tabs`                                                                                       |
 | `caret.motion`          | `"snappy"`                | How the caret travels: `snappy` lands at once and settles, `gliding` slides, `off` teleports. Reduce Motion forces `off`     |
 | `caret.blink`           | `true`                    | Fade the caret in and out while idle; `false` keeps it solid                                                                 |
-| `vibrancy`              | `true`                    | Blurs whatever is behind the panel                                                                                           |
+| `background.blur`       | `true`                    | Blurs whatever is behind the panel                                                                                           |
+| `background.opacity`    | _(theme's own)_           | Alpha of the panel's tint, 0–1. `1` is a solid panel; unset keeps each theme's tuned value                                   |
 | `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on                                                                        |
 | `dismissOnOutsideClick` | `true`                    | Clicking another app dismisses the panel                                                                                        |
 | `position`              | `"auto"`                  | `auto` opens the panel centred, top edge a tenth down the screen, and pins it there; `manual` leaves it wherever you drag it |
@@ -149,8 +150,8 @@ indentation all survive a settings change made from the UI.
 
 The config directory and the scratchpad's folder are both watched, so a change
 to either — a hand edit, a `chezmoi apply`, another Mac's copy landing over
-iCloud Drive — applies without a Refresh. Everything but `vibrancy` takes effect
-live. If a watch can't start, the footer says so and ⌘R still works.
+iCloud Drive — applies without a Refresh. Everything takes effect live. If a
+watch can't start, the footer says so and ⌘R still works.
 
 ## Build
 
