@@ -1,7 +1,7 @@
 import SwiftUI
 import WispCore
 
-struct BottomBar: View {
+struct FooterBar: View {
     let caret: CaretPosition
     let wordCount: Int
     let onDecreaseFontScale: () -> Void

@@ -58,7 +58,7 @@ final class PanelController {
 
         // Inner container: rounded clip via cornerRadius + masksToBounds.
         // No CAShapeLayer mask here — its fixed path didn't grow with
-        // window resize, which hid the bottom bar when the user dragged
+        // window resize, which hid the footer bar when the user dragged
         // the panel larger. cornerRadius adapts automatically.
         inner = NSView()
         inner.wantsLayer = true

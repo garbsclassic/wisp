@@ -586,7 +586,7 @@ struct EditorView: View {
                             .padding(.top, barHeadings.isEmpty ? 26 : 2)
                     }
                 }
-                BottomBar(
+                FooterBar(
                     caret: CaretPosition(in: model.text, at: model.caretOffset),
                     wordCount: wordCount,
                     onDecreaseFontScale: { model.stepFontScale(by: -1) },

@@ -60,8 +60,8 @@ unpick the wiring:
   init parameter, the `EditorView` argument, and the check block at lines 188–190
 - [EditorView.swift:44](Sources/Wisp/EditorView.swift:44) — drop `updateDismissed`, the
   `@ObservedObject var updater`, `shouldShowUpdateOverlay` at line 467, the overlay at lines
-  421–429, and the two `BottomBar` arguments at lines 367–368
-- [BottomBar.swift:9](Sources/Wisp/BottomBar.swift:9) — drop `updateState` / `onUpdateClick` and the
+  421–429, and the two `FooterBar` arguments at lines 367–368
+- [FooterBar.swift:9](Sources/Wisp/FooterBar.swift:9) — drop `updateState` / `onUpdateClick` and the
   `updateIndicator` view
 - [SelfTests.swift:252](Sources/Wisp/SelfTests.swift:252) — drop the throttle, `buttonAction`, and
   `ReleaseNotes` blocks (lines 252–290, 381–412)
@@ -206,7 +206,7 @@ from `Palette`'s text attributes — and drive its blur from the new `vibrancy` 
 Then replace the hardcoded colors with palette lookups. The pattern repeats across seven view
 files — `Color(white: 0.16)`, `.foregroundStyle(.secondary)`, `Color.black.opacity(0.18)` — with
 [FindBar.swift:74](Sources/Wisp/FindBar.swift:74) and
-[HelpOverlay.swift:15](Sources/Wisp/HelpOverlay.swift:15) as the representative cases; `BottomBar`,
+[HelpOverlay.swift:15](Sources/Wisp/HelpOverlay.swift:15) as the representative cases; `FooterBar`,
 `HeaderBar`, `TourOverlay`, and `HotKeyCaptureOverlay` follow the same shape.
 
 Accent discipline: `#ec3013` lands on the cursor, the find match, and active states only.

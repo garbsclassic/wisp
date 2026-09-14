@@ -16,7 +16,7 @@ public enum ThemeSetting: String, Codable, CaseIterable, Sendable {
     case dark
     case system
 
-    /// One-click cycle wired into the BottomBar button.
+    /// One-click cycle wired into the FooterBar button.
     public var next: ThemeSetting {
         switch self {
         case .light: return .dark

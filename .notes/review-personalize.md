@@ -78,7 +78,7 @@ mutation-tested against the new assertions to confirm they would now be caught.
       on vermilion paper. Extracted `applyFindHighlight(to:scroll:)` and call it from both branches.
       The staleness predates the branch; opposed hues are what made it visible.
 - [x] **The palette rollout stopped half way.**
-      [BottomBar.swift:49](../Sources/Wisp/BottomBar.swift#L49) — thirteen chrome sites kept
+      [FooterBar.swift:49](../Sources/Wisp/FooterBar.swift#L49) — thirteen chrome sites kept
       semantic colors while their neighbours moved to tokens, leaving two grey scales side by side
       and the footer at 1.85:1 where `muted` gives 7.19:1. Fixed at depth: a `\.palette`
       EnvironmentKey published once at the root. The five duplicate `private var palette` copies
