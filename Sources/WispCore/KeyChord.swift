@@ -37,7 +37,9 @@ public struct KeyChord: Equatable, Sendable {
         var keyToken: String?
 
         for token in tokens {
-            if let mask = modifierMasks[token] {
+            if hyperSpellings.contains(token) {
+                modifiers |= hyperMask
+            } else if let mask = modifierMasks[token] {
                 modifiers |= mask
             } else {
                 // A second bare key is a malformed chord, not an override.
@@ -49,6 +51,15 @@ public struct KeyChord: Equatable, Sendable {
         guard let keyToken, let keyCode = keyCodes[keyToken] else { return nil }
         return KeyChord(keyCode: keyCode, carbonModifiers: modifiers, raw: text)
     }
+
+    /// What a config may write for "all four at once". The glyph is accepted
+    /// alongside the word for the same reason `⌘` is accepted alongside
+    /// `cmd`: it is what the help page prints back, so it should be legal to
+    /// paste in. Follows Clef.
+    private static let hyperSpellings: Set<String> = ["hyper", HotKey.hyperGlyph]
+
+    private static let hyperMask: UInt32 =
+        UInt32(controlKey) | UInt32(optionKey) | UInt32(shiftKey) | UInt32(cmdKey)
 
     private static let modifierMasks: [String: UInt32] = [
         "cmd": UInt32(cmdKey), "command": UInt32(cmdKey), "⌘": UInt32(cmdKey),
@@ -111,6 +122,9 @@ public struct KeyChord: Equatable, Sendable {
     /// something the parser would reject on the next launch.
     public static func string(keyCode: UInt32, carbonModifiers: UInt32) -> String? {
         guard let key = keyNames[keyCode] else { return nil }
+        // All four is the hyper key, and `hyper+.` is how the config spells
+        // it — the four-word form parses too, but nobody wants to read it.
+        if carbonModifiers & hyperMask == hyperMask { return "hyper+\(key)" }
         var parts: [String] = []
         if carbonModifiers & UInt32(controlKey) != 0 { parts.append("ctrl") }
         if carbonModifiers & UInt32(optionKey) != 0 { parts.append("opt") }

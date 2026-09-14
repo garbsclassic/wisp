@@ -35,6 +35,24 @@ struct KeyChordParseTests {
         #expect(KeyChord.parse(text) == nil)
     }
 
+    /// `hyper` and the glyph both spell "all four modifiers at once", so a
+    /// remapped Caps Lock is one token in the config rather than four.
+    @Test("hyper and ❖ expand to all four modifiers", arguments: ["hyper+.", "❖+."])
+    func hyper(text: String) throws {
+        let chord = try #require(KeyChord.parse(text))
+        let spelled = try #require(KeyChord.parse("ctrl+opt+shift+cmd+."))
+        #expect(chord.keyCode == spelled.keyCode)
+        #expect(chord.carbonModifiers == spelled.carbonModifiers)
+        // Naming one of the four again is redundant, not an error.
+        #expect(KeyChord.parse("hyper+cmd+.")?.carbonModifiers == spelled.carbonModifiers)
+    }
+
+    @Test("All four modifiers spell themselves back as hyper")
+    func hyperRoundTrip() {
+        let all = UInt32(controlKey | optionKey | shiftKey | cmdKey)
+        #expect(KeyChord.string(keyCode: UInt32(kVK_ANSI_Period), carbonModifiers: all) == "hyper+.")
+    }
+
     @Test("A bare key with no modifiers is still a chord")
     func bareKey() throws {
         #expect(try #require(KeyChord.parse("f5")).carbonModifiers == 0)
