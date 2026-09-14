@@ -11,6 +11,8 @@ final class EditorModel: ObservableObject {
         }
     }
     @Published var headings: [Heading] = []
+    /// The caret's UTF-16 offset, as the text view last reported it.
+    @Published var caretOffset = 0
     @Published var focusToken: Int = 0
     @Published var scrollToken: Int = 0
     @Published var wrapToken: Int = 0
@@ -520,6 +522,7 @@ struct EditorView: View {
                 ZStack(alignment: .topLeading) {
                     MinimalTextEditor(
                         text: $model.text,
+                        caretOffset: $model.caretOffset,
                         focusToken: model.focusToken,
                         scrollToken: model.scrollToken,
                         scrollTarget: model.scrollTarget,
@@ -556,6 +559,7 @@ struct EditorView: View {
                     }
                 }
                 BottomBar(
+                    caret: CaretPosition(in: model.text, at: model.caretOffset),
                     wordCount: wordCount,
                     onDecreaseFontScale: { model.stepFontScale(by: -1) },
                     onIncreaseFontScale: { model.stepFontScale(by: 1) },

@@ -18,6 +18,9 @@ extension NSTextView {
 
 struct MinimalTextEditor: NSViewRepresentable {
     @Binding var text: String
+    /// The caret's UTF-16 offset, written on every selection change for the
+    /// footer's line:column and the heading jumps.
+    @Binding var caretOffset: Int
     var focusToken: Int
     var scrollToken: Int
     var scrollTarget: Int
@@ -642,7 +645,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text)
+        Coordinator(text: $text, caretOffset: $caretOffset)
     }
 
     @MainActor
@@ -666,8 +669,22 @@ struct MinimalTextEditor: NSViewRepresentable {
         /// is typing assistance, not rendering.
         var lastSourceView: Bool = false
 
-        init(text: Binding<String>) {
+        let caretOffset: Binding<Int>
+
+        init(text: Binding<String>, caretOffset: Binding<Int>) {
             self.text = text
+            self.caretOffset = caretOffset
+        }
+
+        /// Deferred a turn: the token-driven edits set their selection from
+        /// inside `updateNSView`, and a write to an `@ObservedObject`
+        /// binding mid-update is the hazard `restyleContent` documents.
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            let offset = textView.selectedRange().location
+            DispatchQueue.main.async { [caretOffset] in
+                if caretOffset.wrappedValue != offset { caretOffset.wrappedValue = offset }
+            }
         }
 
         func textDidChange(_ notification: Notification) {

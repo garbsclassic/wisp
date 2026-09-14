@@ -2,6 +2,7 @@ import SwiftUI
 import WispCore
 
 struct BottomBar: View {
+    let caret: CaretPosition
     let wordCount: Int
     let onDecreaseFontScale: () -> Void
     let onIncreaseFontScale: () -> Void
@@ -20,7 +21,9 @@ struct BottomBar: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            Text(wordsLabel)
+            // One label, not two: the row's spacing and the warning's
+            // truncation both key off a single leading text.
+            Text("\(caret.line):\(caret.column) · \(wordsLabel)")
                 .monospacedDigit()
             if let warning {
                 // Truncated rather than wrapped: the footer is one line
