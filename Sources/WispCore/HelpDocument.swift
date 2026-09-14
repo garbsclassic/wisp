@@ -66,6 +66,7 @@ public struct HelpDocument: Equatable, Sendable {
                 Row(chord(.find), "find… — ↵ · ⇧↵ to step"),
                 Row("↵ · ⇧↵", "find next · previous"),
                 Row(chord(.duplicateLine), "duplicate line or selection"),
+                Row(group(.openLineBelow, .openLineAbove), "new line below · above"),
                 Row("⌘← · ↖", "start of list text · then of line"),
                 Row("⌘→ · ↘", "end of line"),
                 Row(group(.previousHeading, .nextHeading), "previous · next heading"),

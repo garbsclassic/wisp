@@ -266,9 +266,10 @@ public enum Metrics {
 
     /// How far the header stops short of the panel's right edge: the dot's
     /// own inset, the dot, and a gap. Without it a long heading list runs
-    /// underneath the indicator.
+    /// underneath the indicator. The gap is a little over an em of the
+    /// chrome face — 8pt read as the dot crowding the last heading.
     public static var headerTrailingInset: CGFloat {
-        chromeInsetX + saveIndicatorSize + 8
+        chromeInsetX + saveIndicatorSize + chromeSize + 2
     }
 
     public static let footerButtonWidth: CGFloat = 24

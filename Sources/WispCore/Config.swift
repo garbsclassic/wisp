@@ -331,9 +331,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
     public var monitor: MonitorTarget
     /// Auto-placed on every summon, or left wherever it was last dragged.
     public var position: PanelPosition
-    /// Clicking another app dismisses the panel outright. Switchable here so
-    /// turning it off doesn't need a rebuild.
-    public var dismissOnOutsideClick: Bool
     /// Flashes a dot in the panel's top corner each time the note is
     /// written to disk. On by default — the save is debounced and silent
     /// otherwise, so there is nothing else that says it happened.
@@ -356,7 +353,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
         background: Background = Background(),
         monitor: MonitorTarget = .primary,
         position: PanelPosition = .auto,
-        dismissOnOutsideClick: Bool = true,
         saveIndicator: Bool = true,
         scratchpadPath: String = "",
         keymap: Keymap = Keymap(),
@@ -371,7 +367,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.background = background
         self.monitor = monitor
         self.position = position
-        self.dismissOnOutsideClick = dismissOnOutsideClick
         self.saveIndicator = saveIndicator
         self.scratchpadPath = scratchpadPath
         self.keymap = keymap
@@ -402,9 +397,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .monitor, default: defaults.monitor, diagnostics: diagnostics)
         position = container.lenientValue(
             forKey: .position, default: defaults.position, diagnostics: diagnostics)
-        dismissOnOutsideClick = container.lenientValue(
-            forKey: .dismissOnOutsideClick, default: defaults.dismissOnOutsideClick,
-            diagnostics: diagnostics)
         saveIndicator = container.lenientValue(
             forKey: .saveIndicator, default: defaults.saveIndicator, diagnostics: diagnostics)
         scratchpadPath = container.lenientValue(

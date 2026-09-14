@@ -67,6 +67,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case code
 
     case duplicateLine
+    case openLineBelow
+    case openLineAbove
     case toggleBulletedList
     case toggleTaskItem
     case moveLineUp
@@ -97,6 +99,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .strikethrough: return "Strikethrough"
         case .code: return "Code"
         case .duplicateLine: return "Duplicate Line"
+        case .openLineBelow: return "New Line Below"
+        case .openLineAbove: return "New Line Above"
         case .toggleBulletedList: return "Toggle Bulleted List"
         case .toggleTaskItem: return "Toggle Task Item"
         case .moveLineUp: return "Move Line Up"
@@ -122,10 +126,10 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .bold: return "cmd+b"
         case .italic: return "cmd+i"
         case .cycleTheme: return "cmd+t"
-        // ⌘↩ rather than a letter: this is "show me the file", a sibling of
-        // the ⌘-Return "commit / step outside what you're typing" gesture,
-        // and every unclaimed ⌘-letter reads as a formatting command here.
-        case .sourceView: return "cmd+return"
+        // VS Code's markdown-preview chord. Obsidian's ⌘E and Typora's ⌘/
+        // are both taken here, and the other unclaimed ⌘-letters read as
+        // formatting commands.
+        case .sourceView: return "cmd+shift+v"
         case .highlight: return "opt+h"
         // `<u>` is HTML, not markdown — which is also what Obsidian's own
         // underline command inserts, and this note is read there too.
@@ -134,6 +138,10 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .strikethrough: return "cmd+shift+s"
         case .code: return "cmd+e"
         case .duplicateLine: return "cmd+d"
+        // The VS Code / Xcode pair: ⌘↩ steps out of the line you're on onto
+        // a fresh one below, ⇧ puts it above.
+        case .openLineBelow: return "cmd+return"
+        case .openLineAbove: return "cmd+shift+return"
         case .toggleBulletedList: return "cmd+l"
         // The shifted sibling of ⌘L: one says "is this a list", the other
         // "is this done".

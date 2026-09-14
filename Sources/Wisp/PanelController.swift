@@ -20,19 +20,10 @@ final class PanelController {
     private let tint: NSView
     private let inner: NSView
     private let outer: NSView
-    /// Only the app hide/unhide pair now — the frame observers are gone,
-    /// deliberately: nothing writes the config during a drag.
-    private var observers: [NSObjectProtocol] = []
-    /// Global mouse-up monitor backing click-outside-to-dismiss. Non-nil
-    /// only while the panel is visible.
-    private var outsideClickMonitor: Any?
     /// The frame `placePanel` last put the panel at. `position: manual`
     /// compares against it on hide to tell a drag from an untouched
     /// panel that simply opened where it was told to.
     private var placedFrame: NSRect?
-    /// When the panel last moved or resized, used to spot the mouse-up
-    /// that *ended* a drag — see `startOutsideClickMonitor`.
-    private var frameChangedAt: Date?
 
     init(model: EditorModel, settings: Settings) {
         self.model = model
@@ -138,44 +129,6 @@ final class PanelController {
         panel.onHide = { [weak self] in
             self?.handleHide()
         }
-
-        // A drag or a live resize is the one thing that can put a mouse-up
-        // over the panel in front of the *global* monitor, so note when one
-        // happened — `startOutsideClickMonitor` uses it.
-        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
-            let token = NotificationCenter.default.addObserver(
-                forName: name, object: panel, queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.frameChangedAt = Date() }
-            }
-            observers.append(token)
-        }
-
-        // NSApp.hide (⌥⌘H from another app, Dock → Hide) takes the panel
-        // off screen without routing through orderOut, so the monitor has
-        // to be stopped and restarted around it explicitly.
-        for (name, visible) in [
-            (NSApplication.didHideNotification, false),
-            (NSApplication.didUnhideNotification, true),
-        ] {
-            let token = NotificationCenter.default.addObserver(
-                forName: name, object: NSApp, queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    guard let self else { return }
-                    if visible {
-                        if self.panel.isVisible,
-                            self.settings.config.dismissOnOutsideClick
-                        {
-                            self.startOutsideClickMonitor()
-                        }
-                    } else {
-                        self.stopOutsideClickMonitor()
-                    }
-                }
-            }
-            observers.append(token)
-        }
     }
 
     /// On screen *and* holding keyboard focus. The gate for every chord
@@ -204,7 +157,6 @@ final class PanelController {
     /// and the panel's own orderOut can both reach it for a single hide.
     private func handleHide() {
         saveFrame()
-        stopOutsideClickMonitor()
         // orderOut leaves the SwiftUI hierarchy mounted, so overlays and
         // their app-wide key monitors survive the hide unless we say so.
         model.dismissAllOverlays()
@@ -220,7 +172,6 @@ final class PanelController {
             // the frame it already has, which is a no-op.
             placePanel()
             panel.makeKeyAndOrderFront(nil)
-            if settings.config.dismissOnOutsideClick { startOutsideClickMonitor() }
             applyTheme(model.theme)
             // Pick up changes another Mac wrote to scratchpad.md while
             // we were dismissed — covers the iCloud/Dropbox sync case.
@@ -238,68 +189,6 @@ final class PanelController {
                 self.visualEffect.state = .active
                 self.panel.invalidateShadow()
             }
-        }
-    }
-
-    // MARK: Outside-click dismissal
-
-    /// Set while Wisp is presenting its own modal (storage picker,
-    /// alerts). Those run app-modal, so the rest of the desktop stays
-    /// clickable and every such click would otherwise dismiss the panel
-    /// the modal is sitting on.
-    private var isPresentingModal = false
-
-    /// Run `body` with outside-click dismissal suspended.
-    func presentingModal<T>(_ body: () -> T) -> T {
-        isPresentingModal = true
-        defer { isPresentingModal = false }
-        return body()
-    }
-
-    /// Any click outside the panel dismisses it outright — "go away",
-    /// not "back out one level" (Esc keeps the layered-cancel chain).
-    /// A global monitor only sees *other* apps' events, so clicks inside
-    /// the panel and on Wisp's own status item can't false-trigger.
-    /// Teardown hangs off FloatingPanel.onHide, so it can't be skipped by
-    /// a hide added later; one left running while hidden would fire on
-    /// every click the user makes anywhere.
-    ///
-    /// Dragging the panel is the exception the two guards below exist for.
-    /// AppKit runs the drag inside its own tracking loop, so the mouse-up
-    /// that ends it never arrives as a local event and this monitor sees
-    /// it — dismissing the panel the user was only repositioning. The cursor
-    /// is over the panel for the whole drag, which covers it; except when
-    /// the window clamps against a screen edge and the cursor keeps going,
-    /// which the just-moved window is what covers.
-    private func startOutsideClickMonitor() {
-        stopOutsideClickMonitor()
-        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.leftMouseUp, .rightMouseUp, .otherMouseUp]
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, !self.isPresentingModal else { return }
-                if self.panel.frame.contains(NSEvent.mouseLocation) { return }
-                if let changed = self.frameChangedAt,
-                    Date().timeIntervalSince(changed) < Self.dragSettleWindow
-                {
-                    self.frameChangedAt = nil
-                    return
-                }
-                self.dismiss()
-            }
-        }
-    }
-
-    /// How recently the panel has to have moved for a mouse-up to read as
-    /// the end of that drag. Long enough to cover the gap between the last
-    /// `didMove` and the mouse-up, short enough that a deliberate click
-    /// away right after a drag still dismisses.
-    private static let dragSettleWindow: TimeInterval = 0.3
-
-    private func stopOutsideClickMonitor() {
-        if let monitor = outsideClickMonitor {
-            NSEvent.removeMonitor(monitor)
-            outsideClickMonitor = nil
         }
     }
 
@@ -390,14 +279,11 @@ final class PanelController {
         return NSScreen.screens.first?.visibleFrame ?? NSRect(origin: .zero, size: panelSize)
     }
 
-    /// Moving the panel ourselves fires `didMove`, which would otherwise
-    /// leave `frameChangedAt` set and swallow the user's next outside
-    /// click. Recording where we put it is what lets `saveFrame` tell a
+    /// Recording where we put the panel is what lets `saveFrame` tell a
     /// drag from a panel that just opened where it was told to.
     private func setPlacedFrame(_ frame: NSRect) {
         panel.setFrame(frame, display: false)
         placedFrame = frame
-        frameChangedAt = nil
     }
 
     /// Called from `applicationWillTerminate` — see `saveFrame`.

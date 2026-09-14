@@ -135,6 +135,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleCode(_ sender: Any?) { model.toggleCode() }
     @objc func reveal(_ sender: Any?) { revealInFinder() }
     @objc func duplicateSelection(_ sender: Any?) { model.duplicateSelection() }
+    @objc func openLineBelow(_ sender: Any?) { model.openLine(below: true) }
+    @objc func openLineAbove(_ sender: Any?) { model.openLine(below: false) }
     @objc func toggleBulletedList(_ sender: Any?) { model.toggleBulletedList() }
     @objc func toggleTaskItem(_ sender: Any?) { model.toggleTaskItem() }
     @objc func moveLineUp(_ sender: Any?) { model.moveLine(by: -1) }
@@ -160,6 +162,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .strikethrough: model.toggleStrikethrough()
         case .code: model.toggleCode()
         case .duplicateLine: model.duplicateSelection()
+        case .openLineBelow: model.openLine(below: true)
+        case .openLineAbove: model.openLine(below: false)
         case .toggleBulletedList: model.toggleBulletedList()
         case .toggleTaskItem: model.toggleTaskItem()
         case .moveLineUp: model.moveLine(by: -1)
@@ -219,10 +223,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // somewhere visible; otherwise it can sit behind the desktop.
         panelController?.openIfNeeded()
         NSApp.activate(ignoringOtherApps: true)
-        // These run app-modal, so the desktop and other apps stay
-        // clickable; without this the first such click would dismiss the
-        // panel we just opened for the modal to sit on.
-        panelController?.presentingModal { runStorageLocationFlow() }
+        runStorageLocationFlow()
     }
 
     private func runStorageLocationFlow() {
@@ -278,7 +279,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func resetStorageLocation() {
-        panelController?.presentingModal { runStorageLocationReset() }
+        runStorageLocationReset()
     }
 
     private func runStorageLocationReset() {
@@ -299,8 +300,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///
     /// The panel goes away first: settings open in whatever app owns
     /// .jsonc, and leaving Wisp floating over the editor you are about to
-    /// type in is the wrong half of the screen. Explicit rather than left
-    /// to `dismissOnOutsideClick`, which the user may have turned off.
+    /// type in is the wrong half of the screen.
     @objc func openSettings(_ sender: Any?) {
         panelController?.dismiss()
         settings.openConfigFile()

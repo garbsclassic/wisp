@@ -74,6 +74,46 @@ public enum LineEdits {
             selection: NSRange(location: insertAt + 1 + column, length: 0))
     }
 
+    // MARK: Open a line
+
+    /// ⌘↩ / ⌘⇧↩. Opens a fresh line below or above the current one and
+    /// puts the caret on it, wherever on the line the caret was — the
+    /// "I'm done with this line" gesture from VS Code and Xcode. With a
+    /// selection, the line goes under its last line or over its first.
+    ///
+    /// The new line takes the current line's leading whitespace, so a note
+    /// nested under a list item stays nested, but no marker: ↵ and ⇧↵ are
+    /// the keys that continue a list, and this one is for stepping out of
+    /// what you were typing.
+    public static func openLine(in text: NSString, selection: NSRange, below: Bool) -> Edit {
+        let block = lineBlock(in: text, covering: selection)
+        let line = below ? lineRange(in: text, at: max(block.location, NSMaxRange(block) - 1))
+            : lineRange(in: text, at: block.location)
+        let indent = leadingWhitespace(of: line, in: text)
+        let indentLength = (indent as NSString).length
+
+        if !below || endsWithNewline(line, in: text) {
+            let insertAt = below ? NSMaxRange(line) : line.location
+            return Edit(
+                range: NSRange(location: insertAt, length: 0),
+                replacement: indent + "\n",
+                selection: NSRange(location: insertAt + indentLength, length: 0))
+        }
+        // Last line of the document, with nothing after it: the newline
+        // leads rather than trails, as in `duplicate`.
+        let insertAt = NSMaxRange(line)
+        return Edit(
+            range: NSRange(location: insertAt, length: 0),
+            replacement: "\n" + indent,
+            selection: NSRange(location: insertAt + 1 + indentLength, length: 0))
+    }
+
+    private static func leadingWhitespace(of line: NSRange, in text: NSString) -> String {
+        var end = line.location
+        while end < NSMaxRange(line), isSpaceOrTab(text.character(at: end)) { end += 1 }
+        return text.substring(with: NSRange(location: line.location, length: end - line.location))
+    }
+
     // MARK: Whole-line copy, cut, and paste
 
     /// What ⌘C puts on the pasteboard when nothing is selected: the whole

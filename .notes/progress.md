@@ -301,3 +301,11 @@
   0.2 lifts dark from 24 to 31, 7 clamps to 1. Review: the chezmoi template still emitted
   `vibrancy` and would have stripped `background` on apply — renamed there and applied. 397 tests.
 
+- 2026-09-14 — open lines, source-view chord, header gap, outside-click gone: `openLineBelow` /
+  `openLineAbove` on ⌘↩ / ⌘⇧↩ (`LineEdits.openLine` — copies the line's indent, no marker; ↵ and
+  ⇧↵ still continue lists), which moved `sourceView` to ⌘⇧V, VS Code's markdown-preview chord.
+  `headerTrailingInset` gap grew from 8 to `chromeSize + 2`: measured ellipsis→dot at 16pt, was
+  ~9. `dismissOnOutsideClick` and the global mouse-up monitor removed outright, plus the drag and
+  hide/unhide observers that only served it; chezmoi template and live config updated. Driven in a
+  second instance on a scratch `XDG_CONFIG_HOME`: ⌘↩ / ⌘⇧↩ wrote `y` / `x` where expected, ⌘⇧V
+  showed the code face, a click on the desktop left the panel up. 409 tests.

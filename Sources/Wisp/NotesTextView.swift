@@ -103,8 +103,8 @@ final class NotesTextView: NSTextView {
         return true
     }
 
-    /// The panel losing key — another app clicked with
-    /// `dismissOnOutsideClick` off — takes the caret with it.
+    /// The panel losing key — another app clicked — takes the caret with
+    /// it.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         keyWindowObservers.forEach(NotificationCenter.default.removeObserver)
@@ -227,6 +227,11 @@ final class NotesTextView: NSTextView {
     /// ⌘D, routed here from the Edit menu through the model's token.
     func duplicateSelection() {
         apply(LineEdits.duplicate(in: string as NSString, selection: selectedRange()))
+    }
+
+    /// ⌘↩ / ⌘⇧↩.
+    func openLine(below: Bool) {
+        apply(LineEdits.openLine(in: string as NSString, selection: selectedRange(), below: below))
     }
 
     /// ⌥↑ / ⌥↓.

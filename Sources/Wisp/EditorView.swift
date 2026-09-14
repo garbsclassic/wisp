@@ -17,6 +17,8 @@ final class EditorModel: ObservableObject {
     @Published var scrollToken: Int = 0
     @Published var wrapToken: Int = 0
     @Published var duplicateToken: Int = 0
+    @Published var openLineToken: Int = 0
+    @Published var openLineBelow: Bool = true
     @Published var listItemToken: Int = 0
     @Published var taskItemToken: Int = 0
     @Published var moveLineToken: Int = 0
@@ -314,6 +316,11 @@ final class EditorModel: ObservableObject {
     /// edit needs the text view's live selection, which only
     /// `MinimalTextEditor` has a handle on.
     func duplicateSelection() { duplicateToken &+= 1 }
+    /// ⌘↩ / ⌘⇧↩. Direction rides alongside the token, as `moveLineDelta` does.
+    func openLine(below: Bool) {
+        openLineBelow = below
+        openLineToken &+= 1
+    }
     func toggleBulletedList() { listItemToken &+= 1 }
     func toggleTaskItem() { taskItemToken &+= 1 }
 
@@ -547,6 +554,8 @@ struct EditorView: View {
                         wrapToken: model.wrapToken,
                         wrapMarkers: model.wrapMarkers,
                         duplicateToken: model.duplicateToken,
+                        openLineToken: model.openLineToken,
+                        openLineBelow: model.openLineBelow,
                         listItemToken: model.listItemToken,
                         taskItemToken: model.taskItemToken,
                         moveLineToken: model.moveLineToken,

@@ -27,6 +27,8 @@ struct MinimalTextEditor: NSViewRepresentable {
     var wrapToken: Int
     var wrapMarkers: MarkdownWrap.Markers
     var duplicateToken: Int
+    var openLineToken: Int
+    var openLineBelow: Bool
     var listItemToken: Int
     var taskItemToken: Int
     var moveLineToken: Int
@@ -156,6 +158,12 @@ struct MinimalTextEditor: NSViewRepresentable {
             context.coordinator.lastDuplicateToken = duplicateToken
             if textView.window?.firstResponder === textView {
                 textView.duplicateSelection()
+            }
+        }
+        if context.coordinator.lastOpenLineToken != openLineToken {
+            context.coordinator.lastOpenLineToken = openLineToken
+            if textView.window?.firstResponder === textView {
+                textView.openLine(below: openLineBelow)
             }
         }
         if context.coordinator.lastListItemToken != listItemToken {
@@ -667,6 +675,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lastScrollToken: Int = 0
         var lastWrapToken: Int = 0
         var lastDuplicateToken: Int = 0
+        var lastOpenLineToken: Int = 0
         var lastListItemToken: Int = 0
         var lastTaskItemToken: Int = 0
         var lastMoveLineToken: Int = 0

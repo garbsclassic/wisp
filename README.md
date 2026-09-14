@@ -1,6 +1,6 @@
 # Wisp
 
-A dead-simple macOS scratchpad. ⌃⌥. to summon, type, Esc or click away to dismiss.
+A dead-simple macOS scratchpad. ⌃⌥. to summon, type, Esc to dismiss.
 
 <p align="center">
   <img src="docs/screenshot.png" width="720" alt="Wisp">
@@ -40,7 +40,7 @@ first leaves a dangling login item.
 - **Headings** — `#` through `######` render bold, each level its own colour; the header strip lists `#` and `##` for click-to-jump, and ⌃⇧↑ / ⌃⇧↓ walk every level
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic / Highlight / Strikethrough** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`), ⌘⇧S (`~~text~~`)
-- **Line editing** — ⌘D duplicates the line or selection; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
+- **Line editing** — ⌘D duplicates the line or selection; ⌘↩ / ⌘⇧↩ open a new line below / above it, keeping its indent; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
 - **⌘L** makes the line a bulleted list item, or unmakes it; **⌘⇧L** makes it a task, or checks it off
 - **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
 - **Menu bar icon** — left click for the menu, right click to summon the panel
@@ -79,7 +79,6 @@ ignored.
 | `background.blur`       | `true`                    | Blurs whatever is behind the panel                                                                                           |
 | `background.opacity`    | _(theme's own)_           | Alpha of the panel's tint, 0–1. `1` is a solid panel; unset keeps each theme's tuned value                                   |
 | `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on                                                                        |
-| `dismissOnOutsideClick` | `true`                    | Clicking another app dismisses the panel                                                                                        |
 | `position`              | `"auto"`                  | `auto` opens the panel centred, top edge a tenth down the screen, and pins it there; `manual` leaves it wherever you drag it |
 | `scratchpadPath`        | `""`                      | Folder for `scratchpad.md`; empty means `~/Documents`                                                                        |
 | `keymap.*`              | _(see below)_             | Every shortcut, rebindable. `keymap.summon` is the global chord, e.g. `cmd+shift+space`                                      |
@@ -103,8 +102,9 @@ what a Caps Lock remapped to a hyperkey sends.
 | `help`                                    | `["f1", "cmd+/"]` |
 | `bold` / `italic` / `highlight` / `underline` / `strikethrough` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+shift+s` / `cmd+e` |
 | `toggleTheme`                             | `cmd+t` |
-| `sourceView`                                 | `cmd+return` |
+| `sourceView`                              | `cmd+shift+v` |
 | `duplicateLine` / `toggleBulletedList` / `toggleTaskItem` | `cmd+d` / `cmd+l` / `cmd+shift+l` |
+| `openLineBelow` / `openLineAbove`         | `cmd+return` / `cmd+shift+return` |
 | `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
 | `previousHeading` / `nextHeading`         | `ctrl+shift+up` / `ctrl+shift+down` |
 | `increaseFontScale` / `decreaseFontScale` / `resetFontScale` | `cmd+=` / `cmd+-` / `cmd+0` |

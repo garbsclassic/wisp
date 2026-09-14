@@ -130,6 +130,18 @@ struct KeymapTests {
         }
     }
 
+    @Test("Open-line and source-view actions keep their dedicated defaults, and all parse")
+    func openLineAndSourceViewDefaults() {
+        #expect(KeymapAction.openLineBelow.defaultChords == "cmd+return")
+        #expect(KeymapAction.openLineAbove.defaultChords == "cmd+shift+return")
+        #expect(KeymapAction.sourceView.defaultChords == "cmd+shift+v")
+
+        let keymap = Keymap()
+        for action in [KeymapAction.openLineBelow, .openLineAbove, .sourceView] {
+            #expect(keymap.parsed(action) != nil)
+        }
+    }
+
     @Test("Only the actions that open the panel are unscoped")
     func scoping() {
         #expect(!KeymapAction.find.isPanelScoped)

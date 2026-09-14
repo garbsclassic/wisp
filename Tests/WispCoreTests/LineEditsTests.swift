@@ -68,6 +68,107 @@ struct DuplicateTests {
     }
 }
 
+@Suite("LineEdits — open a line")
+struct OpenLineTests {
+    @Test("Below, mid-line on a line with a trailing newline, opens right after it")
+    func belowMidLine() {
+        let text = "one\ntwo\nthree\n"
+        let edit = LineEdits.openLine(
+            in: text as NSString, selection: NSRange(location: 5, length: 0), below: true)
+        #expect(apply(edit, to: text) == "one\ntwo\n\nthree\n")
+        #expect(edit.selection == NSRange(location: 8, length: 0))
+    }
+
+    @Test("Below, on the last line with no trailing newline, appends a leading newline")
+    func belowLastLineWithoutNewline() {
+        let text = "one\ntwo"
+        let edit = LineEdits.openLine(
+            in: text as NSString, selection: NSRange(location: 6, length: 0), below: true)
+        #expect(apply(edit, to: text) == "one\ntwo\n")
+        #expect(edit.selection == NSRange(location: 8, length: 0))
+    }
+
+    @Test("Above opens at the line's start, pushing the original line down")
+    func above() {
+        let text = "one\ntwo\nthree\n"
+        let edit = LineEdits.openLine(
+            in: text as NSString, selection: NSRange(location: 5, length: 0), below: false)
+        #expect(apply(edit, to: text) == "one\n\ntwo\nthree\n")
+        #expect(edit.selection == NSRange(location: 4, length: 0))
+    }
+
+    @Test("Only leading spaces are copied as indent, not a list marker")
+    func indentExcludesListMarker() {
+        let text = "  - item\ntwo\n"
+        let edit = LineEdits.openLine(
+            in: text as NSString, selection: NSRange(location: 5, length: 0), below: true)
+        #expect(apply(edit, to: text) == "  - item\n  \ntwo\n")
+        #expect(edit.selection == NSRange(location: 11, length: 0))
+    }
+
+    @Test("Leading tabs are copied as indent")
+    func indentCopiesTabs() {
+        let text = "\t\tfoo\n"
+        let edit = LineEdits.openLine(
+            in: text as NSString, selection: NSRange(location: 3, length: 0), below: true)
+        #expect(apply(edit, to: text) == "\t\tfoo\n\t\t\n")
+        #expect(edit.selection == NSRange(location: 8, length: 0))
+    }
+
+    @Test("Below, a multi-line selection opens under its last line")
+    func belowMultiLineSelection() {
+        let text = "one\ntwo\nthree\nfour\n"
+        let edit = LineEdits.openLine(
+            in: text as NSString, selection: NSRange(location: 0, length: 8), below: true)
+        #expect(apply(edit, to: text) == "one\ntwo\n\nthree\nfour\n")
+        #expect(edit.selection == NSRange(location: 8, length: 0))
+    }
+
+    @Test("Above, a multi-line selection opens over its first line")
+    func aboveMultiLineSelection() {
+        let text = "one\ntwo\nthree\nfour\n"
+        let edit = LineEdits.openLine(
+            in: text as NSString, selection: NSRange(location: 0, length: 8), below: false)
+        #expect(apply(edit, to: text) == "\none\ntwo\nthree\nfour\n")
+        #expect(edit.selection == NSRange(location: 0, length: 0))
+    }
+
+    @Test("A selection ending exactly on a line boundary doesn't pull in the next line")
+    func selectionEndingOnLineBoundary() {
+        let text = "one\ntwo\nthree\n"
+        // Selects "one\n" exactly — the newline included.
+        let edit = LineEdits.openLine(
+            in: text as NSString, selection: NSRange(location: 0, length: 4), below: true)
+        #expect(apply(edit, to: text) == "one\n\ntwo\nthree\n")
+        #expect(edit.selection == NSRange(location: 4, length: 0))
+    }
+
+    @Test("Below, on an empty document, leaves a blank line with the caret after it")
+    func belowEmptyDocument() {
+        let edit = LineEdits.openLine(
+            in: "" as NSString, selection: NSRange(location: 0, length: 0), below: true)
+        #expect(apply(edit, to: "") == "\n")
+        #expect(edit.selection == NSRange(location: 1, length: 0))
+    }
+
+    @Test("Above, on an empty document, leaves a blank line with the caret before it")
+    func aboveEmptyDocument() {
+        let edit = LineEdits.openLine(
+            in: "" as NSString, selection: NSRange(location: 0, length: 0), below: false)
+        #expect(apply(edit, to: "") == "\n")
+        #expect(edit.selection == NSRange(location: 0, length: 0))
+    }
+
+    @Test("A caret on an empty line between two newlines opens with no indent")
+    func caretOnEmptyLine() {
+        let text = "one\n\ntwo\n"
+        let edit = LineEdits.openLine(
+            in: text as NSString, selection: NSRange(location: 4, length: 0), below: true)
+        #expect(apply(edit, to: text) == "one\n\n\ntwo\n")
+        #expect(edit.selection == NSRange(location: 5, length: 0))
+    }
+}
+
 @Suite("LineEdits — whole-line copy and cut")
 struct LineClipboardTests {
     @Test("Copy takes the line with its newline")
