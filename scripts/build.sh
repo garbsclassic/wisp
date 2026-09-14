@@ -12,6 +12,18 @@ CONFIGURATION="${WISP_CONFIGURATION:-release}"
 # the signing note in README.md.
 SIGN_IDENTITY="${WISP_SIGN_IDENTITY:--}"
 
+# CommandLineTools' default SDK (MacOSX.sdk) reimplements @State as a macro whose plugin
+# (SwiftUIMacros) ships only with Xcode, so `swift build` fails with "plugin for module
+# 'SwiftUIMacros' not found". Pin to the newest SDK that predates that change via $SDKROOT, not
+# `-Xswiftc -sdk`, since SwiftPM derives its own `-sdk` for the build plan which takes priority.
+SDK_DIR="$(xcode-select -p)/SDKs"
+export SDKROOT="${WISP_SDKROOT:-$SDK_DIR/MacOSX26.5.sdk}"
+if [[ ! -d "$SDKROOT" ]]; then
+    echo "error: SDK not found at $SDKROOT" >&2
+    echo "       set WISP_SDKROOT to an SDK under $SDK_DIR that predates the SwiftUIMacros plugin requirement" >&2
+    exit 1
+fi
+
 swift build -c "$CONFIGURATION" --package-path "$ROOT_DIR"
 BINARY="$(swift build -c "$CONFIGURATION" --package-path "$ROOT_DIR" --show-bin-path)/${APP_NAME}"
 
