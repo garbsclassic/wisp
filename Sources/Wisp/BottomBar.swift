@@ -24,7 +24,7 @@ struct BottomBar: View {
             // One label, not two: the row's spacing and the warning's
             // truncation both key off a single leading text.
             Text("\(caret.line):\(caret.column) · \(wordsLabel)")
-                .monospacedDigit()
+                .font(Typography.ui(Metrics.chromeSize, tabularDigits: true))
             if let warning {
                 // Truncated rather than wrapped: the footer is one line
                 // tall, and the full text is a hover away.

@@ -514,18 +514,25 @@ struct MinimalTextEditor: NSViewRepresentable {
                 range: NSRange(match.range, in: text))
         }
         // `~~struck~~`, and `~struck~` too: GFM allows either, and a single
-        // tilde is what Notion accepts when typing. Same adjacency filter as
-        // italic, so the inside of a doubled run isn't matched twice.
+        // tilde is what Notion accepts when typing. The doubled runs are
+        // blanked out of the text the single pass reads rather than filtered
+        // by adjacency the way italic is: a match the filter rejects has
+        // still been consumed, so `~~a~~ and ~b~` lost `~b~` to a rejected
+        // `~ and ~`. Blanking keeps every offset where it was.
+        let masked = NSMutableString(string: text)
         for match in text.matches(of: /~~([^~\n]+)~~/) where isLive(match.range, 2) {
+            let range = NSRange(match.range, in: text)
             storage.addAttribute(
-                .strikethroughStyle, value: NSUnderlineStyle.single.rawValue,
-                range: NSRange(match.range, in: text))
+                .strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+            masked.replaceCharacters(in: range, with: String(repeating: " ", count: range.length))
         }
-        for match in text.matches(of: /~([^~\n]+)~/)
-        where !isAdjacent(to: "~", match.range, in: text) && isLive(match.range, 1) {
+        let maskedText = masked as String
+        for match in maskedText.matches(of: /~([^~\n]+)~/)
+        where !isAdjacent(to: "~", match.range, in: maskedText)
+            && marks.isLive(NSRange(match.range, in: maskedText), closeLength: 1) {
             storage.addAttribute(
                 .strikethroughStyle, value: NSUnderlineStyle.single.rawValue,
-                range: NSRange(match.range, in: text))
+                range: NSRange(match.range, in: maskedText))
         }
         styleHighlights(in: storage, palette: palette, marks: marks)
 

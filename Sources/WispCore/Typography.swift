@@ -107,16 +107,35 @@ public enum Typography {
     /// UI face at a SwiftUI size/weight. `tabularDigits` keeps numeric
     /// labels from reflowing as their digits change — Inter ships `tnum`,
     /// and the system fallback has its own tabular figures.
+    ///
+    /// With `tnum` on, the Nerd Font build of Inter also turns contextual
+    /// alternates off. Inter's `calt` swaps the colon between two digits
+    /// for a raised one, and the patched font's table for that points at
+    /// an icon glyph — `12:34` drew a globe where the colon should be.
+    /// Only the tabular path is affected, and only there is the feature
+    /// worth losing.
     public static func ui(
         _ size: CGFloat,
         weight: Font.Weight = .regular,
         tabularDigits: Bool = false
     ) -> Font {
         let size = scaled(size)
-        let base = uiInstalled
-            ? Font.custom(uiFamily, size: size).weight(weight)
-            : .system(size: size, weight: weight)
+        guard uiInstalled else {
+            let base = Font.system(size: size, weight: weight)
+            return tabularDigits ? base.monospacedDigit() : base
+        }
+        guard tabularDigits else { return Font.custom(uiFamily, size: size).weight(weight) }
 
-        return tabularDigits ? base.monospacedDigit() : base
+        let features: [[NSFontDescriptor.FeatureKey: Int]] = [
+            [.typeIdentifier: kNumberSpacingType, .selectorIdentifier: kMonospacedNumbersSelector],
+            [.typeIdentifier: kContextualAlternatesType,
+             .selectorIdentifier: kContextualAlternatesOffSelector],
+        ]
+        let descriptor = NSFontDescriptor(fontAttributes: [.family: uiFamily])
+            .addingAttributes([.featureSettings: features])
+        guard let resolved = NSFont(descriptor: descriptor, size: size) else {
+            return Font.custom(uiFamily, size: size).weight(weight).monospacedDigit()
+        }
+        return Font(resolved).weight(weight)
     }
 }
