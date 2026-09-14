@@ -281,3 +281,12 @@
   can no longer eat the opener of a real run (`~a\~ b~`, `_a\_ b_`, `` `x\` y` `` all render to
   the real closer now). Same for `styleHighlights`. 382 tests. Verified on screen. Known and kept:
   only the first character of a delimiter is escapable, so `**a\** b**` is still the malformed case.
+- 2026-09-14 — [smooth-caret](plan-smooth-caret.md): the caret is a `CALayer` now — `CaretLayer`,
+  hooked from `updateInsertionPointStateAndRestartTimer`, the stock one silenced by
+  `shouldDrawInsertionPoint`. `caret.motion` snappy / gliding / off, `caret.blink`. Measured
+  against the stock indicator first: 4×54 px at 1.1 scale, rounded, centred on the boundary — the
+  overlay landed 2 px right until it was centred too; now the same pixels (x 99–102, y 84–137).
+  A staggered-capture burst caught the ⌘↓ jump mid-settle; 5 s idle with the panel up and the
+  caret blinking consumed 0 CPU time. Selection, dismiss, resummon, off/no-blink, both themes
+  checked. 389 tests.
+
