@@ -213,11 +213,12 @@ public enum Metrics {
     /// three-step enum and the continuous scale were merged into one
     /// control, so a default config renders exactly as it used to.
     public static let bodySize: CGFloat = 15
-    /// Every heading level steps up off the body, one point of scale per
-    /// level, `#` first. Deliberately shallow: the ramp is there to be
-    /// felt rather than seen, and `Palette.headings` carries the tier a
-    /// reader actually keys on. Index is `level - 1`.
-    public static let headingRatios: [CGFloat] = [1.06, 1.05, 1.04, 1.03, 1.02, 1.01]
+    /// Heading size off the body, `#` first, two points of scale per level.
+    /// `#####` sits at body size and `######` just under it: with six
+    /// levels the ramp has to pass through the body somewhere, and
+    /// `Palette.headings` carries the tier a reader actually keys on. Index
+    /// is `level - 1`.
+    public static let headingRatios: [CGFloat] = [1.08, 1.06, 1.04, 1.02, 1, 0.98]
     /// Generous leading — this is a writing surface, not a dense list.
     public static let bodyLineHeightMultiple: CGFloat = 1.35
 

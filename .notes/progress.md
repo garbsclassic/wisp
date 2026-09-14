@@ -272,3 +272,7 @@
   `tnum` colon between digits to an icon glyph (`17:1` drew a globe), so `Typography.ui(tabularDigits:)`
   turns `calt` off. 390 tests. Verified both themes; `hyper+.` summons the installed build after the
   chezmoi apply. Driver gotcha #3: `hyper+f7` never arrived — F7 is a media key — use a plain key.
+- 2026-09-14 — [headings-and-more](plan-headings-and-more.md): review found `.strikethroughStyle`
+  never reset, so a strike outlived its markers (`~~gone~~` ⌫ stayed struck); now removed in
+  `resetBaseAttributes` with the other baseless attributes. Ramp retuned to 1.08→0.98 — `#####` at
+  body size, `######` under it. 392 tests. Verified on screen: ⌫ on the closing tilde clears the line.

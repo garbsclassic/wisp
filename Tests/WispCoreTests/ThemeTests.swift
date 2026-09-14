@@ -69,11 +69,11 @@ struct MetricsTests {
             == Metrics.fontScaleRange.lowerBound)
     }
 
-    @Test("Six heading levels, every one above body size, strictly shrinking")
+    @Test("Six heading levels, `#` above body size, strictly shrinking")
     func headingRatios() {
         let ratios = Metrics.headingRatios
         #expect(ratios.count == 6)
-        #expect(ratios.allSatisfy { $0 > 1 })
+        #expect(ratios[0] > 1)
         #expect(zip(ratios, ratios.dropFirst()).allSatisfy { $0 > $1 })
     }
 

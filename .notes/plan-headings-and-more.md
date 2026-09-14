@@ -7,7 +7,7 @@ Seven refinements batched on 2026-09-14. Full design in the session plan; this i
 | Decision | Chosen | Why |
 | --- | --- | --- |
 | Heading colours | Flexoki 400s dark, 600s light | Modernist has only green/blue; light `danger` already borrows red-600 |
-| Heading sizes | 1.06 → 1.01, one point per level | Felt, not seen — colour carries the tier |
+| Heading sizes | 1.08 → 0.98, two points per level | `#####` at body size; colour carries the tier |
 | Strikethrough syntax | render `~~x~~` and `~x~`, write `~~` | Obsidian writes `~~`; Notion accepts `~` when typing |
 | Strikethrough chord | `cmd+shift+s` | Notion's, and the user's Obsidian keymap |
 | Heading jumps | `ctrl+shift+up/down`, every level | The strip is an index; the walk sees `###`+ too |

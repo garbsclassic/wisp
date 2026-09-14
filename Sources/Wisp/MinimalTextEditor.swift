@@ -265,8 +265,8 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// Wipes the whole storage back to plain body text, so a content pass
     /// can run against a known state.
     ///
-    /// `.kern`, `.underlineStyle` and `.backgroundColor` are *removed* rather
-    /// than overwritten: none has a base value to reset to, and each is set
+    /// `.kern`, `.underlineStyle`, `.strikethroughStyle` and `.backgroundColor`
+    /// are *removed* rather than overwritten: none has a base value to reset to, and each is set
     /// on ranges that move as the text is edited — a marker's kern would
     /// otherwise stay on whatever character ends up at that offset, and a
     /// `==` highlight or a `<u>` rule would outlive the markers that asked
@@ -277,6 +277,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         let range = NSRange(location: 0, length: storage.length)
         storage.removeAttribute(.kern, range: range)
         storage.removeAttribute(.underlineStyle, range: range)
+        storage.removeAttribute(.strikethroughStyle, range: range)
         storage.addAttributes(
             [.font: font, .foregroundColor: color, .paragraphStyle: paragraph], range: range)
     }

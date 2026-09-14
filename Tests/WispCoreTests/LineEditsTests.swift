@@ -449,6 +449,24 @@ struct BackspaceInIndentTests {
         #expect(apply(edit, to: text) == "first\n  foo")
         #expect(edit.selection == NSRange(location: 8, length: 0))
     }
+
+    /// A tab unit over a space indent takes one space: the unit's length is
+    /// the cap, and a tab is one character long.
+    @Test("A tab unit over spaces removes one space")
+    func tabUnitOverSpaces() throws {
+        let text = "    foo"
+        let edit = try #require(
+            LineEdits.backspaceInIndent(
+                in: text as NSString, selection: NSRange(location: 4, length: 0), unit: "\t"))
+        #expect(apply(edit, to: text) == "   foo")
+    }
+
+    @Test("Column zero of a line after a whitespace-ended line falls through")
+    func columnZeroAfterTrailingWhitespace() {
+        let edit = LineEdits.backspaceInIndent(
+            in: "ab  \nfoo" as NSString, selection: NSRange(location: 5, length: 0), unit: "  ")
+        #expect(edit == nil)
+    }
 }
 
 @Suite("LineEdits — move lines")
