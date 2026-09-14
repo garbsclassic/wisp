@@ -10,6 +10,21 @@ public struct Heading: Identifiable, Equatable {
     public var id: Int { lineStart }
 }
 
+extension Array where Element == Heading {
+    /// The nearest heading above the line at `lineStart`, or nil from the
+    /// first section. The caret's own heading doesn't count — pressing
+    /// "previous" from a heading line goes to the one before it.
+    public func heading(before lineStart: Int) -> Heading? {
+        last { $0.lineStart < lineStart }
+    }
+
+    /// The nearest heading below the line at `lineStart`, or nil past the
+    /// last one.
+    public func heading(after lineStart: Int) -> Heading? {
+        first { $0.lineStart > lineStart }
+    }
+}
+
 extension String {
     /// Parse `#`-prefixed markdown headings out of the text. Returns one
     /// entry per heading line, in document order.

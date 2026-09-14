@@ -37,7 +37,7 @@ first leaves a dangling login item.
 - **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
 - **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item; ⌫ at the start of the text takes the marker off; ↵ on an empty nested item steps out a level; ⇧↵ continues an item on a new line
 - **Task lists** — `- [ ]` renders as a checkbox; click it, or ⌘⇧L, to check it off
-- **Headings** — `#`, `##`, `###` render styled with click-to-jump navigation
+- **Headings** — `#` through `######` render bold, each level its own colour; the header strip lists `#` and `##` for click-to-jump, and ⌃⇧↑ / ⌃⇧↓ walk every level
 - **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic / Highlight / Strikethrough** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`), ⌘⇧S (`~~text~~`)
 - **Line editing** — ⌘D duplicates the line or selection; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
@@ -101,6 +101,7 @@ An action can take a list instead of a single chord, and every entry binds —
 | `sourceView`                                 | `cmd+return` |
 | `duplicateLine` / `toggleBulletedList` / `toggleTaskItem` | `cmd+d` / `cmd+l` / `cmd+shift+l` |
 | `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
+| `previousHeading` / `nextHeading`         | `ctrl+shift+up` / `ctrl+shift+down` |
 | `increaseFontScale` / `decreaseFontScale` / `resetFontScale` | `cmd+=` / `cmd+-` / `cmd+0` |
 
 **F1 only reaches Wisp if your Mac is set to "Use F1, F2, etc. as standard

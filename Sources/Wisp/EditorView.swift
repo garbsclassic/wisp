@@ -329,6 +329,21 @@ final class EditorModel: ObservableObject {
         scrollToken &+= 1
     }
 
+    enum HeadingDirection { case previous, next }
+
+    /// ⌃⇧↑ / ⌃⇧↓. Every level counts, not just the two the header strip
+    /// shows — the strip is an index, this is a walk. Off either end it
+    /// does nothing.
+    func jumpToHeading(_ direction: HeadingDirection) {
+        let lineStart = LineEdits.lineRange(in: text as NSString, at: caretOffset).location
+        let target: Heading? =
+            switch direction {
+            case .previous: headings.heading(before: lineStart)
+            case .next: headings.heading(after: lineStart)
+            }
+        if let target { jumpTo(target) }
+    }
+
     // MARK: Find
 
     func openFind() {

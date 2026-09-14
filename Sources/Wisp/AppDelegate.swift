@@ -139,6 +139,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleTaskItem(_ sender: Any?) { model.toggleTaskItem() }
     @objc func moveLineUp(_ sender: Any?) { model.moveLine(by: -1) }
     @objc func moveLineDown(_ sender: Any?) { model.moveLine(by: 1) }
+    @objc func previousHeading(_ sender: Any?) { model.jumpToHeading(.previous) }
+    @objc func nextHeading(_ sender: Any?) { model.jumpToHeading(.next) }
 
     /// The one place a keymap action turns into work. Both the monitor and
     /// the menu items land here, so a chord and its menu item can't drift.
@@ -162,6 +164,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .toggleTaskItem: model.toggleTaskItem()
         case .moveLineUp: model.moveLine(by: -1)
         case .moveLineDown: model.moveLine(by: 1)
+        case .previousHeading: model.jumpToHeading(.previous)
+        case .nextHeading: model.jumpToHeading(.next)
         case .increaseFontScale: model.stepFontScale(by: 1)
         case .decreaseFontScale: model.stepFontScale(by: -1)
         case .resetFontScale: model.resetFontScale()

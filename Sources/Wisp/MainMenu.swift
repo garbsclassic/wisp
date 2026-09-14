@@ -31,6 +31,8 @@ enum MainMenuBuilder {
         .toggleTaskItem: #selector(AppDelegate.toggleTaskItem(_:)),
         .moveLineUp: #selector(AppDelegate.moveLineUp(_:)),
         .moveLineDown: #selector(AppDelegate.moveLineDown(_:)),
+        .previousHeading: #selector(AppDelegate.previousHeading(_:)),
+        .nextHeading: #selector(AppDelegate.nextHeading(_:)),
         .increaseFontScale: #selector(AppDelegate.increaseFontScale(_:)),
         .decreaseFontScale: #selector(AppDelegate.decreaseFontScale(_:)),
         .resetFontScale: #selector(AppDelegate.resetFontScale(_:)),
@@ -78,6 +80,9 @@ enum MainMenuBuilder {
                 item(.duplicateLine, target: target, keymap: keymap),
                 item(.moveLineUp, target: target, keymap: keymap),
                 item(.moveLineDown, target: target, keymap: keymap),
+                .separator(),
+                item(.previousHeading, target: target, keymap: keymap),
+                item(.nextHeading, target: target, keymap: keymap),
                 .separator(),
                 NSMenuItem(
                     title: "Select All", action: #selector(NSText.selectAll(_:)),

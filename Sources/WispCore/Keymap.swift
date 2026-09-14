@@ -71,6 +71,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case toggleTaskItem
     case moveLineUp
     case moveLineDown
+    case previousHeading
+    case nextHeading
 
     case increaseFontScale
     case decreaseFontScale
@@ -99,6 +101,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .toggleTaskItem: return "Toggle Task Item"
         case .moveLineUp: return "Move Line Up"
         case .moveLineDown: return "Move Line Down"
+        case .previousHeading: return "Previous Heading"
+        case .nextHeading: return "Next Heading"
         case .increaseFontScale: return "Increase Font Size"
         case .decreaseFontScale: return "Decrease Font Size"
         case .resetFontScale: return "Reset Font Size"
@@ -136,6 +140,9 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .toggleTaskItem: return "cmd+shift+l"
         case .moveLineUp: return "opt+up"
         case .moveLineDown: return "opt+down"
+        // Beside ⌥↑/↓, which move a line: ⌃⇧ moves the caret a section.
+        case .previousHeading: return "ctrl+shift+up"
+        case .nextHeading: return "ctrl+shift+down"
         case .increaseFontScale: return "cmd+="
         case .decreaseFontScale: return "cmd+-"
         case .resetFontScale: return "cmd+0"
