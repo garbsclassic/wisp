@@ -60,3 +60,50 @@ struct HeadingsTests {
         #expect(Set(dupes.map(\.id)).count == 3)
     }
 }
+
+@Suite("Headings — before and after")
+struct HeadingsNavigationTests {
+    @Test("From a line between two headings, both neighbours are found")
+    func betweenTwoHeadings() {
+        let text = "# A\nprose\n## B\nmore prose\n### C"
+        let headings = text.extractHeadings()
+        // "more prose" starts right after "## B\n".
+        let lineStart = ("# A\nprose\n## B\n" as NSString).length
+        #expect(headings.heading(before: lineStart)?.name == "B")
+        #expect(headings.heading(after: lineStart)?.name == "C")
+    }
+
+    @Test("From a heading's own line start, before is the previous heading, not itself")
+    func ownLineStartLooksPastItself() throws {
+        let text = "# A\n## B\n### C"
+        let headings = text.extractHeadings()
+        let b = try #require(headings.first { $0.name == "B" })
+        #expect(headings.heading(before: b.lineStart)?.name == "A")
+        #expect(headings.heading(after: b.lineStart)?.name == "C")
+    }
+
+    @Test("Before the first heading there is nothing above")
+    func nilBeforeFirst() {
+        let text = "# A\n## B"
+        let headings = text.extractHeadings()
+        let a = headings[0]
+        #expect(headings.heading(before: a.lineStart) == nil)
+    }
+
+    @Test("After the last heading there is nothing below")
+    func nilAfterLast() {
+        let text = "# A\n## B"
+        let headings = text.extractHeadings()
+        let b = headings[1]
+        #expect(headings.heading(after: b.lineStart) == nil)
+    }
+
+    @Test("Every level is a valid target, including a level-three heading")
+    func everyLevelCounts() {
+        let text = "# A\n## B\n### C\nprose"
+        let headings = text.extractHeadings()
+        let lineStart = ("# A\n## B\n### C\n" as NSString).length
+        #expect(headings.heading(before: lineStart)?.name == "C")
+        #expect(headings.heading(before: lineStart)?.level == 3)
+    }
+}

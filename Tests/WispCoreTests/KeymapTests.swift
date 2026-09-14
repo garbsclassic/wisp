@@ -118,6 +118,18 @@ struct KeymapTests {
         #expect(KeymapAction.help.defaultChords == ["f1", "cmd+/"])
     }
 
+    @Test("Strikethrough and the heading-navigation actions default to a chord that parses, and are panel-scoped")
+    func newActionsHaveWorkingScopedDefaults() {
+        // `defaultsAllParse` and `defaultsAreUnique` already cover these three
+        // through `KeymapAction.allCases`; this pins down scoping too, which
+        // those two don't touch.
+        let keymap = Keymap()
+        for action in [KeymapAction.strikethrough, .previousHeading, .nextHeading] {
+            #expect(!keymap.parsedChords(for: action).isEmpty)
+            #expect(action.isPanelScoped)
+        }
+    }
+
     @Test("Only the actions that open the panel are unscoped")
     func scoping() {
         #expect(!KeymapAction.find.isPanelScoped)

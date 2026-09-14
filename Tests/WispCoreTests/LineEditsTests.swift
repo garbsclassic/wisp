@@ -356,6 +356,101 @@ struct OutdentAtCursorTests {
     }
 }
 
+@Suite("LineEdits — backspace in indent")
+struct BackspaceInIndentTests {
+    @Test("Caret after four spaces removes one level, leaving two")
+    func fourSpacesRemovesOneLevel() throws {
+        let text = "    foo"
+        let edit = try #require(
+            LineEdits.backspaceInIndent(
+                in: text as NSString, selection: NSRange(location: 4, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == "  foo")
+        #expect(edit.selection == NSRange(location: 2, length: 0))
+    }
+
+    @Test("Caret after three spaces removes two, leaving one")
+    func threeSpacesRemovesTwo() throws {
+        let text = "   foo"
+        let edit = try #require(
+            LineEdits.backspaceInIndent(
+                in: text as NSString, selection: NSRange(location: 3, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == " foo")
+        #expect(edit.selection == NSRange(location: 1, length: 0))
+    }
+
+    @Test("Caret after one space removes just that space")
+    func oneSpaceRemovesOne() throws {
+        let text = " foo"
+        let edit = try #require(
+            LineEdits.backspaceInIndent(
+                in: text as NSString, selection: NSRange(location: 1, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == "foo")
+        #expect(edit.selection == NSRange(location: 0, length: 0))
+    }
+
+    @Test("Caret after a tab removes just the tab")
+    func afterTabRemovesTheTab() throws {
+        let text = "\tfoo"
+        let edit = try #require(
+            LineEdits.backspaceInIndent(
+                in: text as NSString, selection: NSRange(location: 1, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == "foo")
+        #expect(edit.selection == NSRange(location: 0, length: 0))
+    }
+
+    @Test("A tab followed by two spaces gives up only the spaces")
+    func tabThenSpacesKeepsTheTab() throws {
+        let text = "\t  foo"
+        let edit = try #require(
+            LineEdits.backspaceInIndent(
+                in: text as NSString, selection: NSRange(location: 3, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == "\tfoo")
+        #expect(edit.selection == NSRange(location: 1, length: 0))
+    }
+
+    @Test("A caret at column zero is not this edit")
+    func caretAtColumnZero() {
+        let text = "foo"
+        let edit = LineEdits.backspaceInIndent(
+            in: text as NSString, selection: NSRange(location: 0, length: 0), unit: "  ")
+        #expect(edit == nil)
+    }
+
+    @Test("A caret after non-whitespace text is not this edit")
+    func caretAfterNonWhitespace() {
+        let text = "  ab"
+        let edit = LineEdits.backspaceInIndent(
+            in: text as NSString, selection: NSRange(location: 4, length: 0), unit: "  ")
+        #expect(edit == nil)
+    }
+
+    @Test("A caret in whitespace that follows text is not this edit")
+    func caretInTrailingWhitespace() {
+        let text = "ab  "
+        let edit = LineEdits.backspaceInIndent(
+            in: text as NSString, selection: NSRange(location: 4, length: 0), unit: "  ")
+        #expect(edit == nil)
+    }
+
+    @Test("A non-empty selection is not this edit")
+    func nonEmptySelection() {
+        let text = "    foo"
+        let edit = LineEdits.backspaceInIndent(
+            in: text as NSString, selection: NSRange(location: 2, length: 2), unit: "  ")
+        #expect(edit == nil)
+    }
+
+    @Test("Works on a second line, where the line start is not offset zero")
+    func secondLine() throws {
+        let text = "first\n    foo"
+        let edit = try #require(
+            LineEdits.backspaceInIndent(
+                in: text as NSString, selection: NSRange(location: 10, length: 0), unit: "  "))
+        #expect(apply(edit, to: text) == "first\n  foo")
+        #expect(edit.selection == NSRange(location: 8, length: 0))
+    }
+}
+
 @Suite("LineEdits — move lines")
 struct MoveLinesTests {
     @Test("Moving up swaps with the line above")
