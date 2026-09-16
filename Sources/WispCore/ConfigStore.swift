@@ -19,6 +19,16 @@ public enum ConfigStore {
 
     public static var fileURL: URL { directory.appendingPathComponent("wisp.jsonc") }
 
+    /// The JSON Schema for `wisp.jsonc`, kept beside it so an editor can
+    /// validate and complete the file with nothing fetched from the network.
+    /// The app bundle carries the source copy; `installSchema` refreshes this
+    /// one from it at launch.
+    public static var schemaFileURL: URL { directory.appendingPathComponent(schemaFilename) }
+    public static let schemaFilename = "wisp.schema.json"
+    /// What the config's `$schema` key points at — relative, so moving or
+    /// reinstalling the app never breaks it.
+    public static let schemaReference = "./\(schemaFilename)"
+
     public struct Load {
         public let config: WispConfig
         /// Unreadable file, or keys that were present but malformed. Shown
@@ -64,6 +74,16 @@ public enum ConfigStore {
         }
     }
 
+    /// Copies the bundled schema into the config directory, only when the
+    /// bytes differ: the directory is watched for live reload, and a launch
+    /// that rewrote an identical file would look like a config edit.
+    public static func installSchema(from source: URL) throws {
+        let schema = try Data(contentsOf: source)
+        if let current = try? Data(contentsOf: schemaFileURL), current == schema { return }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try schema.write(to: schemaFileURL, options: .atomic)
+    }
+
     /// Writes the whole document as strict JSON.
     ///
     /// Strict, not JSONC, on purpose: `jq` parses strict JSON only, and both
@@ -77,7 +97,23 @@ public enum ConfigStore {
         // Both are valid JSON, but they're noise to read and invite someone
         // to think the escaping is required when hand-editing. It never was.
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        try encoder.encode(config).write(to: fileURL, options: .atomic)
+        try encoder.encode(SchemaTagged(config: config)).write(to: fileURL, options: .atomic)
+    }
+
+    /// `config` plus a `$schema` key. Both encode into the same keyed
+    /// container — Foundation hands back the container already open at
+    /// this path — so `WispConfig` needs no stored property for a value
+    /// that is only ever a constant.
+    private struct SchemaTagged: Encodable {
+        let config: WispConfig
+
+        private enum Keys: String, CodingKey { case schema = "$schema" }
+
+        func encode(to encoder: any Encoder) throws {
+            var container = encoder.container(keyedBy: Keys.self)
+            try container.encode(schemaReference, forKey: .schema)
+            try config.encode(to: encoder)
+        }
     }
 
     /// Rewrites a single value in place, leaving the rest of the file's text —

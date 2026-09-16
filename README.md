@@ -63,6 +63,12 @@ are fine — it is read as JSON5. A key that's missing takes its default; a key
 that's present but the wrong shape is named in the footer rather than silently
 ignored.
 
+The file's `$schema` key points at `wisp.schema.json` beside it, which Wisp
+copies out of its bundle at launch, so an editor that honours `$schema` (Zed,
+VS Code) validates and completes the file with nothing fetched from the
+network. A config seeded before the key existed can add the line by hand:
+`"$schema": "./wisp.schema.json"`.
+
 | Key                     | Default                   | What it does                                                                                                                 |
 | ----------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `theme`                 | `"system"`                | `light`, `dark`, or follow macOS                                                                                             |

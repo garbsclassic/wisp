@@ -31,6 +31,9 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
 cp "$BINARY" "$APP_BUNDLE/Contents/MacOS/${APP_NAME}"
 cp "$ROOT_DIR/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
+# The config's JSON Schema. The app copies it into ~/.config/wisp at launch so
+# editors validate wisp.jsonc offline; the bundle is the source of truth.
+cp "$ROOT_DIR/Resources/wisp.schema.json" "$APP_BUNDLE/Contents/Resources/wisp.schema.json"
 
 # App icon. Source art lives at Resources/AppIcon.png (1024x1024, pre-shaped
 # as a squircle). The compiled .icns is cached in .build/, so a rebuild only

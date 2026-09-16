@@ -25,6 +25,21 @@ final class Settings: ObservableObject {
         configWarning = load.error
         if load.seeded { migrateLegacyDefaults() }
         applyTypography()
+        installSchema()
+    }
+
+    /// Refreshes `wisp.schema.json` beside the config from the bundle's
+    /// copy. A bare `swift run` binary has no bundle resource, so a missing
+    /// source is silently nothing to do; a failed write is reported like any
+    /// other, but never displaces a config warning.
+    private func installSchema() {
+        guard let source = Bundle.main.url(forResource: "wisp.schema", withExtension: "json")
+        else { return }
+        do {
+            try ConfigStore.installSchema(from: source)
+        } catch where configWarning == nil {
+            configWarning = "Couldn't write wisp.schema.json: \(error.localizedDescription)"
+        } catch {}
     }
 
     /// The one warning worth showing, most severe first.

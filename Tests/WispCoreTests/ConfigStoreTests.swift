@@ -243,4 +243,115 @@ final class ConfigStoreTests {
         try ConfigStore.update(["panel"], to: config.panel, in: config)
         #expect(ConfigStore.loadOrSeed().config.panel == config.panel)
     }
+
+    /// The `$schema` key is an editor hint, not a config value — the decoder
+    /// has to ignore it rather than reporting it as a malformed key.
+    @Test("write emits $schema first, and loadOrSeed round-trips through it")
+    func schemaKeyRoundTrips() throws {
+        var config = WispConfig()
+        config.panel = PanelFrame(width: 800, height: 640, x: 12, y: 34)
+        try ConfigStore.write(config)
+
+        let text = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
+        let object = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any]
+        #expect(object?["$schema"] as? String == "./wisp.schema.json")
+        // sortedKeys puts "$schema" first among sibling keys, since "$" sorts
+        // before every letter — so its opening quote is the file's first.
+        #expect(text.range(of: "\"$schema\"")?.lowerBound == text.range(of: "\"")?.lowerBound)
+
+        let load = ConfigStore.loadOrSeed()
+        #expect(load.error == nil)
+        #expect(load.config == config)
+    }
+
+    @Test("installSchema copies the source into the config directory")
+    func installSchemaCopies() throws {
+        let source = root.appendingPathComponent("source.schema.json")
+        try "{ \"title\": \"test\" }".write(to: source, atomically: true, encoding: .utf8)
+
+        try ConfigStore.installSchema(from: source)
+
+        #expect(FileManager.default.fileExists(atPath: ConfigStore.schemaFileURL.path))
+        #expect(
+            try Data(contentsOf: ConfigStore.schemaFileURL) == Data(contentsOf: source))
+    }
+
+    /// The directory is watched for live reload, so a launch that rewrote an
+    /// identical file would look like a config edit nobody made.
+    @Test("installSchema doesn't rewrite the file when the bytes already match")
+    func installSchemaSkipsIdenticalBytes() throws {
+        let source = root.appendingPathComponent("source.schema.json")
+        try "{ \"title\": \"test\" }".write(to: source, atomically: true, encoding: .utf8)
+        try ConfigStore.installSchema(from: source)
+
+        let past = Date(timeIntervalSinceNow: -60)
+        try FileManager.default.setAttributes(
+            [.modificationDate: past], ofItemAtPath: ConfigStore.schemaFileURL.path)
+
+        try ConfigStore.installSchema(from: source)
+
+        let attributes = try FileManager.default.attributesOfItem(
+            atPath: ConfigStore.schemaFileURL.path)
+        let modified = attributes[.modificationDate] as? Date
+        #expect(modified?.timeIntervalSince1970.rounded() == past.timeIntervalSince1970.rounded())
+    }
+
+    @Test("installSchema overwrites the file when the source has changed")
+    func installSchemaOverwritesChangedBytes() throws {
+        let source = root.appendingPathComponent("source.schema.json")
+        try "{ \"title\": \"old\" }".write(to: source, atomically: true, encoding: .utf8)
+        try ConfigStore.installSchema(from: source)
+
+        try "{ \"title\": \"new\" }".write(to: source, atomically: true, encoding: .utf8)
+        try ConfigStore.installSchema(from: source)
+
+        let installed = try String(contentsOf: ConfigStore.schemaFileURL, encoding: .utf8)
+        #expect(installed.contains("new"))
+    }
+}
+
+/// Guards against the schema and the encoder drifting apart: nothing else
+/// fails if `Resources/wisp.schema.json` stops matching what `WispConfig`
+/// actually encodes.
+@Suite("Schema sync")
+struct SchemaSyncTests {
+    private static var schemaURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Resources/wisp.schema.json")
+    }
+
+    private static func schemaProperties(at path: [String]) throws -> Set<String> {
+        let data = try Data(contentsOf: schemaURL)
+        var node = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        for key in path {
+            node = (node?[key] as? [String: Any])
+        }
+        let properties = node?["properties"] as? [String: Any]
+        return Set(properties?.keys ?? [:].keys)
+    }
+
+    private static func encodedKeys(of config: some Encodable) throws -> Set<String> {
+        let data = try JSONEncoder().encode(config)
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return Set(object?.keys ?? [:].keys)
+    }
+
+    @Test("Every top-level key the encoder writes is in the schema, plus panel")
+    func topLevelKeysMatchSchema() throws {
+        let written = try Self.encodedKeys(of: WispConfig())
+        let schemaKeys = try Self.schemaProperties(at: [])
+        // "panel" is absent from a default encode (`nil` omits the key), and
+        // "$schema" is only ever written by `SchemaTagged`, not by
+        // `WispConfig` itself — both are schema properties nonetheless.
+        #expect(schemaKeys == written.union(["panel", "$schema"]))
+    }
+
+    @Test("keymap's schema keys match KeymapAction's cases")
+    func keymapKeysMatchKeymapAction() throws {
+        let schemaKeys = try Self.schemaProperties(at: ["properties", "keymap"])
+        #expect(schemaKeys == Set(KeymapAction.allCases.map(\.rawValue)))
+    }
 }

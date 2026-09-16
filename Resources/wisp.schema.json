@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wisp.schema.json",
+  "title": "Wisp configuration",
+  "description": "Everything Wisp persists, in ~/.config/wisp/wisp.jsonc. Every key is optional: a missing key takes its default, a key of the wrong shape is named in the footer and ignored.",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "chord": {
+      "description": "Modifiers plus one key, in any order: cmd+shift+d, opt+up, ctrl+opt+. — hyper stands for all four modifiers.",
+      "type": "string",
+      "minLength": 1
+    },
+    "chordSet": {
+      "description": "One chord, or a list of chords that all reach the same action.",
+      "oneOf": [
+        { "$ref": "#/$defs/chord" },
+        { "type": "array", "items": { "$ref": "#/$defs/chord" }, "minItems": 1 }
+      ]
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Editor hint; Wisp writes ./wisp.schema.json and ignores the key."
+    },
+    "theme": {
+      "description": "light, dark, or follow macOS.",
+      "type": "string",
+      "enum": ["light", "dark", "system"],
+      "default": "system"
+    },
+    "fonts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "notes": {
+          "description": "The notes body face.",
+          "type": "string",
+          "default": "Inter Nerd Font"
+        },
+        "ui": {
+          "description": "Header, footer, and overlays.",
+          "type": "string",
+          "default": "Inter Nerd Font Propo"
+        },
+        "code": {
+          "description": "`inline code` runs. A real monospace — fonts.notes is only fixed-advance for its icon glyphs.",
+          "type": "string",
+          "default": "JetBrainsMono Nerd Font"
+        }
+      }
+    },
+    "fontScale": {
+      "description": "Multiplies every type size, body and chrome. ⌘= / ⌘- step it by 0.1. Clamped to 0.6–2.5 in use.",
+      "type": "number",
+      "default": 1.0
+    },
+    "defaultFontScale": {
+      "description": "What ⌘0 resets fontScale to.",
+      "type": "number",
+      "default": 1.0
+    },
+    "background": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "blur": {
+          "description": "Blurs whatever is behind the panel.",
+          "type": "boolean",
+          "default": true
+        },
+        "opacity": {
+          "description": "Alpha of the panel's tint, 0–1. 1 is a solid panel; null keeps each theme's tuned value.",
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "monitor": {
+      "description": "primary opens on the menu bar's screen; pointer on whichever display the cursor is on.",
+      "type": "string",
+      "enum": ["primary", "pointer"],
+      "default": "primary"
+    },
+    "position": {
+      "description": "auto opens the panel centred, top edge a tenth down the screen; manual leaves it wherever you drag it.",
+      "type": "string",
+      "enum": ["auto", "manual"],
+      "default": "auto"
+    },
+    "saveIndicator": {
+      "description": "Flashes a dot in the top corner each time the note is written.",
+      "type": "boolean",
+      "default": true
+    },
+    "scratchpadPath": {
+      "description": "Folder for scratchpad.md; empty means ~/Documents.",
+      "type": "string",
+      "default": ""
+    },
+    "keymap": {
+      "description": "Every shortcut, rebindable. summon is the global chord.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summon": { "$ref": "#/$defs/chordSet", "default": "ctrl+opt+." },
+        "find": { "$ref": "#/$defs/chordSet", "default": "cmd+f" },
+        "settings": { "$ref": "#/$defs/chordSet", "default": "cmd+," },
+        "refresh": { "$ref": "#/$defs/chordSet", "default": "cmd+r" },
+        "help": { "$ref": "#/$defs/chordSet", "default": ["f1", "cmd+/"] },
+        "cycleTheme": { "$ref": "#/$defs/chordSet", "default": "cmd+t" },
+        "sourceView": { "$ref": "#/$defs/chordSet", "default": "cmd+shift+v" },
+        "bold": { "$ref": "#/$defs/chordSet", "default": "cmd+b" },
+        "italic": { "$ref": "#/$defs/chordSet", "default": "cmd+i" },
+        "highlight": { "$ref": "#/$defs/chordSet", "default": "opt+h" },
+        "underline": { "$ref": "#/$defs/chordSet", "default": "cmd+u" },
+        "strikethrough": { "$ref": "#/$defs/chordSet", "default": "cmd+shift+s" },
+        "code": { "$ref": "#/$defs/chordSet", "default": "cmd+e" },
+        "duplicateLine": { "$ref": "#/$defs/chordSet", "default": "cmd+d" },
+        "openLineBelow": { "$ref": "#/$defs/chordSet", "default": "cmd+return" },
+        "openLineAbove": { "$ref": "#/$defs/chordSet", "default": "cmd+shift+return" },
+        "toggleBulletedList": { "$ref": "#/$defs/chordSet", "default": "cmd+l" },
+        "toggleTaskItem": { "$ref": "#/$defs/chordSet", "default": "cmd+shift+l" },
+        "moveLineUp": { "$ref": "#/$defs/chordSet", "default": "opt+up" },
+        "moveLineDown": { "$ref": "#/$defs/chordSet", "default": "opt+down" },
+        "previousHeading": { "$ref": "#/$defs/chordSet", "default": "ctrl+shift+up" },
+        "nextHeading": { "$ref": "#/$defs/chordSet", "default": "ctrl+shift+down" },
+        "increaseFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+=" },
+        "decreaseFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+-" },
+        "resetFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+0" },
+        "reveal": { "$ref": "#/$defs/chordSet", "default": "opt+cmd+r" }
+      }
+    },
+    "indent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "style": {
+          "description": "What Tab writes.",
+          "type": "string",
+          "enum": ["spaces", "tabs"],
+          "default": "spaces"
+        },
+        "size": {
+          "description": "Spaces per level, 1–16 in use. Ignored under tabs.",
+          "type": "integer",
+          "default": 2
+        }
+      }
+    },
+    "caret": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "motion": {
+          "description": "snappy lands at once and settles, gliding slides, off teleports. Reduce Motion forces off.",
+          "type": "string",
+          "enum": ["snappy", "gliding", "off"],
+          "default": "snappy"
+        },
+        "blink": {
+          "description": "Fade the caret in and out while idle; false keeps it solid.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "panel": {
+      "description": "The remembered panel frame in screen points. Written on first hide; x / y only once the panel has been dragged under position: manual.",
+      "type": ["object", "null"],
+      "properties": {
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "x": { "type": ["number", "null"] },
+        "y": { "type": ["number", "null"] }
+      },
+      "required": ["width", "height"]
+    }
+  }
+}
