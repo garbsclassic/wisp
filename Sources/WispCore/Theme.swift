@@ -246,7 +246,7 @@ public enum Metrics {
     /// dot lines up with the chrome it sits in rather than with the panel
     /// edge.
     public static let chromeInsetX: CGFloat = 24
-    public static let chromeInsetY: CGFloat = 12
+    public static let chromeInsetY: CGFloat = 10
 
     /// Where the save dot's top edge goes, so the dot's centre lands on
     /// the header text's rather than on its line-box top.

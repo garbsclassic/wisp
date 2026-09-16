@@ -572,7 +572,7 @@ struct EditorView: View {
                         theme: model.theme,
                         isSourceView: model.isSourceView
                     )
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, Metrics.chromeInsetX)
                     .padding(.top, barHeadings.isEmpty ? 24 : 4)
                     .padding(.bottom, 4)
                     if model.text.isEmpty {
