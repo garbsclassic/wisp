@@ -11,12 +11,12 @@ import WispCore
 /// Owned by `NotesTextView`, which suppresses the stock caret and calls
 /// `update` from the same hook AppKit uses to reposition its own.
 final class CaretLayer {
-    /// Width and corner radius match the modern AppKit indicator.
-    static let width: CGFloat = 2
+    /// A touch under the modern AppKit indicator's 2pt.
+    static let width: CGFloat = 1.5
 
     /// Solid after every move, then a fade rather than a switch. Durations
-    /// in seconds: 0.45 solid, 0.1 out, 0.35 off, 0.1 in.
-    private static let blinkPeriod: CFTimeInterval = 1.0
+    /// in seconds: 0.9 solid, 0.2 out, 0.7 off, 0.2 in.
+    private static let blinkPeriod: CFTimeInterval = 2.0
     private static let blinkKey = "blink"
 
     let layer = CALayer()

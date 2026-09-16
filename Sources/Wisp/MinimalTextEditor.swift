@@ -242,7 +242,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     ) {
         let paragraph = makeParagraphStyle()
         textView.textColor = palette.text
-        textView.insertionPointColor = palette.accent
+        textView.insertionPointColor = palette.text
         textView.selectedTextAttributes = [
             .backgroundColor: palette.selection
         ]

@@ -148,6 +148,20 @@ final class NotesTextView: NSTextView {
         // device pixels so a 1x display doesn't smear it over three columns.
         frame.origin.x -= CaretLayer.width / 2
         frame.size.width = CaretLayer.width
+        if let font {
+            // The rect is the whole line fragment, and the line-height
+            // multiple's extra room sits above the glyphs — so a full-height
+            // caret towers over the caps. A tight caret would run from just
+            // above cap height to halfway into the descenders; this one sits
+            // midway between that and the full fragment, keyed off the baseline.
+            let baseline = frame.maxY + font.descender
+            let tightTop = baseline - font.capHeight - (font.ascender - font.capHeight) / 2
+            let tightBottom = baseline - font.descender / 2
+            let top = (frame.minY + tightTop) / 2
+            let bottom = (frame.maxY + tightBottom) / 2
+            frame.origin.y = top
+            frame.size.height = bottom - top
+        }
         frame = backingAlignedRect(frame, options: .alignAllEdgesNearest)
         caret.update(to: frame, color: insertionPointColor, animated: animated && !edited)
     }
