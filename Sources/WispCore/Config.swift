@@ -335,6 +335,10 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// written to disk. On by default — the save is debounced and silent
     /// otherwise, so there is nothing else that says it happened.
     public var saveIndicator: Bool
+    /// ⌘V onto a blank line turns a tab-separated grid into a pipe table
+    /// and a run of short plain lines into a bulleted list. Off pastes
+    /// everything verbatim.
+    public var smartPaste: Bool
     /// Folder holding `scratchpad.md`. Empty means the default, `~/Documents`.
     public var scratchpadPath: String
     public var keymap: Keymap
@@ -354,6 +358,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         monitor: MonitorTarget = .primary,
         position: PanelPosition = .auto,
         saveIndicator: Bool = true,
+        smartPaste: Bool = true,
         scratchpadPath: String = "",
         keymap: Keymap = Keymap(),
         indent: Indent = Indent(),
@@ -368,6 +373,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.monitor = monitor
         self.position = position
         self.saveIndicator = saveIndicator
+        self.smartPaste = smartPaste
         self.scratchpadPath = scratchpadPath
         self.keymap = keymap
         self.indent = indent
@@ -399,6 +405,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .position, default: defaults.position, diagnostics: diagnostics)
         saveIndicator = container.lenientValue(
             forKey: .saveIndicator, default: defaults.saveIndicator, diagnostics: diagnostics)
+        smartPaste = container.lenientValue(
+            forKey: .smartPaste, default: defaults.smartPaste, diagnostics: diagnostics)
         scratchpadPath = container.lenientValue(
             forKey: .scratchpadPath, default: defaults.scratchpadPath, diagnostics: diagnostics)
         keymap = container.lenientValue(

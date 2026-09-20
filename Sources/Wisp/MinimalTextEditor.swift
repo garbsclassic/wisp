@@ -42,6 +42,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// left the body at its old size until the next keystroke restyled it.
     var fontScale: Double
     var indent: Indent
+    var smartPaste: Bool
     /// Applied on the text view directly; no restyle, since it changes
     /// nothing in the storage.
     var caret: Caret
@@ -77,6 +78,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         textView.textContainerInset = .zero
         textView.textContainer?.lineFragmentPadding = 0
         textView.indentUnit = indent.unit
+        textView.smartPaste = smartPaste
         textView.caretStyle = caret
         textView.string = text
 
@@ -118,6 +120,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         if textView.caretStyle != caret {
             textView.caretStyle = caret
         }
+        textView.smartPaste = smartPaste
         if context.coordinator.lastTheme != theme {
             context.coordinator.lastTheme = theme
             restyle(textView)

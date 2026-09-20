@@ -89,6 +89,7 @@ public struct HelpDocument: Equatable, Sendable {
                 Row("- [ ]", "task — click the box to check it"),
                 Row("# · ## · ###", "headings"),
                 Row("---", "horizontal rule"),
+                Row("⌘V on a blank line", "grid → table, lines → list"),
             ]),
         ])
     }

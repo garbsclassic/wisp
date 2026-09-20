@@ -95,6 +95,11 @@
       "type": "boolean",
       "default": true
     },
+    "smartPaste": {
+      "description": "Pasting onto a blank line turns a tab-separated grid into a pipe table and a run of short plain lines into a bulleted list.",
+      "type": "boolean",
+      "default": true
+    },
     "scratchpadPath": {
       "description": "Folder for scratchpad.md; empty means ~/Documents.",
       "type": "string",

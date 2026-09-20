@@ -100,6 +100,20 @@ struct ConfigDecodingTests {
     }
 }
 
+@Suite("Smart paste")
+struct SmartPasteConfigTests {
+    @Test("Defaults to true")
+    func defaults() throws {
+        #expect(try decode("{}").smartPaste)
+    }
+
+    @Test("Decodes an explicit override")
+    func override() throws {
+        let config = try decode(#"{ "smartPaste": false }"#)
+        #expect(!config.smartPaste)
+    }
+}
+
 @Suite("Config diagnostics")
 struct ConfigDiagnosticsTests {
     /// A key that is present but the wrong shape looks like it's doing

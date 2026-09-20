@@ -38,6 +38,7 @@ first leaves a dangling login item.
 - **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item, and ⌫ inside the indent un-nests too; ⌫ at the start of the text takes the marker off; ↵ on an empty nested item steps out a level; ⇧↵ continues an item on a new line
 - **Task lists** — `- [ ]` renders as a checkbox; click it, or ⌘⇧L, to check it off
 - **Headings** — `#` through `######` render bold, each level its own colour; the header strip lists `#` and `##` for click-to-jump, and ⌃⇧↑ / ⌃⇧↓ walk every level
+- **Smart paste** — ⌘V onto a blank line turns a tab-separated grid into a pipe table and a run of short plain lines into a bulleted list; anywhere else pastes verbatim
 - **Bold / Italic / Highlight / Strikethrough** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`), ⌘⇧S (`~~text~~`)
 - **Line editing** — ⌘D duplicates the line or selection; ⌘↩ / ⌘⇧↩ open a new line below / above it, keeping its indent; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
 - **⌘L** makes the line a bulleted list item, or unmakes it; **⌘⇧L** makes it a task, or checks it off
@@ -76,6 +77,7 @@ network. A config seeded before the key existed can add the line by hand:
 | `fonts.code`            | `"JetBrainsMono Nerd Font"` | `` `inline code` `` runs. A real monospace — `fonts.notes` is only fixed-advance for its icon glyphs                        |
 | `fontScale`             | `1.0`                     | Multiplies every type size, body and chrome. ⌘= / ⌘- step it by 0.1. Clamped to 0.6–2.5                                     |
 | `saveIndicator`         | `true`                    | Flashes a dot in the top corner each time the note is written                                                                 |
+| `smartPaste`            | `true`                    | ⌘V onto a blank line writes a tab-separated grid as a pipe table and short plain lines as a bulleted list                    |
 | `defaultFontScale`      | `1.0`                     | What ⌘0 resets `fontScale` to                                                                                                |
 | `indent.style`          | `"spaces"`                | `spaces` or `tabs` — what Tab writes                                                                                         |
 | `indent.size`           | `2`                       | Spaces per level. Ignored under `tabs`                                                                                       |

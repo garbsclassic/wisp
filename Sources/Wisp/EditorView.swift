@@ -568,6 +568,7 @@ struct EditorView: View {
                             ? NSRange(location: 0, length: 0) : model.findHighlightRange,
                         fontScale: model.fontScale,
                         indent: model.settings.config.indent,
+                        smartPaste: model.settings.config.smartPaste,
                         caret: model.settings.config.caret,
                         theme: model.theme,
                         isSourceView: model.isSourceView

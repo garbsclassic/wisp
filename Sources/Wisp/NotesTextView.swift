@@ -15,6 +15,8 @@ final class NotesTextView: NSTextView {
     /// The live indent unit, read from the config on every change so Tab
     /// writes what `indent.style` and `indent.size` currently say.
     var indentUnit: String = Indent().unit
+    /// Mirrors `smartPaste` in the config; read on every ⌘V.
+    var smartPaste: Bool = true
 
     /// How the caret moves and blinks. Applied on the next reposition.
     var caretStyle: Caret {
@@ -207,19 +209,31 @@ final class NotesTextView: NSTextView {
     }
 
     /// ⌘V of a line that ⌘C or ⌘X took whole, with nothing selected, puts
-    /// it in above the current line rather than at the caret. Anything
-    /// else — a selection to replace, a pasteboard another app wrote — is
-    /// an ordinary paste.
+    /// it in above the current line rather than at the caret. Text from
+    /// another app landing on a blank line gets `SmartPaste`'s look — a
+    /// grid or a list goes in as markdown. Anything else — a selection to
+    /// replace, a paste mid-line — is an ordinary paste.
     override func paste(_ sender: Any?) {
         let pasteboard = NSPasteboard.general
-        guard selectedRange().length == 0,
-            pasteboard.types?.contains(Self.wholeLineType) == true,
-            let line = pasteboard.string(forType: .string)
-        else {
+        let selection = selectedRange()
+        guard selection.length == 0, let pasted = pasteboard.string(forType: .string) else {
             super.paste(sender)
             return
         }
-        apply(LineEdits.pasteLine(in: string as NSString, selection: selectedRange(), line: line))
+        let text = string as NSString
+        if pasteboard.types?.contains(Self.wholeLineType) == true {
+            apply(LineEdits.pasteLine(in: text, selection: selection, line: pasted))
+            return
+        }
+        let line = LineEdits.lineRange(in: text, at: selection.location)
+        if smartPaste, !isSourceView, LineEdits.contentLength(of: line, in: text) == 0,
+            let formatted = SmartPaste.format(pasted)
+        {
+            apply(LineEdits.Edit(range: selection, replacement: formatted,
+                selection: NSRange(location: selection.location + (formatted as NSString).length, length: 0)))
+            return
+        }
+        super.paste(sender)
     }
 
     /// Marks a pasteboard entry as a whole line, the way VS Code's
