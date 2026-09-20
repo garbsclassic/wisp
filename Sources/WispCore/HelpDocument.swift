@@ -89,7 +89,6 @@ public struct HelpDocument: Equatable, Sendable {
                 Row("- [ ]", "task — click the box to check it"),
                 Row("# · ## · ###", "headings"),
                 Row("---", "horizontal rule"),
-                Row(":) · :rocket:", "emojis — 🙂 · 🚀 · etc"),
             ]),
         ])
     }

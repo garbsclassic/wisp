@@ -5,11 +5,11 @@ the reason is here so it doesn't get "fixed" back.
 
 ## Auto-surround stays on in raw mode
 
-Raw mode turns off the two smart-editing aids that rewrite a line behind you — `---`→rule and
-`:rocket:`→🚀 — but *not* the wrap-the-selection-by-typing-a-delimiter behaviour, which also
-rewrites the file. Asked for explicitly: the selection shortcuts are meant to work in raw mode.
+Raw mode turns off the smart-editing aid that rewrites a line behind you — `---`→rule — but *not*
+the wrap-the-selection-by-typing-a-delimiter behaviour, which also rewrites the file. Asked for
+explicitly: the selection shortcuts are meant to work in raw mode.
 
-The distinction that makes it coherent: the two that go off fire on text you were typing anyway,
+The distinction that makes it coherent: the one that goes off fires on text you were typing anyway,
 turning it into something else. Auto-surround fires only on a selection you deliberately made,
 and inserts exactly the character you pressed, twice. It is an edit you asked for by name.
 

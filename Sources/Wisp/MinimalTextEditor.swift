@@ -685,9 +685,9 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lastTheme: Theme = .dark
         /// Read by the delegate callbacks below as well as by `updateNSView`:
         /// source view also turns off the smart editing that *rewrites the file*
-        /// — `---`→rule and `:rocket:`→🚀 — since looking at the raw text is
-        /// the one time those are least welcome. List continuation stays: it
-        /// is typing assistance, not rendering.
+        /// — `---`→rule — since looking at the raw text is the one time that
+        /// is least welcome. List continuation stays: it is typing assistance,
+        /// not rendering.
         var lastSourceView: Bool = false
 
         let caretOffset: Binding<Int>
@@ -712,14 +712,11 @@ struct MinimalTextEditor: NSViewRepresentable {
             guard let textView = notification.object as? NSTextView else { return }
             text.wrappedValue = textView.string
 
-            // Emoji shortcode replacement runs first — it may rewrite a
-            // chunk of text, after which we restyle against the result.
-            // Both hand-rolled edits go through `performEdit`, so the
-            // renumber they may trigger waits for the caret they set.
-            // AppKit's own edits renumber from here, with the selection
-            // already where the keystroke left it.
+            // Hand-rolled edits go through `performEdit`, so the renumber
+            // they may trigger waits for the caret they set. AppKit's own
+            // edits renumber from here, with the selection already where
+            // the keystroke left it.
             if let notes = textView as? NotesTextView {
-                if !lastSourceView { notes.performEdit { EmojiReplace.replaceIfMatched(in: notes) } }
                 notes.renumberLists()
             }
 

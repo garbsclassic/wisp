@@ -38,7 +38,6 @@ first leaves a dangling login item.
 - **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item, and ⌫ inside the indent un-nests too; ⌫ at the start of the text takes the marker off; ↵ on an empty nested item steps out a level; ⇧↵ continues an item on a new line
 - **Task lists** — `- [ ]` renders as a checkbox; click it, or ⌘⇧L, to check it off
 - **Headings** — `#` through `######` render bold, each level its own colour; the header strip lists `#` and `##` for click-to-jump, and ⌃⇧↑ / ⌃⇧↓ walk every level
-- **Emoji shortcodes** — `:rocket:` `:fire:` `:heart:` `:check:` and more
 - **Bold / Italic / Highlight / Strikethrough** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`), ⌘⇧S (`~~text~~`)
 - **Line editing** — ⌘D duplicates the line or selection; ⌘↩ / ⌘⇧↩ open a new line below / above it, keeping its indent; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
 - **⌘L** makes the line a bulleted list item, or unmakes it; **⌘⇧L** makes it a task, or checks it off
@@ -128,8 +127,8 @@ only inline spans.
 
 `sourceView` drops every styling pass and sets the body in `fonts.code`, so the
 screen shows the file. It isn't persisted — it resets when you quit. List
-continuation on ↵ keeps working; the two aids that *rewrite* the line,
-`---`→rule and `:rocket:`→🚀, are off while it is on.
+continuation on ↵ keeps working; the one aid that *rewrites* the line,
+`---`→rule, is off while it is on.
 
 With a selection, typing `` ` `` `_` `'` or `"` wraps it in that character,
 and `*`, `=`, or `~` wraps it in two — bold, highlight, and strikethrough. It only ever wraps, never
