@@ -142,6 +142,10 @@ final class EditorModel: ObservableObject {
     /// theme flips. SwiftUI handles its own re-render via @Published.
     var onThemeChange: (@MainActor (Theme) -> Void)?
 
+    /// The footer's close button. The panel owns its own visibility, so the
+    /// model asks rather than hides — same shape as `onThemeChange`.
+    var onDismissRequest: (@MainActor () -> Void)?
+
     /// KVO observer that re-resolves the theme when the OS switches
     /// between Light and Dark while the user is on .system. Held strong
     /// so the observation stays alive for the model's lifetime.
@@ -602,7 +606,8 @@ struct EditorView: View {
                             model.showHelp.toggle()
                         }
                     },
-                    warning: model.settings.warning
+                    warning: model.settings.warning,
+                    onDismiss: { model.onDismissRequest?() }
                 )
             }
             // Above the editor but under every overlay: a status light has
@@ -615,7 +620,12 @@ struct EditorView: View {
                     document: model.helpDocument,
                     findHighlightToken: model.findHighlightToken,
                     findHighlightRange: model.findHighlightRange,
-                    focusToken: model.helpFocusToken
+                    focusToken: model.helpFocusToken,
+                    onClose: {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            model.showHelp = false
+                        }
+                    }
                 )
                 .transition(.opacity)
             }

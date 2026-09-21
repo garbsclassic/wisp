@@ -17,6 +17,7 @@ struct FooterBar: View {
     /// A bad config key, an unparseable chord, or a font that isn't
     /// installed. Nil most of the time.
     let warning: String?
+    let onDismiss: () -> Void
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -55,7 +56,7 @@ struct FooterBar: View {
             glyphButton(
                 "textformat.size.larger", help: hint("Larger font", .increaseFontScale),
                 action: onIncreaseFontScale)
-            Text("esc to dismiss")
+            glyphButton("xmark", help: "Close   ⎋", action: onDismiss)
         }
         .font(Typography.ui(Metrics.chromeSize))
         .foregroundStyle(Color(palette.muted))
@@ -105,7 +106,7 @@ struct FooterBar: View {
 /// row's spacing doesn't rag as the icons change. Hovering lifts the glyph
 /// from `muted` to `text` — a fade rather than a snap, since the footer is
 /// the quietest part of the panel and a hard flip there reads as a flicker.
-private struct GlyphButton: View {
+struct GlyphButton: View {
     let symbol: String
     let help: String
     let action: () -> Void

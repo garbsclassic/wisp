@@ -118,6 +118,9 @@ final class PanelController {
         model.onThemeChange = { [weak self] theme in
             self?.applyTheme(theme)
         }
+        model.onDismissRequest = { [weak self] in
+            self?.dismiss()
+        }
 
         // Esc dismisses any modal overlay first; falls through to the
         // panel's normal dismiss behavior only when nothing is open.

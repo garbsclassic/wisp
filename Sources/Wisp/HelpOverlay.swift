@@ -16,6 +16,7 @@ struct HelpOverlay: View {
     let findHighlightToken: Int
     let findHighlightRange: NSRange
     let focusToken: Int
+    let onClose: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,7 +38,7 @@ struct HelpOverlay: View {
             chrome {
                 Text("scroll with ↑ · ↓ · mouse wheel")
                 Spacer()
-                Text("esc to dismiss")
+                GlyphButton(symbol: "xmark", help: "Close   ⎋", action: onClose)
             }
             .overlay(alignment: .top) { hairline }
         }
