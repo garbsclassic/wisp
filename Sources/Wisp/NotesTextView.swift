@@ -29,6 +29,11 @@ final class NotesTextView: NSTextView {
 
     private let caret = CaretLayer()
 
+    /// Set while `draw` runs, for `setFrameSize` to tell a resize that
+    /// lands mid-draw from any other.
+    private var isDrawing = false
+    private var resizedWhileDrawing = false
+
     /// Text length at the last caret update. A move that arrives with a
     /// change here is an edit — typing, ⌫, paste, undo — and places the
     /// caret without animating, so nothing ever lags a keystroke.
@@ -87,8 +92,25 @@ final class NotesTextView: NSTextView {
     /// AppKit reaches the hook above on a resize too; this is insurance
     /// for a reflow that somehow doesn't, and a no-op when the rect holds.
     override func setFrameSize(_ newSize: NSSize) {
+        if isDrawing, newSize != frame.size { resizedWhileDrawing = true }
         super.setFrameSize(newSize)
         refreshCaret(animated: false)
+    }
+
+    /// TextKit 1 lays out lazily, inside `draw`, and a layout that reaches
+    /// the end of the text there resizes the view from inside its own
+    /// draw. The redisplay AppKit asks for on that resize is lost — this
+    /// is a layer-backed view mid-display — so ⌘X on the last screen left
+    /// the old last line painted below the new one. Asked for again once
+    /// the draw is over, from the next turn of the run loop.
+    override func draw(_ dirtyRect: NSRect) {
+        isDrawing = true
+        super.draw(dirtyRect)
+        isDrawing = false
+        if resizedWhileDrawing {
+            resizedWhileDrawing = false
+            DispatchQueue.main.async { [weak self] in self?.needsDisplay = true }
+        }
     }
 
     override func becomeFirstResponder() -> Bool {

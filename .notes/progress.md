@@ -309,3 +309,19 @@
   hide/unhide observers that only served it; chezmoi template and live config updated. Driven in a
   second instance on a scratch `XDG_CONFIG_HOME`: ⌘↩ / ⌘⇧↩ wrote `y` / `x` where expected, ⌘⇧V
   showed the code face, a click on the desktop left the panel up. 409 tests.
+
+- 2026-09-21 — two stale-pixel bugs in the body. Selection remnants: the 1.4× leading made
+  fragments 26.6pt, and AppKit rounds that two ways — the selection fill out to the next point,
+  the invalidation on a selection change to the pixel — so a half-pixel row stayed painted when a
+  selection shrank (measured: one device row at the old fragment boundary). `NotesLayoutManager`
+  is now its own `NSLayoutManagerDelegate` and rounds every fragment up to a whole point (the
+  extra line fragment too, via the setter override); overriding `setLineFragmentRect` instead left
+  the typesetter advancing by the unrounded height, so lines overlapped after the first relayout.
+  Duplicate last line after ⌘X at the end: TextKit 1 finishes layout inside `draw`, the
+  end-of-text resize lands mid-draw, and the layer-backed view drops the redisplay AppKit asks for
+  — logged as `setFrameSize` inside `draw` → `setNeedsDisplay(∞)` → no draw until the next key.
+  `NotesTextView.draw` now re-requests display on the next run-loop turn when its frame changed
+  while drawing (redraw lands ~9 ms later). Reproduced the resize-in-draw with the unrounded
+  geometry (⌘X after ⌘⌫ at the end); with rounding on it stopped triggering in every sequence
+  tried, so that half is verified by log rather than by eye. Both themes checked on a mixed note:
+  bullets, guides, boxes, rule all sit as before. No test target covers the view layer. 442 tests.

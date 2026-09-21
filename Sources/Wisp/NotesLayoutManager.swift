@@ -37,6 +37,30 @@ final class NotesLayoutManager: NSLayoutManager {
     /// the styling pass hides, and in raw mode nothing is hidden.
     var isSourceView: Bool = false
 
+    override init() {
+        super.init()
+        delegate = self
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        delegate = self
+    }
+
+    // MARK: Whole-point line fragments
+
+    /// The trailing empty line is set without the delegate's say, so it is
+    /// rounded here to keep the container's height whole like the rest.
+    override func setExtraLineFragmentRect(
+        _ fragmentRect: NSRect, usedRect: NSRect, textContainer container: NSTextContainer
+    ) {
+        var fragment = fragmentRect
+        var used = usedRect
+        fragment.size.height = fragment.height.rounded(.up)
+        used.size.height = fragment.height
+        super.setExtraLineFragmentRect(fragment, usedRect: used, textContainer: container)
+    }
+
     override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
         super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
 
@@ -260,5 +284,32 @@ final class NotesLayoutManager: NSLayoutManager {
         tick.line(to: NSPoint(x: box.minX + box.width * 0.43, y: box.minY + box.height * 0.72))
         tick.line(to: NSPoint(x: box.minX + box.width * 0.77, y: box.minY + box.height * 0.30))
         tick.stroke()
+    }
+}
+
+extension NotesLayoutManager: NSLayoutManagerDelegate {
+    /// Rounds every line fragment up to a whole point. The body's leading
+    /// multiple makes the natural height fractional — 26.6pt at the default
+    /// size — and AppKit rounds that two ways: the selection fill rounds
+    /// out to the next point, the rect it invalidates when the selection
+    /// changes rounds to the pixel, and the half-pixel row between the two
+    /// is left painted when a selection shrinks. On whole points the two
+    /// agree.
+    ///
+    /// The delegate rather than `setLineFragmentRect`: the typesetter
+    /// positions the next line from the rect this hook returns, but not
+    /// from one an override of the setter stored, which left later lines
+    /// overlapping by the rounding.
+    func layoutManager(
+        _ layoutManager: NSLayoutManager,
+        shouldSetLineFragmentRect lineFragmentRect: UnsafeMutablePointer<NSRect>,
+        lineFragmentUsedRect: UnsafeMutablePointer<NSRect>,
+        baselineOffset: UnsafeMutablePointer<CGFloat>,
+        in textContainer: NSTextContainer, forGlyphRange glyphRange: NSRange
+    ) -> Bool {
+        let height = lineFragmentRect.pointee.height.rounded(.up)
+        lineFragmentRect.pointee.size.height = height
+        lineFragmentUsedRect.pointee.size.height = height
+        return true
     }
 }
