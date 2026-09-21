@@ -56,7 +56,7 @@ final class NotesLayoutManager: NSLayoutManager {
     ) {
         var fragment = fragmentRect
         var used = usedRect
-        fragment.size.height = fragment.height.rounded(.up)
+        fragment.size.height = fragment.height.rounded()
         used.size.height = fragment.height
         super.setExtraLineFragmentRect(fragment, usedRect: used, textContainer: container)
     }
@@ -288,7 +288,7 @@ final class NotesLayoutManager: NSLayoutManager {
 }
 
 extension NotesLayoutManager: NSLayoutManagerDelegate {
-    /// Rounds every line fragment up to a whole point. The body's leading
+    /// Rounds every line fragment to the nearest whole point. The body's leading
     /// multiple makes the natural height fractional — 26.6pt at the default
     /// size — and AppKit rounds that two ways: the selection fill rounds
     /// out to the next point, the rect it invalidates when the selection
@@ -307,7 +307,7 @@ extension NotesLayoutManager: NSLayoutManagerDelegate {
         baselineOffset: UnsafeMutablePointer<CGFloat>,
         in textContainer: NSTextContainer, forGlyphRange glyphRange: NSRange
     ) -> Bool {
-        let height = lineFragmentRect.pointee.height.rounded(.up)
+        let height = lineFragmentRect.pointee.height.rounded()
         lineFragmentRect.pointee.size.height = height
         lineFragmentUsedRect.pointee.size.height = height
         return true
