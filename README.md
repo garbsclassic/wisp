@@ -1,201 +1,217 @@
 # Wisp
 
-A dead-simple macOS scratchpad. Tap ⌃⌥. to pin it, hold it to peek, Esc to dismiss.
+A menu bar scratchpad for macOS. Press ⌃⌥. in any app to open one Markdown note, write, and press Esc to put it away.
+
+Wisp began as a fork of [sulemaanhamza/wisp](https://github.com/sulemaanhamza/wisp) and has since diverged. It keeps upstream's panel and editor, and adds a hand-edited config file, a keymap you can rebind, list and task editing, hold-to-peek, and a movable panel. It drops upstream's updater and onboarding tour. This is a personal build with no releases. Build it from source.
 
 <p align="center">
-  <img src="docs/screenshot.png" width="720" alt="Wisp">
+  <img src="docs/screenshot.png" width="720" alt="The Wisp panel in dark mode, showing headings, a task list, nested bullets, inline formatting, and a divider">
 </p>
+
+## Contents
+
+- [Install](#install)
+- [Use Wisp](#use-wisp)
+  - [Open and close the panel](#open-and-close-the-panel)
+  - [Write](#write)
+  - [Format text](#format-text)
+  - [Edit lines](#edit-lines)
+  - [Change the view](#change-the-view)
+  - [Store and sync the note](#store-and-sync-the-note)
+- [Configure Wisp](#configure-wisp)
+  - [Settings](#settings)
+  - [Shortcuts](#shortcuts)
+- [Build from source](#build-from-source)
+- [Sign with a stable identity](#sign-with-a-stable-identity)
+- [License](#license)
 
 ## Install
 
-Requires macOS 13 (Ventura) or later, Apple silicon. This is a personal fork
-with no release pipeline.
+Wisp needs macOS 13 or later and the Command Line Tools. It doesn't need Xcode.
 
 ```sh
 ./scripts/install.sh
 ```
 
-Builds and copies to `/Applications/Wisp.app` (override with
-`WISP_INSTALL_DIR`). Launch it, then enable **Launch at Login** from the menu
-bar menu if you want it. Installing to a stable path matters for that: the
-login item is recorded against the bundle's location, so running from
-`dist/` means a rebuild or a move can orphan it.
+The script builds the app, quits any running copy, and copies the bundle to `/Applications/Wisp.app`. To install somewhere else, set `WISP_INSTALL_DIR`. Open Wisp, then turn on **Launch at Login** in the menu bar menu if you want it.
+
+Run Wisp from the installed copy, not from `dist/`. macOS records the login item against the bundle's path, so a rebuild or a move can orphan a login item that points into `dist/`.
+
+To remove Wisp, run the uninstall script. It quits Wisp and withdraws the login item before it deletes the app. It keeps your config unless you pass `--purge`.
 
 ```sh
-./scripts/uninstall.sh            # removes the app, keeps your config
-./scripts/uninstall.sh --purge    # also removes ~/.config/wisp
+./scripts/uninstall.sh
 ```
 
-Uninstall quits the running copy first. Turn Launch at Login **off before**
-uninstalling — the registration is keyed to the bundle, so deleting the app
-first leaves a dangling login item.
+## Use Wisp
 
-## Features
+Press ⌘/ or F1, or click `?` in the footer, for the full shortcut list inside the app.
 
-- **⌃⌥.** from anywhere (rebindable): tap to pin the panel, tap again to dismiss; hold past `peekHold` to peek, and it closes when you let go
-- **Esc dismisses from anywhere** — even after you've clicked into another app with the panel still up. While it's showing unfocused, that app doesn't get Esc
-- **Movable** — drag the panel by anything that isn't text and it opens there next time; **Reset Position** (⌥⌘0) puts it back
-- **Light / dark / system** appearance — one-click cycle, follows macOS by default
-- **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
-- **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item, and ⌫ inside the indent un-nests too; ⌫ at the start of the text takes the marker off; ↵ on an empty nested item steps out a level; ⇧↵ continues an item on a new line
-- **Task lists** — `- [ ]` renders as a checkbox; click it, or ⌘⇧L, to check it off
-- **Headings** — `#` through `######` render bold, each level its own colour; the header strip lists `#` and `##` for click-to-jump, and ⌃⇧↑ / ⌃⇧↓ walk every level
-- **Smart paste** — ⌘V onto a blank line turns a tab-separated grid into a pipe table and a run of short plain lines into a bulleted list; anywhere else pastes verbatim
-- **Bold / Italic / Highlight / Strikethrough** — ⌘B, ⌘I (`_text_`), ⌥H (`==text==`), ⌘⇧S (`~~text~~`)
-- **Line editing** — ⌘D duplicates the line or selection; ⌘↩ / ⌘⇧↩ open a new line below / above it, keeping its indent; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
-- **⌘L** makes the line a bulleted list item, or unmakes it; **⌘⇧L** makes it a task, or checks it off
-- **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
-- **Menu bar icon** — left click for the menu, right click to pin the panel
-- **Launch at Login** — toggle in the menu bar menu
-- **Refresh** — ⌘R re-reads the config and the note from disk
-- **Live reload** — changes to either from another app, Mac, or sync client appear on their own
-- **Plain markdown on disk** at `~/Documents/scratchpad.md`
-- **Sync across Macs** — point at any folder via the menu bar menu (iCloud Drive, Dropbox, Syncthing all work)
-- **Every shortcut rebindable** in the config
-- **Hand-editable config** at `~/.config/wisp/wisp.jsonc` — see below
+### Open and close the panel
 
-Press ⌘/ — or click the `?` in the footer — for the full keyboard shortcut list.
+- Tap ⌃⌥. to pin the panel open. Tap it again to close it.
+- Hold ⌃⌥. to peek. The panel opens without taking focus and closes when you let go. `peekHold` sets how long a press must last to count as a hold.
+- Press Esc to close the panel. Esc works even after you click into another app, and that app doesn't receive Esc while the panel is open. If the find bar, the help page, or a folder picker is open, Esc closes that first.
+- Drag the panel by any part that isn't text. It opens in the same place next time. **Reset Position** (⌥⌘0) moves it back to the default spot.
+- Left-click the menu bar icon for the menu. Right-click it to pin the panel.
 
-## Configuration
+To change the ⌃⌥. chord, choose **Set Shortcut…** in the menu bar menu, or edit `keymap.summon` in the config.
 
-Everything Wisp persists lives in `~/.config/wisp/wisp.jsonc` (or
-`$XDG_CONFIG_HOME/wisp/wisp.jsonc`), seeded with defaults on first run and
-openable from **Settings…** in the menu bar menu. Comments and trailing commas
-are fine — it is read as JSON5. A key that's missing takes its default; a key
-that's present but the wrong shape is named in the footer rather than silently
-ignored.
+### Write
 
-The file's `$schema` key points at `wisp.schema.json` beside it, which Wisp
-copies out of its bundle at launch, so an editor that honours `$schema` (Zed,
-VS Code) validates and completes the file with nothing fetched from the
-network. A config seeded before the key existed can add the line by hand:
-`"$schema": "./wisp.schema.json"`.
+Wisp styles Markdown as you type and leaves the markers on screen, dimmed.
 
-| Key                     | Default                   | What it does                                                                                                                 |
-| ----------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `theme`                 | `"system"`                | `light`, `dark`, or follow macOS                                                                                             |
-| `fonts.notes`           | _(system font)_           | The notes body face, by family name                                                                                          |
-| `fonts.ui`              | _(system font)_           | Header, footer, and overlays                                                                                                 |
-| `fonts.code`            | _(system monospace)_      | `` `inline code` `` runs, and the whole body in source view                                                                  |
-| `fontScale`             | `1.0`                     | Multiplies every type size, body and chrome. ⌘= / ⌘- step it by 0.1. Clamped to 0.6–2.5                                     |
-| `saveIndicator`         | `true`                    | Flashes a dot in the top corner each time the note is written                                                                 |
-| `smartPaste`            | `true`                    | ⌘V onto a blank line writes a tab-separated grid as a pipe table and short plain lines as a bulleted list                    |
-| `defaultFontScale`      | `1.0`                     | What ⌘0 resets `fontScale` to                                                                                                |
-| `indent.style`          | `"spaces"`                | `spaces` or `tabs` — what Tab writes                                                                                         |
-| `indent.size`           | `2`                       | Spaces per level. Ignored under `tabs`                                                                                       |
-| `caret.motion`          | `"snappy"`                | How the caret travels: `snappy` lands at once and settles, `gliding` slides, `off` teleports. Reduce Motion forces `off`     |
-| `caret.blink`           | `true`                    | Fade the caret in and out while idle; `false` keeps it solid                                                                 |
-| `background.blur`       | `true`                    | Blurs whatever is behind the panel                                                                                           |
-| `background.opacity`    | _(theme's own)_           | Alpha of the panel's tint, 0–1. `1` is a solid panel; unset keeps each theme's tuned value                                   |
-| `peekHold`              | `250`                     | Milliseconds the summon chord must be held to peek instead of pin. `0` always peeks                                          |
-| `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on, carrying a saved position to the same relative spot there             |
-| `position`              | _(written on drag)_       | Top-left `x` / `y` in screen points, saved when a dragged panel hides. `null` — Reset Position — is the default spot, centred with its top edge 5% down |
-| `scratchpadFolder`        | `""`                      | Folder for `scratchpad.md`; empty means `~/Documents`                                                                        |
-| `keymap.*`              | _(see below)_             | Every shortcut, rebindable. `keymap.summon` is the global chord, e.g. `cmd+shift+space`                                      |
-| `panel`                 | _(written on first hide)_ | Remembered `width` / `height`                                                                                                |
+- A line that starts with `- ` renders as a bullet with a hanging indent. ⇥ and ⇧⇥ nest and un-nest the item. ⌫ inside the indent also un-nests it, and ⌫ at the start of the text removes the marker.
+- ↵ continues a list. ↵ on an empty nested item moves it out one level. ⇧↵ continues the same item on a new line.
+- `- [ ]` renders as a checkbox. Click it or press ⌘⇧L to check it off.
+- `#` through `######` render bold, with a different color for each level and the `#` marks dimmed. A line of text directly above `===` becomes a level-1 heading, and directly above `---`, a level-2 heading, as on GitHub and in Obsidian. The header strip lists the level-1 and level-2 headings, and a click jumps to one. ⌃⇧↑ and ⌃⇧↓ step through headings at every level.
+- A line of three or more `-`, `*`, or `_` becomes a divider, with or without spaces between them: `---`, `***`, `* * *`. Under a line of text, `---` makes a heading instead, so leave a blank line above it or use `***`. Wisp doesn't draw dividers inside a fenced code block, or in the `---` frontmatter block at the top of a note.
+- ⌘V onto a blank line converts a tab-separated grid to a pipe table, and a run of short plain lines to a bulleted list. Anywhere else, ⌘V pastes the text unchanged. Set `smartPaste` to `false` to turn this off.
+- ⌘F searches the note.
 
-### Keymap
+### Format text
 
-Every binding lives under `keymap`, written out in full on first run. A chord
-is modifiers plus a key, in any order — `cmd+shift+d`, `opt+up`, `ctrl+opt+.`.
+Each shortcut wraps the selection in the markers shown.
 
-An action can take a list instead of a single chord, and every entry binds —
-`"help": ["f1", "cmd+/"]` reaches the same page two ways. `hyper` stands for
-all four modifiers at once — `hyper+.` is `ctrl+opt+shift+cmd+.`, which is
-what a Caps Lock remapped to a hyperkey sends.
+| Style         | Shortcut | Markers       |
+| ------------- | -------- | ------------- |
+| Bold          | ⌘B       | `**text**`    |
+| Italic        | ⌘I       | `_text_`      |
+| Highlight     | ⌥H       | `==text==`    |
+| Underline     | ⌘U       | `<u>text</u>` |
+| Strikethrough | ⌘⇧S      | `~~text~~`    |
+| Inline code   | ⌘E       | `` `text` ``  |
 
-| Action                                    | Default    |
-| ----------------------------------------- | ---------- |
-| `summon`                                  | `ctrl+opt+.` |
-| `find` / `settings` / `refresh`           | `cmd+f` / `cmd+,` / `cmd+r` |
-| `reveal`                                  | `opt+cmd+r` |
-| `resetPosition`                           | `cmd+opt+0` |
-| `help`                                    | `["f1", "cmd+/"]` |
-| `bold` / `italic` / `highlight` / `underline` / `strikethrough` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+shift+s` / `cmd+e` |
-| `toggleTheme`                             | `cmd+t` |
-| `sourceView`                              | `cmd+shift+v` |
-| `duplicateLine` / `toggleBulletedList` / `toggleTaskItem` | `cmd+d` / `cmd+l` / `cmd+shift+l` |
-| `openLineBelow` / `openLineAbove`         | `cmd+return` / `cmd+shift+return` |
-| `moveLineUp` / `moveLineDown`             | `opt+up` / `opt+down` |
-| `previousHeading` / `nextHeading`         | `ctrl+shift+up` / `ctrl+shift+down` |
-| `increaseFontScale` / `decreaseFontScale` / `resetFontScale` | `cmd+=` / `cmd+-` / `cmd+0` |
+Markdown has no underline, and `__` is already bold, so underline writes `<u>`, as Obsidian's underline command does. Strikethrough writes `~~text~~`, which is what Obsidian writes and Notion exports. Wisp also renders a single `~text~`, which Notion accepts as you type. Inline code renders in `fonts.code`. Wisp doesn't style fenced code blocks.
 
-**F1 only reaches Wisp if your Mac is set to "Use F1, F2, etc. as standard
-function keys"** (Keyboard settings). Otherwise F1 dims the display and the
-app never sees it — press fn+F1, or use the `cmd+/` alias.
+You can also wrap a selection by typing a marker. `` ` ``, `_`, `'`, and `"` wrap it in one of that character. `*`, `=`, and `~` wrap it in two, for bold, highlight, and strikethrough. Typing a marker only wraps and never unwraps, so a second press nests. To replace a selection with one of these seven characters, clear the selection first.
 
-Underline writes `<u>…</u>`: markdown has none, `__` is already bold here,
-and `<u>` is what Obsidian's own underline command inserts. Strikethrough
-writes `~~text~~`, which is Obsidian's spelling and Notion's export; a single
-`~text~`, what Notion accepts when typing, renders too. Code wraps in
-single backticks and renders in `fonts.code`; fenced blocks aren't styled,
-only inline spans.
+A backslash escapes the character after it, so `` \` `` is a literal backtick and doesn't start a code span. Wisp honors Obsidian's escapes, ``\` \* \_ \# \| \~`` and the `\.` after a list number, plus `\= \< \+ \-` and `\\`. The backslash stays on screen, dimmed.
 
-`sourceView` drops every styling pass and sets the body in `fonts.code`, so the
-screen shows the file. It isn't persisted — it resets when you quit. List
-continuation on ↵ keeps working; the one aid that *rewrites* the line,
-`---`→rule, is off while it is on.
+### Edit lines
 
-With a selection, typing `` ` `` `_` `'` or `"` wraps it in that character,
-and `*`, `=`, or `~` wraps it in two — bold, highlight, and strikethrough. It only ever wraps, never
-unwraps, so a second press nests. To replace a selection with one of those seven
-characters, clear the selection first.
+- ⌘D duplicates the line, or the selection if there is one.
+- ⌘↩ opens a new line below the current one, and ⌘⇧↩ opens one above. The new line keeps the current line's indent.
+- ⌥↑ and ⌥↓ move the line up and down.
+- With nothing selected, ⌘C and ⌘X copy or cut the whole line. ⌘V then inserts that line above the current one.
+- ⌘L turns the line into a bullet, or back into plain text.
+- ⌘⇧L turns the line into a task, or checks off a task.
 
-A backslash escapes the character after it: `` \` `` is a literal backtick and
-not the start of a code span. The set is Obsidian's — ``\` \* \_ \# \| \~``
-and the `\.` after a list number — plus `\= \< \+ \-` and `\\`. The
-backslash stays on screen, dimmed, like every other marker here.
+### Change the view
 
-`summon` is the only global one — the rest need Wisp's panel in front of you,
-except `find`, `settings`, and `refresh`, which open it. The menu bar menu
-prints each item's chord from this table, and those actions fire with the menu
-closed too. A chord that doesn't
-parse is dropped; an action left with no working chord at all is named in the
-footer.
+- ⌘= and ⌘- make the text larger and smaller, and ⌘0 resets it. The footer has buttons for both.
+- ⌘T cycles the theme through light, dark, and the macOS setting.
+- ⌘⇧V turns on source view, which drops all styling and sets the whole note in `fonts.code`, so the screen shows the file as it is. List continuation on ↵ still works, but `---` no longer turns into a divider. Source view resets when you quit.
 
-No font is bundled. A named family is looked up by name, and Wisp falls back to
-the system face (and says so in the footer) when it isn't installed.
+F1 reaches Wisp only if macOS is set to **Use F1, F2, etc. keys as standard function keys** in Keyboard settings. Otherwise F1 dims the display. Press fn+F1 or ⌘/ instead.
 
-Wisp rewrites only the key it changed, so hand-added comments, key order, and
-indentation all survive a settings change made from the UI.
+### Store and sync the note
 
-The config directory and the scratchpad's folder are both watched, so a change
-to either — a hand edit, a `chezmoi apply`, another Mac's copy landing over
-iCloud Drive — applies without a Refresh. Everything takes effect live. If a
-watch can't start, the footer says so and ⌘R still works.
+Wisp saves the note as plain Markdown at `~/Documents/scratchpad.md`. To keep it in sync across Macs, choose **Scratchpad Folder…** in the menu bar menu and pick a folder that iCloud Drive, Dropbox, or Syncthing syncs. **Reset Scratchpad Folder** goes back to `~/Documents`.
 
-## Build
+Wisp watches the note's folder and the config folder. A change from another app, another Mac, or a sync client shows up without a reload. If a watch can't start, the footer says so. ⌘R re-reads the note and the config from disk either way.
+
+## Configure Wisp
+
+### Settings
+
+Wisp keeps all its settings in `~/.config/wisp/wisp.jsonc`, or `$XDG_CONFIG_HOME/wisp/wisp.jsonc` if that variable is set. Wisp writes the file with defaults on first launch. To open it, choose **Settings…** in the menu bar menu or press ⌘,.
+
+Wisp reads the file as JSON5, so comments and trailing commas are fine. A missing key takes its default. A key with the wrong shape is ignored, and the footer names it. Changes apply as soon as you save. When you change a setting from the app, Wisp rewrites only that key and leaves your comments, key order, and indentation alone.
+
+The file's `$schema` key points at `wisp.schema.json` in the same folder. Wisp copies that schema out of its bundle at every launch, so Zed, VS Code, and other editors that read `$schema` can validate and complete the file offline.
+
+| Key                  | Default              | Effect                                                                                                                                                |
+| -------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `theme`              | `"system"`           | `light`, `dark`, or `system` to follow macOS                                                                                                          |
+| `fonts.notes`        | _(system font)_      | The note's font, by family name                                                                                                                       |
+| `fonts.ui`           | _(system font)_      | The font for the header, footer, and overlays                                                                                                         |
+| `fonts.code`         | _(system monospace)_ | The font for inline code, and for the whole note in source view                                                                                       |
+| `fontScale`          | `1.0`                | Multiplies every text size. ⌘= and ⌘- step it by 0.1. Wisp clamps it to 0.6–2.5                                                                       |
+| `defaultFontScale`   | `1.0`                | The value ⌘0 resets `fontScale` to                                                                                                                    |
+| `background.blur`    | `true`               | Blurs whatever is behind the panel                                                                                                                    |
+| `background.opacity` | _(theme's own)_      | The panel tint's opacity, 0–1. `1` makes the panel solid                                                                                              |
+| `monitor`            | `"primary"`          | `pointer` opens the panel on the display under the cursor, and moves a saved position to the same relative spot there                                 |
+| `position`           | _(written on drag)_  | The panel's top-left `x` and `y` in screen points, saved when a dragged panel closes. `null` is the default spot: centered, with the top edge 5% down |
+| `peekHold`           | `250`                | Milliseconds to hold the summon chord before the panel peeks instead of pinning. `0` always peeks                                                     |
+| `saveIndicator`      | `true`               | Flashes a dot in the top corner each time Wisp saves the note                                                                                         |
+| `smartPaste`         | `true`               | Converts a pasted grid to a table and pasted short lines to a list, when you paste onto a blank line                                                  |
+| `scratchpadFolder`   | `""`                 | The folder that holds `scratchpad.md`. Empty means `~/Documents`                                                                                      |
+| `indent.style`       | `"spaces"`           | What ⇥ writes: `spaces` or `tabs`                                                                                                                     |
+| `indent.size`        | `2`                  | Spaces per indent level. Ignored when `indent.style` is `tabs`                                                                                        |
+| `caret.motion`       | `"snappy"`           | How the caret moves. `snappy` lands at once and settles, `gliding` slides, and `off` jumps. Reduce Motion forces `off`                                |
+| `caret.blink`        | `true`               | Fades the caret in and out while idle. `false` keeps it solid                                                                                         |
+| `keymap.*`           | _(see below)_        | Every shortcut                                                                                                                                        |
+| `panel`              | _(written on close)_ | The panel's last `width` and `height`                                                                                                                 |
+
+Wisp bundles no fonts. It looks up a named family by name, and if the family isn't installed, it uses the system font and says so in the footer.
+
+### Shortcuts
+
+Wisp writes every binding under `keymap` on first launch. A chord is modifiers plus one key, in any order: `cmd+shift+d`, `opt+up`, `ctrl+opt+.`. `hyper` stands for all four modifiers, so `hyper+.` means `ctrl+opt+shift+cmd+.`, which is what a Caps Lock key remapped to a hyper key sends.
+
+An action can take a list of chords instead of one, and every chord in the list works. For example, `"help": ["f1", "cmd+/"]`.
+
+`summon` is the only global shortcut. `find`, `settings`, and `refresh` also work while Wisp is active with the panel closed, and they open the panel. The rest work only while the panel is in front. The menu bar menu shows each item's current chord, and those chords work while the menu is closed.
+
+Wisp drops a chord it can't parse. If that leaves an action with no working chord, the footer names the action.
+
+| Action               | Default            |
+| -------------------- | ------------------ |
+| `summon`             | `ctrl+opt+.`       |
+| `find`               | `cmd+f`            |
+| `settings`           | `cmd+,`            |
+| `refresh`            | `cmd+r`            |
+| `reveal`             | `opt+cmd+r`        |
+| `resetPosition`      | `cmd+opt+0`        |
+| `help`               | `["f1", "cmd+/"]`  |
+| `cycleTheme`         | `cmd+t`            |
+| `sourceView`         | `cmd+shift+v`      |
+| `bold`               | `cmd+b`            |
+| `italic`             | `cmd+i`            |
+| `highlight`          | `opt+h`            |
+| `underline`          | `cmd+u`            |
+| `strikethrough`      | `cmd+shift+s`      |
+| `code`               | `cmd+e`            |
+| `duplicateLine`      | `cmd+d`            |
+| `openLineBelow`      | `cmd+return`       |
+| `openLineAbove`      | `cmd+shift+return` |
+| `toggleBulletedList` | `cmd+l`            |
+| `toggleTaskItem`     | `cmd+shift+l`      |
+| `moveLineUp`         | `opt+up`           |
+| `moveLineDown`       | `opt+down`         |
+| `previousHeading`    | `ctrl+shift+up`    |
+| `nextHeading`        | `ctrl+shift+down`  |
+| `increaseFontScale`  | `cmd+=`            |
+| `decreaseFontScale`  | `cmd+-`            |
+| `resetFontScale`     | `cmd+0`            |
+
+## Build from source
 
 ```sh
 ./scripts/build.sh
 open dist/Wisp.app
 ```
 
+`build.sh` assembles `dist/Wisp.app` by hand, because SwiftPM builds only a bare executable. From `MacOSX27.0.sdk` on, SwiftUI needs a compiler plugin that ships only with Xcode, so `build.sh` builds against the newest Command Line Tools SDK older than 27. To use a specific SDK, set `WISP_SDKROOT` to its path.
+
+To run the tests:
+
 ```sh
 ./scripts/test.sh
 ```
 
-No Xcode required — Command Line Tools are enough. `swift test` alone fails
-with `no such module 'Testing'`: Swift Testing ships inside CLT but isn't on
-the default search path, so `scripts/test.sh` points the compiler, linker,
-and dyld at it.
+Plain `swift test` fails with `no such module 'Testing'`. Swift Testing ships inside the Command Line Tools but isn't on the default search path, so `test.sh` points the compiler, the linker, and dyld at it.
 
-For quick iteration without assembling a bundle:
+To run Wisp without building a bundle, use `swift run`. Launch at Login and the bundled config schema need the bundle, so they don't work this way. `swift run` uses the default SDK, so if that SDK is `MacOSX27.0.sdk` or later, set `SDKROOT` to an older one first.
 
 ```sh
-git clone https://github.com/garbsclassic/wisp.git
-cd wisp
 swift run
 ```
 
-## Signing
+## Sign with a stable identity
 
-`scripts/build.sh` ad-hoc signs by default. Every rebuild relinks with a
-fresh `LC_UUID`, so the code identity changes each time, which can make
-macOS ask you to re-approve "Launch at Login" after a rebuild. To get a
-stable identity without Xcode or a paid Apple Developer account, create a
-self-signed **Code Signing** certificate in Keychain Access (Certificate
-Assistant → Create a Certificate) and:
+`build.sh` signs the app ad hoc by default. Each build gets a new code identity, so macOS can ask you to approve Launch at Login again after a rebuild. To keep one identity across builds without Xcode or a paid developer account, create a self-signed certificate in Keychain Access. Choose **Certificate Assistant > Create a Certificate**, set the type to **Code Signing**, then build with it:
 
 ```sh
 WISP_SIGN_IDENTITY="Your Cert Name" ./scripts/build.sh
@@ -203,4 +219,4 @@ WISP_SIGN_IDENTITY="Your Cert Name" ./scripts/build.sh
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
