@@ -2,7 +2,8 @@ import AppKit
 
 // Kept identical in Wisp and Clef: both panels are dragged by this one type.
 
-/// A borderless panel moved by dragging anywhere that isn't text.
+/// A borderless panel moved by dragging anywhere that isn't text, or only
+/// inside `dragArea` when one is set.
 ///
 /// `isMovableByWindowBackground` can't do it: AppKit only starts that drag
 /// when the view under the pointer answers `mouseDownCanMoveWindow`, and a
@@ -19,6 +20,11 @@ class MovablePanel: NSPanel {
     private static let dragThreshold: CGFloat = 3
     /// Near a resizable panel's edge a press belongs to AppKit's resize.
     private static let resizeMargin: CGFloat = 6
+
+    /// Where a drag may start, in window coordinates. Nil allows anywhere that
+    /// isn't text; a panel whose body is all clickable rows narrows it to its
+    /// chrome.
+    var dragArea: ((NSPoint) -> Bool)?
 
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
     private var isDragging = false
@@ -67,6 +73,7 @@ class MovablePanel: NSPanel {
     /// resizable panel, the edges.
     private func canStartDrag(at event: NSEvent) -> Bool {
         let point = event.locationInWindow
+        if let dragArea, !dragArea(point) { return false }
         if styleMask.contains(.resizable) {
             let inner = NSRect(origin: .zero, size: frame.size)
                 .insetBy(dx: Self.resizeMargin, dy: Self.resizeMargin)

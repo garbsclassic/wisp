@@ -76,9 +76,12 @@ public struct HelpDocument: Equatable, Sendable {
                 Row(chord(.toggleBulletedList), "toggle bulleted list"),
                 Row(chord(.toggleTaskItem), "toggle task · check it off"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
+                // Two rows, not one: six chords don't fit the key gutter, and a
+                // key wider than its right-aligned stop runs over the detail.
+                Row(group(.bold, .highlight, .italic), "bold · highlight · italic"),
                 Row(
-                    group(.bold, .highlight, .italic, .underline, .strikethrough, .code),
-                    "bold · highlight · italic · underline · strikethrough · code"),
+                    group(.underline, .strikethrough, .code),
+                    "underline · strikethrough · code"),
                 Row("⇥ · ⇧⇥ · ⌫", "increase · decrease indentation — ⌫ inside it"),
                 Row("⇧↵", "continue an item on a new line"),
                 Row("` · _ · ' · \" · ** · == · ~~", "wrap selection"),

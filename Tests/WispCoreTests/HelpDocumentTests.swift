@@ -65,13 +65,23 @@ struct HelpDocumentTests {
 
         #expect(rows.first { $0.detail == "reveal note in finder" }?.key == "⌃⇧F")
 
-        let format = rows.first {
-            $0.detail == "bold · highlight · italic · underline · strikethrough · code"
-        }?.key
+        let format = rows.first { $0.detail == "underline · strikethrough · code" }?.key
         #expect(format?.contains("⌃⇧U") == true)
         #expect(format?.contains("⌃⇧X") == true)
         // Last in the row, and the row's order is the description's order.
         #expect(format?.hasSuffix("⌃⇧E") == true)
+    }
+
+    /// A key wider than the gutter's right-aligned stop can't end at it, and
+    /// runs over into the detail column instead.
+    @Test("Every default row's key fits the key gutter")
+    func keysFitTheGutter() {
+        let style = Self.style
+        let rows = HelpDocument.make(keymap: Keymap()).sections.flatMap(\.rows)
+        for row in rows {
+            let width = (row.key as NSString).size(withAttributes: [.font: style.rowFont]).width
+            #expect(width <= style.keyColumnWidth, "\(row.key) is \(width)pt wide")
+        }
     }
 
     /// A hyperkey summon is the reason the glyph exists; this is the row it
