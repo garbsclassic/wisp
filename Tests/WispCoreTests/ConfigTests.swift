@@ -151,9 +151,9 @@ struct ConfigDerivedTests {
 
     @Test("An empty scratchpad path means the default folder")
     func scratchpadFolder() {
-        #expect(WispConfig().scratchpadFolder == StorageLocation.defaultFolder)
+        #expect(WispConfig().scratchpadFolderPath == StorageLocation.defaultFolder)
         #expect(
-            WispConfig(scratchpadPath: "~/Notes").scratchpadFolder.path
+            WispConfig(scratchpadFolder: "~/Notes").scratchpadFolderPath.path
                 == NSString(string: "~/Notes").expandingTildeInPath
         )
     }

@@ -286,7 +286,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// everything verbatim.
     public var smartPaste: Bool
     /// Folder holding `scratchpad.md`. Empty means the default, `~/Documents`.
-    public var scratchpadPath: String
+    public var scratchpadFolder: String
     public var keymap: Keymap
     /// What the Tab key writes, and the step smart list indentation moves by.
     public var indent: Indent
@@ -306,7 +306,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         peekHold: Int = 250,
         saveIndicator: Bool = true,
         smartPaste: Bool = true,
-        scratchpadPath: String = "",
+        scratchpadFolder: String = "",
         keymap: Keymap = Keymap(),
         indent: Indent = Indent(),
         caret: Caret = Caret(),
@@ -322,7 +322,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.peekHold = peekHold
         self.saveIndicator = saveIndicator
         self.smartPaste = smartPaste
-        self.scratchpadPath = scratchpadPath
+        self.scratchpadFolder = scratchpadFolder
         self.keymap = keymap
         self.indent = indent
         self.caret = caret
@@ -357,8 +357,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .saveIndicator, default: defaults.saveIndicator, diagnostics: diagnostics)
         smartPaste = container.lenientValue(
             forKey: .smartPaste, default: defaults.smartPaste, diagnostics: diagnostics)
-        scratchpadPath = container.lenientValue(
-            forKey: .scratchpadPath, default: defaults.scratchpadPath, diagnostics: diagnostics)
+        scratchpadFolder = container.lenientValue(
+            forKey: .scratchpadFolder, default: defaults.scratchpadFolder, diagnostics: diagnostics)
         keymap = container.lenientValue(
             forKey: .keymap, default: defaults.keymap, diagnostics: diagnostics)
         indent = container.lenientValue(
@@ -393,7 +393,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// nothing. Every other action reports through `unparseableActions`.
     public var summonChordIsValid: Bool { keymap.parsed(.summon) != nil }
 
-    public var scratchpadFolder: URL {
-        StorageLocation.folder(forConfiguredPath: scratchpadPath)
+    public var scratchpadFolderPath: URL {
+        StorageLocation.folder(forConfiguredPath: scratchpadFolder)
     }
 }

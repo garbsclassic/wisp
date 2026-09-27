@@ -18,7 +18,7 @@ import Foundation
 /// the caller's back would quietly reintroduce the shadow store.
 public enum StorageLocation {
     /// The pre-config UserDefaults key. Read once on first run to seed
-    /// `scratchpadPath`, then never again.
+    /// `scratchpadFolder`, then never again.
     public static let legacyFolderKey = "ScratchpadFolder"
     public static let scratchpadFilename = "scratchpad.md"
     public static let backupPrefix = "scratchpad-local-backup-"
@@ -28,7 +28,7 @@ public enum StorageLocation {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
     }
 
-    /// Resolve a configured `scratchpadPath` to a folder. Empty means the
+    /// Resolve a configured `scratchpadFolder` to a folder. Empty means the
     /// default; a leading `~` expands, so the path is writable by hand.
     public static func folder(forConfiguredPath path: String) -> URL {
         let trimmed = path.trimmingCharacters(in: .whitespaces)
@@ -62,7 +62,7 @@ public enum StorageLocation {
         public let newText: String
         public let backupURL: URL?
         public let loadedExisting: Bool
-        /// The path to persist into `scratchpadPath`. Empty for the default
+        /// The path to persist into `scratchpadFolder`. Empty for the default
         /// folder, so a reset clears the key rather than pinning it.
         public let folderPath: String
     }

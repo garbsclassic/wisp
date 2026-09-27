@@ -84,7 +84,7 @@ struct JSONTextEditTests {
               "keymap": {
                 "summon": "ctrl+opt+."
               },
-              "scratchpadPath": "",
+              "scratchpadFolder": "",
               "vibrancy": true,
               "theme": "system"
             }

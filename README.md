@@ -89,7 +89,7 @@ network. A config seeded before the key existed can add the line by hand:
 | `peekHold`              | `250`                     | Milliseconds the summon chord must be held to peek instead of pin. `0` always peeks                                          |
 | `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on, carrying a saved position to the same relative spot there             |
 | `position`              | _(written on drag)_       | Top-left `x` / `y` in screen points, saved when a dragged panel hides. `null` — Reset Position — is the default spot, centred with its top edge 5% down |
-| `scratchpadPath`        | `""`                      | Folder for `scratchpad.md`; empty means `~/Documents`                                                                        |
+| `scratchpadFolder`        | `""`                      | Folder for `scratchpad.md`; empty means `~/Documents`                                                                        |
 | `keymap.*`              | _(see below)_             | Every shortcut, rebindable. `keymap.summon` is the global chord, e.g. `cmd+shift+space`                                      |
 | `panel`                 | _(written on first hide)_ | Remembered `width` / `height`                                                                                                |
 

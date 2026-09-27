@@ -36,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
             },
             isStorageCustom: { [weak self] in
-                StorageLocation.isCustom(self?.settings.config.scratchpadPath ?? "")
+                StorageLocation.isCustom(self?.settings.config.scratchpadFolder ?? "")
             },
             onPickStorageLocation: { [weak self] in
                 self?.pickStorageLocation()
@@ -235,13 +235,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func runStorageLocationFlow() {
         let openPanel = NSOpenPanel()
         openPanel.title = "Choose Wisp's Scratchpad Folder"
-        openPanel.prompt = "Choose"
-        openPanel.message = "Pick a folder for scratchpad.md. Choose a folder inside iCloud Drive (or Dropbox, etc.) to sync across Macs."
         openPanel.canChooseFiles = false
         openPanel.canChooseDirectories = true
         openPanel.canCreateDirectories = true
         openPanel.allowsMultipleSelection = false
-        openPanel.directoryURL = settings.config.scratchpadFolder
+        openPanel.directoryURL = settings.config.scratchpadFolderPath
 
         guard openPanel.runModal() == .OK, let folder = openPanel.url else { return }
 
@@ -260,8 +258,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             let result = try StorageLocation.setFolder(
                 folder, currentText: model.text,
-                currentFolder: settings.config.scratchpadFolder)
-            settings.setScratchpadPath(result.folderPath)
+                currentFolder: settings.config.scratchpadFolderPath)
+            settings.setScratchpadFolder(result.folderPath)
             startNoteWatcher()
             if result.loadedExisting {
                 model.adoptLoadedText(result.newText)
@@ -289,10 +287,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func runStorageLocationReset() {
-        guard StorageLocation.isCustom(settings.config.scratchpadPath) else { return }
+        guard StorageLocation.isCustom(settings.config.scratchpadFolder) else { return }
         do {
             try StorageLocation.resetToDefault(currentText: model.text)
-            settings.setScratchpadPath("")
+            settings.setScratchpadFolder("")
             startNoteWatcher()
             model.adoptLoadedText(model.text)
         } catch {
@@ -349,7 +347,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // The note itself moved, so the watcher is pointed at the wrong
         // directory and the mtime baseline describes the wrong file.
-        if settings.config.scratchpadPath != previous.scratchpadPath {
+        if settings.config.scratchpadFolder != previous.scratchpadFolder {
             startNoteWatcher()
             model.adoptScratchpadAtCurrentPath()
         }
@@ -359,7 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// folder, not the file: every writer here replaces it by rename, and
     /// a watch on the old inode would see nothing.
     private func startNoteWatcher() {
-        noteWatcher = DirectoryWatcher(directoryURL: settings.config.scratchpadFolder) {
+        noteWatcher = DirectoryWatcher(directoryURL: settings.config.scratchpadFolderPath) {
             [weak self] in
             self?.model.reloadFromDiskIfChanged()
         }

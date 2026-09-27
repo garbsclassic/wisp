@@ -107,7 +107,7 @@
       "type": "boolean",
       "default": true
     },
-    "scratchpadPath": {
+    "scratchpadFolder": {
       "description": "Folder for scratchpad.md; empty means ~/Documents.",
       "type": "string",
       "default": ""

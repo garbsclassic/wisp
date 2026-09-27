@@ -104,9 +104,9 @@ final class Settings: ObservableObject {
         write(["keymap", KeymapAction.summon.rawValue], chord)
     }
 
-    func setScratchpadPath(_ path: String) {
-        config.scratchpadPath = path
-        write(["scratchpadPath"], path)
+    func setScratchpadFolder(_ path: String) {
+        config.scratchpadFolder = path
+        write(["scratchpadFolder"], path)
     }
 
     /// The panel's size, written when it hides.
@@ -179,7 +179,7 @@ final class Settings: ObservableObject {
             }
         }
         if let path = defaults.string(forKey: StorageLocation.legacyFolderKey), !path.isEmpty {
-            migrated.scratchpadPath = path
+            migrated.scratchpadFolder = path
         }
         if let saved = defaults.string(forKey: "PanelFrame") {
             let rect = NSRectFromString(saved)

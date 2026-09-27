@@ -174,7 +174,7 @@ final class EditorModel: ObservableObject {
 
     /// Where `scratchpad.md` lives right now, per the config.
     var scratchpadURL: URL {
-        StorageLocation.scratchpadURL(in: settings.config.scratchpadFolder)
+        StorageLocation.scratchpadURL(in: settings.config.scratchpadFolderPath)
     }
 
     init(settings: Settings) {
@@ -223,7 +223,7 @@ final class EditorModel: ObservableObject {
     }
 
     /// Adopts whatever file is at the current scratchpad path, for a
-    /// `scratchpadPath` that changed in the config: the mtime baseline
+    /// `scratchpadFolder` that changed in the config: the mtime baseline
     /// describes a file in the old folder, so `reloadFromDiskIfChanged`
     /// can't be trusted to notice the new one. A folder with no scratchpad
     /// in it yet keeps the current text, which the next save writes there.
