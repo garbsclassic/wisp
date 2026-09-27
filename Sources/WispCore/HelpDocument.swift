@@ -89,7 +89,7 @@ public struct HelpDocument: Equatable, Sendable {
             ]),
             Section("Insert", [
                 Row("- · * · +", "bulleted list"),
-                Row("1. · A. · a.", "numbered list"),
+                Row("1. · 1) · A. · a.", "numbered list"),
                 Row("- [ ]", "task — click the box to check it"),
                 Row("# · ## · ###", "headings — or === · --- under a line"),
                 Row("--- · *** · ___", "horizontal rule"),

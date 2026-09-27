@@ -31,10 +31,11 @@ public enum SmartEditing {
             if isEmptyAfter(match.range, in: line) { return "" }
             return "\(match.1)\(match.2) "
         }
-        if let match = line.firstMatch(of: /^([ \t]*)(\d+)\.\s/) {
+        // `1)` as well as `1.`, as CommonMark allows; the letters take only `.`.
+        if let match = line.firstMatch(of: /^([ \t]*)(\d+)([.)])\s/) {
             let n = Int(match.2) ?? 0
             if isEmptyAfter(match.range, in: line) { return "" }
-            return "\(match.1)\(n + 1). "
+            return "\(match.1)\(n + 1)\(match.3) "
         }
         if let match = line.firstMatch(of: /^([ \t]*)([A-Z])\.\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
@@ -81,7 +82,7 @@ public enum SmartEditing {
         public enum Marker: Equatable {
             /// `-`, `*`, or `+`.
             case bullet
-            /// `1.`, `A.`, or `a.`.
+            /// `1.`, `1)`, `A.`, or `a.`.
             case ordered
             /// `- [ ]` or `- [x]`, any bullet character. The box is part
             /// of the marker, not the content: it is drawn as one glyph
@@ -179,9 +180,12 @@ public enum SmartEditing {
                 // run on.
                 if !isDigit(text.character(at: index - 1)) { break }
             }
-            guard digits > 0, index < contentEnd, text.character(at: index) == 0x2E else {
-                return nil
-            }
+            guard digits > 0, index < contentEnd else { return nil }
+            // `.` after any marker; `)` only after digits, as CommonMark has it, so `a)` stays
+            // text.
+            let delimiter = text.character(at: index)
+            let afterDigits = isDigit(text.character(at: index - 1))
+            guard delimiter == 0x2E || (delimiter == 0x29 && afterDigits) else { return nil }
             marker = .ordered
             index += 1
         }
@@ -415,7 +419,7 @@ public enum SmartEditing {
     }
 
     /// Ordered markers put back in sequence. A run is consecutive items
-    /// at one indent with one kind of marker — `1.`, `A.`, or `a.` —
+    /// at one indent with one kind of marker — `1.`, `1)`, `A.`, or `a.` —
     /// and the first item's value is kept, so a list can start at 3 or
     /// at C. Deeper items, continuation lines, and any indented line
     /// sit inside a run without breaking it; a blank line, a flush
@@ -428,7 +432,9 @@ public enum SmartEditing {
 
     public static func renumber(in text: NSString) -> [LineEdits.Edit] {
         enum Kind { case digits, upper, lower }
-        struct Run { let kind: Kind; var next: Int }
+        // The delimiter is part of a run's identity: `1.` then `1)` starts a new list, as in
+        // CommonMark.
+        struct Run { let kind: Kind; let delimiter: unichar; var next: Int }
         var runs: [Int: Run] = [:]
         var edits: [LineEdits.Edit] = []
         // A `1.` in a code block or in frontmatter is text to keep as written, not a list item.
@@ -460,6 +466,7 @@ public enum SmartEditing {
 
             let marker = text.substring(
                 with: NSRange(location: item.markerRange.location, length: item.markerRange.length - 1))
+            let delimiter = text.character(at: NSMaxRange(item.markerRange) - 1)
             let kind: Kind
             let value: Int
             if marker.count == 1, let c = marker.first?.asciiValue, !isDigit(unichar(c)) {
@@ -475,8 +482,9 @@ public enum SmartEditing {
                 continue
             }
 
-            guard let run = runs[item.indentWidth], run.kind == kind else {
-                runs[item.indentWidth] = Run(kind: kind, next: value + 1)
+            guard let run = runs[item.indentWidth], run.kind == kind, run.delimiter == delimiter
+            else {
+                runs[item.indentWidth] = Run(kind: kind, delimiter: delimiter, next: value + 1)
                 continue
             }
             let expected: String

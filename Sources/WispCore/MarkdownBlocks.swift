@@ -50,6 +50,9 @@ public struct MarkdownBlocks: Sendable {
         // still belongs to the item, as in a loose list.
         var inList = false
         var fence: (mark: unichar, count: Int)?
+        // Set when an indented fence opens inside a list: the code block belongs to the item,
+        // and the item's indented lines after it are still the item's.
+        var listFence = false
         let frontmatterEnd = Self.frontmatterEnd(in: text)
         var cursor = 0
 
@@ -73,6 +76,7 @@ public struct MarkdownBlocks: Sendable {
             } else if let opened = scan.opensFence() {
                 kind = .fence
                 fence = opened
+                listFence = inList && scan.isIndented
             } else if let marker = scan.atxMarker() {
                 kind = .heading(level: marker.length)
             } else if case .plain(let start) = paragraph, let level = scan.setextLevel() {
@@ -107,6 +111,7 @@ public struct MarkdownBlocks: Sendable {
             switch kind {
             case .listItem: inList = true
             case .blank, .text(paragraphStart: nil): break
+            case .fence where listFence, .fencedCode where listFence: break
             default: inList = false
             }
             lines.append(Line(range: range, kind: kind))
@@ -192,6 +197,13 @@ private struct Scan {
     private func at(_ index: Int) -> unichar { text.character(at: index) }
     private func isSpaceOrTab(_ c: unichar) -> Bool { c == Self.space || c == Self.tab }
 
+    /// The index after every leading space and tab.
+    private var afterWhitespace: Int {
+        var index = start
+        while index < end, isSpaceOrTab(at(index)) { index += 1 }
+        return index
+    }
+
     /// The index after up to three leading spaces, or nil when a fourth follows them.
     private var afterIndent: Int? {
         var index = start
@@ -267,8 +279,12 @@ private struct Scan {
 
     /// An opening fence: three or more backticks or tildes. A backtick fence's info string
     /// can't contain a backtick, so ```` ```ls``` ```` is inline code, not a fence.
+    ///
+    /// Any indent, where CommonMark stops at three spaces and reads the rest as indented code:
+    /// a fence typed after ⇥, or nested under a list item, is meant as a fence.
     func opensFence() -> (mark: unichar, count: Int)? {
-        guard let index = afterIndent, index < end else { return nil }
+        let index = afterWhitespace
+        guard index < end else { return nil }
         let mark = at(index)
         guard mark == 0x60 || mark == 0x7E else { return nil }
         let marks = run(of: mark, from: index)
@@ -277,10 +293,10 @@ private struct Scan {
         return (mark, marks.count)
     }
 
-    /// A closing fence: the opener's character, at least as many, and nothing after.
+    /// A closing fence: the opener's character, at least as many, and nothing after. Any
+    /// indent, as for the opener.
     func closesFence(mark: unichar, count: Int) -> Bool {
-        guard let index = afterIndent else { return false }
-        let marks = run(of: mark, from: index)
+        let marks = run(of: mark, from: afterWhitespace)
         return marks.count >= count && isBlank(from: marks.next)
     }
 

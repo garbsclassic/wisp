@@ -341,6 +341,25 @@ struct ListMarkerTests {
     func indentationAloneIsNotAList() {
         #expect(SmartEditing.nextListMarker(for: "  foo") == nil)
     }
+
+    @Test(
+        "A `)` numeric marker continues with `)`, indent and all",
+        arguments: [("1) foo", "2) "), ("9) foo", "10) "), ("  3) foo", "  4) ")]
+    )
+    func parenNumeric(line: String, marker: String) {
+        #expect(SmartEditing.nextListMarker(for: line) == marker)
+    }
+
+    @Test("An empty `)` item yields the exit signal")
+    func parenEmptyItemExits() {
+        #expect(SmartEditing.nextListMarker(for: "1) ") == "")
+    }
+
+    @Test("A letter takes only `.`: `a)` and `A)` aren't list markers")
+    func parenLetterIsNotAList() {
+        #expect(SmartEditing.nextListMarker(for: "a) foo") == nil)
+        #expect(SmartEditing.nextListMarker(for: "A) foo") == nil)
+    }
 }
 
 @Suite("SmartEditing: leading indent")
@@ -385,7 +404,7 @@ struct ListItemTests {
         #expect(item?.contentStart == 2)
     }
 
-    @Test("Ordered markers", arguments: ["1. item", "12. item", "A. item", "a. item"])
+    @Test("Ordered markers", arguments: ["1. item", "12. item", "1) item", "A. item", "a. item"])
     func ordered(line: String) {
         #expect(parse(line)?.marker == .ordered)
     }
@@ -393,6 +412,13 @@ struct ListItemTests {
     @Test("The marker range covers the digits and the dot")
     func orderedMarkerRange() {
         #expect(parse("12. item")?.markerRange == NSRange(location: 0, length: 3))
+    }
+
+    @Test("A `)` marker's range covers the digits and the parenthesis")
+    func parenMarkerRange() {
+        let item = parse("12) item")
+        #expect(item?.markerRange == NSRange(location: 0, length: 3))
+        #expect(item?.contentStart == 4)
     }
 
     @Test("Leading whitespace is measured, not consumed")
@@ -414,6 +440,7 @@ struct ListItemTests {
 
     @Test("Not list items", arguments: [
         "-word", "plain text", "1.item", "ab. item", "*bold*", "", "-", "#  heading",
+        "1)item", "a) item", "A) item",
     ])
     func rejected(line: String) {
         #expect(parse(line) == nil)
@@ -1178,6 +1205,24 @@ struct RenumberTests {
     func frontmatterIsSkipped() {
         let text = "---\n1. x\n1. y\n---\n"
         #expect(SmartEditing.renumber(in: text as NSString).isEmpty)
+        #expect(apply(text) == text)
+    }
+
+    @Test("`)` markers are put in sequence and keep their `)`")
+    func parenMarkersRenumber() {
+        #expect(apply("1) a\n1) b\n1) c\n") == "1) a\n2) b\n3) c\n")
+    }
+
+    @Test("A change of delimiter starts a new run")
+    func delimiterChangeStartsNewRun() {
+        let text = "1. a\n1) b\n"
+        #expect(apply(text) == text)
+        #expect(apply("1. a\n2. b\n5) c\n9) d\n") == "1. a\n2. b\n5) c\n6) d\n")
+    }
+
+    @Test("A tab-indented fence's `1.` lines are untouched")
+    func tabIndentedFenceIsSkipped() {
+        let text = "\t```\n\t1. x\n\t1. y\n\t```\n"
         #expect(apply(text) == text)
     }
 }

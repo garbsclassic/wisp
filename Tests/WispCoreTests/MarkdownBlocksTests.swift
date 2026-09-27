@@ -286,6 +286,48 @@ struct MarkdownBlocksCRLFTests {
     }
 }
 
+@Suite("MarkdownBlocks: indented fences")
+struct MarkdownBlocksIndentedFenceTests {
+    private func kind(_ text: String, at offset: Int) -> MarkdownBlocks.Kind? {
+        let ns = text as NSString
+        return MarkdownBlocks(ns).line(at: offset)?.kind
+    }
+
+    @Test(
+        "A fence indented with a tab or four spaces opens and closes, and hides what's inside",
+        arguments: ["\t", "    "]
+    )
+    func indentedFence(indent: String) {
+        let text = "\(indent)```\n# not\n---\n\(indent)```\n# yes"
+        let codeOffset = ("\(indent)```\n" as NSString).length
+        let closeOffset = ("\(indent)```\n# not\n---\n" as NSString).length
+        #expect(kind(text, at: 0) == .fence)
+        #expect(kind(text, at: codeOffset) == .fencedCode)
+        #expect(kind(text, at: closeOffset) == .fence)
+        #expect(text.extractHeadings().map(\.name) == ["yes"])
+    }
+
+    @Test("A tab-indented closer closes a flush opener")
+    func tabIndentedCloser() {
+        let text = "```\ncode\n\t```\n# after"
+        #expect(text.extractHeadings().map(\.name) == ["after"])
+    }
+
+    @Test("An item's indented text after its nested fence stays the item's, so `---` is a rule")
+    func listStaysOpenAcrossNestedFence() {
+        let text = "- item\n\t```\n\tcode\n\t```\n\tmore\n---"
+        let moreOffset = ("- item\n\t```\n\tcode\n\t```\n" as NSString).length
+        let ruleOffset = ("- item\n\t```\n\tcode\n\t```\n\tmore\n" as NSString).length
+        #expect(kind(text, at: moreOffset) == .text(paragraphStart: nil))
+        #expect(kind(text, at: ruleOffset) == .rule)
+    }
+
+    @Test("A tab-indented line that isn't a fence is still indented code")
+    func tabIndentedTextIsIndentedCode() {
+        #expect(kind("\tcode", at: 0) == .indentedCode)
+    }
+}
+
 @Suite("MarkdownBlocks: loose lists")
 struct MarkdownBlocksLooseListTests {
     private func kind(_ text: String, at offset: Int) -> MarkdownBlocks.Kind? {
