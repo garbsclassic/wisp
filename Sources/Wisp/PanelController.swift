@@ -64,7 +64,6 @@ final class PanelController {
         // through v0.1.23. Removing it entirely and using the system
         // shadow gave us back a clean rounded shadow with no corner leak.
         panel.hasShadow = true
-        panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
 

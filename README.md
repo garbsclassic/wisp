@@ -33,7 +33,7 @@ first leaves a dangling login item.
 ## Features
 
 - **⌃⌥.** from anywhere (rebindable): tap to pin the panel, tap again to dismiss; hold past `peekHold` to peek, and it closes when you let go
-- **Movable** — drag the panel anywhere and it opens there next time; **Reset Position** (⌃⌥0) puts it back
+- **Movable** — drag the panel by anything that isn't text and it opens there next time; **Reset Position** (⌃⌥0) puts it back
 - **Light / dark / system** appearance — one-click cycle, follows macOS by default
 - **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
 - **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item, and ⌫ inside the indent un-nests too; ⌫ at the start of the text takes the marker off; ↵ on an empty nested item steps out a level; ⇧↵ continues an item on a new line
