@@ -36,4 +36,4 @@ Wisp and Clef summon, place, remember, and reset their panels the same way, from
 - [x] Status menu and hidden main menu reordered
 - [x] Tests for the new Core code
 - [x] Review: four findings fixed — edge-flush carry, per-screen sizing, `null` seed, Clef save on quit
-- [ ] Verify chords, drag, and visuals on an unlocked screen
+- [x] Verify chords and visuals on an unlocked screen (drag needs a hand: synthetic drags never move a window)
