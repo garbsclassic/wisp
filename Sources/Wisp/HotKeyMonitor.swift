@@ -29,8 +29,10 @@ final class HotKeyMonitor {
         Self.nextID += 1
     }
 
-    // No deinit cleanup: HotKeyMonitor is held by AppDelegate for the
-    // app's entire lifetime, so the hotkey naturally goes away on quit.
+    var isRegistered: Bool { hotKeyRef != nil }
+
+    // No deinit cleanup: every HotKeyMonitor lives as long as the app, so
+    // its hotkey naturally goes away on quit.
 
     /// Register a system-wide hotkey. Returns true on success.
     /// `keyCode` is a Carbon kVK_* value; `modifiers` is an OR of cmdKey /
@@ -38,7 +40,7 @@ final class HotKeyMonitor {
     @discardableResult
     func register(
         keyCode: UInt32, modifiers: UInt32,
-        onPress: @escaping () -> Void, onRelease: @escaping () -> Void
+        onPress: @escaping () -> Void, onRelease: @escaping () -> Void = {}
     ) -> Bool {
         // Drop any existing registration first so re-registering after a
         // user-driven hotkey change doesn't pile up dead refs.

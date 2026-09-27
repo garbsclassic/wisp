@@ -38,6 +38,10 @@ final class PanelController {
     private var summonModifierFlags: CGEventFlags = []
     /// Polls for a peek's modifiers lifting, once its key has come up.
     private var modifierWatchTimer: Timer?
+    /// Bare Esc, claimed system-wide only while the panel is up and none of
+    /// our windows has focus — see `updateEscapeCapture`.
+    private let escapeKey = HotKeyMonitor()
+    private var keyWindowObservers: [any NSObjectProtocol] = []
 
     init(model: EditorModel, settings: Settings) {
         self.model = model
@@ -147,6 +151,20 @@ final class PanelController {
         panel.onHide = { [weak self] in
             self?.handleHide()
         }
+
+        // Any of our windows, not just the panel: an open picker holding focus
+        // must keep its own Esc.
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+            keyWindowObservers.append(
+                NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) {
+                    [weak self] _ in
+                    // Deferred a turn: mid-handoff, `NSApp.keyWindow` can still
+                    // name the window that is resigning.
+                    DispatchQueue.main.async {
+                        MainActor.assumeIsolated { self?.updateEscapeCapture() }
+                    }
+                })
+        }
     }
 
     /// On screen *and* holding keyboard focus. The gate for every chord
@@ -184,9 +202,28 @@ final class PanelController {
         cancelModifierWatch()
         state = .hidden
         saveFrame()
+        updateEscapeCapture()
         // orderOut leaves the SwiftUI hierarchy mounted, so overlays and
         // their app-wide key monitors survive the hide unless we say so.
         model.dismissAllOverlays()
+    }
+
+    /// Esc dismisses the panel even while another app has focus — a peek, or
+    /// a pin the user has clicked away from. Carbon, like the summon chord, so
+    /// no permission grant; the cost is that the app underneath doesn't get
+    /// Esc while the panel is showing. With focus on one of our windows the
+    /// claim is dropped, and Esc goes through `cancelOperation` and the
+    /// overlays' own monitors as usual.
+    private func updateEscapeCapture() {
+        let wanted = panel.isVisible && NSApp.keyWindow == nil
+        guard wanted != escapeKey.isRegistered else { return }
+        if wanted {
+            escapeKey.register(
+                keyCode: UInt32(kVK_Escape), modifiers: 0,
+                onPress: { [weak self] in self?.dismiss() })
+        } else {
+            escapeKey.unregister()
+        }
     }
 
     /// Moves the panel back to its default spot and forgets the saved one.
@@ -257,6 +294,7 @@ final class PanelController {
         model.reloadFromDiskIfChanged()
         model.refreshPlaceholder()
         panel.orderFrontRegardless()
+        updateEscapeCapture()
         // Recompute shadow against current content alpha and force a
         // visual-effect re-render so the blur picks up the right
         // appearance on first show.

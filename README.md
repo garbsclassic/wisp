@@ -33,6 +33,7 @@ first leaves a dangling login item.
 ## Features
 
 - **⌃⌥.** from anywhere (rebindable): tap to pin the panel, tap again to dismiss; hold past `peekHold` to peek, and it closes when you let go
+- **Esc dismisses from anywhere** — even after you've clicked into another app with the panel still up. While it's showing unfocused, that app doesn't get Esc
 - **Movable** — drag the panel by anything that isn't text and it opens there next time; **Reset Position** (⌥⌘0) puts it back
 - **Light / dark / system** appearance — one-click cycle, follows macOS by default
 - **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
