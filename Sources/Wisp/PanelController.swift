@@ -220,9 +220,31 @@ final class PanelController {
         if wanted {
             escapeKey.register(
                 keyCode: UInt32(kVK_Escape), modifiers: 0,
-                onPress: { [weak self] in self?.dismiss() })
+                onPress: { [weak self] in self?.handleUnfocusedEscape() })
         } else {
             escapeKey.unregister()
+        }
+    }
+
+    /// Peels back one layer per press, in the order a focused Esc does: a
+    /// picker or alert open over the panel, then an overlay inside it, then
+    /// the panel itself.
+    private func handleUnfocusedEscape() {
+        guard let modal = NSApp.modalWindow else {
+            if !model.dismissTopOverlay() { dismiss() }
+            return
+        }
+        if let picker = modal as? NSSavePanel {
+            picker.cancel(nil)
+        } else if let escape = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: modal.windowNumber, context: nil, characters: "\u{1b}",
+            charactersIgnoringModifiers: "\u{1b}", isARepeat: false,
+            keyCode: UInt16(kVK_Escape))
+        {
+            // An alert's Cancel button carries Esc as its key equivalent; an
+            // alert without one ignores Esc, focused or not.
+            _ = modal.contentView?.performKeyEquivalent(with: escape)
         }
     }
 
