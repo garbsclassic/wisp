@@ -70,38 +70,31 @@ extension KeyedDecodingContainer {
     }
 }
 
-/// Which screen the panel opens on when it has no usable remembered frame —
-/// and, for `pointer`, even when it does.
+/// Which screen the panel opens on. Same key and values as Clef's.
 public enum MonitorTarget: String, Codable, CaseIterable, Sendable {
-    /// The screen holding the menu bar. A remembered frame wins here.
+    /// The screen holding the menu bar. A saved position is used wherever it
+    /// is, even on another screen.
     case primary
-    /// Whichever screen the pointer is on, carrying the remembered frame's
-    /// size and its position relative to its old screen.
+    /// Whichever screen the pointer is on, with a saved position carried to
+    /// the same relative spot there.
     case pointer
 }
 
-/// The two faces Wisp draws with.
+/// The three faces Wisp draws with, by family name.
 ///
-/// Referenced by name and never bundled, so both are allowed to be missing —
-/// `Typography` falls back to the system face and the footer says which one
-/// didn't resolve.
+/// Nil, the default, is the system's own face: SF Pro for `notes` and `ui`,
+/// SF Mono for `code`. A named family is never bundled, so it's allowed to be
+/// missing — `Typography` falls back to the system face and the footer says
+/// which one didn't resolve.
 public struct FontSet: Codable, Equatable, Sendable {
-    /// The notes body. Monospaced-icon Nerd Font, so glyphs column-align in
-    /// a list.
-    public var notes: String
-    /// Chrome — header, footer, overlays. The proportional cut reads more
-    /// naturally at UI sizes.
-    public var ui: String
-    /// `` `inline code` `` runs. A real monospace, unlike `notes` — that
-    /// family is only fixed-advance for its *icon* glyphs, and Latin text in
-    /// it is proportional like any other sans.
-    public var code: String
+    /// The notes body.
+    public var notes: String?
+    /// Chrome — header, footer, overlays.
+    public var ui: String?
+    /// `` `inline code` `` runs, and the whole body in source view.
+    public var code: String?
 
-    public init(
-        notes: String = "Inter Nerd Font",
-        ui: String = "Inter Nerd Font Propo",
-        code: String = "JetBrainsMono Nerd Font"
-    ) {
+    public init(notes: String? = nil, ui: String? = nil, code: String? = nil) {
         self.notes = notes
         self.ui = ui
         self.code = code
@@ -112,13 +105,12 @@ public struct FontSet: Codable, Equatable, Sendable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let diagnostics = decoder.configDiagnostics
-        let defaults = FontSet()
         notes = container.lenientValue(
-            forKey: .notes, default: defaults.notes, diagnostics: diagnostics, pathPrefix: "fonts.")
+            forKey: .notes, default: nil, diagnostics: diagnostics, pathPrefix: "fonts.")
         ui = container.lenientValue(
-            forKey: .ui, default: defaults.ui, diagnostics: diagnostics, pathPrefix: "fonts.")
+            forKey: .ui, default: nil, diagnostics: diagnostics, pathPrefix: "fonts.")
         code = container.lenientValue(
-            forKey: .code, default: defaults.code, diagnostics: diagnostics, pathPrefix: "fonts.")
+            forKey: .code, default: nil, diagnostics: diagnostics, pathPrefix: "fonts.")
     }
 }
 
@@ -242,67 +234,16 @@ public struct Background: Codable, Equatable, Sendable {
     }
 }
 
-/// Where the panel opens.
-public enum PanelPosition: String, Codable, CaseIterable, Sendable {
-    /// Centred horizontally, top edge a tenth of the way down the screen.
-    /// `panel.x` / `panel.y` are neither read nor written, and the panel
-    /// can't be dragged — there would be nowhere for the move to go.
-    case auto
-    /// The panel stays where it was last dragged. Until it has been
-    /// dragged once it opens where `auto` would have put it.
-    case manual
-}
-
-/// The remembered panel frame, in screen points.
-///
-/// The size is remembered from the first hide onwards; the origin only
-/// once the panel has actually been moved, so `position: manual` can tell
-/// "never dragged" (fall back to the auto placement) from "dragged to
-/// exactly here". Written when the panel hides, never while it moves —
-/// see `PanelController`.
+/// The panel's remembered size, in screen points. Written when the panel
+/// hides; where it sits is `WispConfig.position`, kept apart because Clef
+/// shares that key and not this one.
 public struct PanelFrame: Codable, Equatable, Sendable {
     public var width: Double
     public var height: Double
-    public var x: Double?
-    public var y: Double?
 
-    public init(width: Double, height: Double, x: Double? = nil, y: Double? = nil) {
+    public init(width: Double, height: Double) {
         self.width = width
         self.height = height
-        self.x = x
-        self.y = y
-    }
-
-    /// `w` / `h` were the names before the keys were spelled out. Still
-    /// read, never written, so a config from an earlier version keeps its
-    /// remembered size instead of silently reverting to the default.
-    private enum LegacySizeKeys: String, CodingKey {
-        case w, h
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let legacy = try decoder.container(keyedBy: LegacySizeKeys.self)
-        guard
-            let width = try container.decodeIfPresent(Double.self, forKey: .width)
-                ?? legacy.decodeIfPresent(Double.self, forKey: .w),
-            let height = try container.decodeIfPresent(Double.self, forKey: .height)
-                ?? legacy.decodeIfPresent(Double.self, forKey: .h)
-        else {
-            throw DecodingError.keyNotFound(
-                CodingKeys.width,
-                .init(codingPath: decoder.codingPath, debugDescription: "panel has no size"))
-        }
-        self.width = width
-        self.height = height
-        x = try container.decodeIfPresent(Double.self, forKey: .x)
-        y = try container.decodeIfPresent(Double.self, forKey: .y)
-    }
-
-    /// Both or neither: a lone coordinate has no placement to describe.
-    public var origin: (x: Double, y: Double)? {
-        guard let x, let y else { return nil }
-        return (x, y)
     }
 }
 
@@ -329,8 +270,13 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// tints are translucent so the blur is the panel's whole substance.
     public var background: Background
     public var monitor: MonitorTarget
-    /// Auto-placed on every summon, or left wherever it was last dragged.
-    public var position: PanelPosition
+    /// Where the panel was last dragged to. Nil — absent, or `null` after
+    /// Reset Position — opens it at the default spot.
+    public var position: PanelPosition?
+    /// Milliseconds the summon chord must be held before the panel becomes a
+    /// peek, which closes when the chord is let go, instead of a pin. `0`
+    /// peeks straight away, so the chord never pins. Same key as Clef's.
+    public var peekHold: Int
     /// Flashes a dot in the panel's top corner each time the note is
     /// written to disk. On by default — the save is debounced and silent
     /// otherwise, so there is nothing else that says it happened.
@@ -356,7 +302,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
         defaultFontScale: Double = 1.0,
         background: Background = Background(),
         monitor: MonitorTarget = .primary,
-        position: PanelPosition = .auto,
+        position: PanelPosition? = nil,
+        peekHold: Int = 250,
         saveIndicator: Bool = true,
         smartPaste: Bool = true,
         scratchpadPath: String = "",
@@ -372,6 +319,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.background = background
         self.monitor = monitor
         self.position = position
+        self.peekHold = peekHold
         self.saveIndicator = saveIndicator
         self.smartPaste = smartPaste
         self.scratchpadPath = scratchpadPath
@@ -403,6 +351,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .monitor, default: defaults.monitor, diagnostics: diagnostics)
         position = container.lenientValue(
             forKey: .position, default: defaults.position, diagnostics: diagnostics)
+        peekHold = container.lenientValue(
+            forKey: .peekHold, default: defaults.peekHold, diagnostics: diagnostics)
         saveIndicator = container.lenientValue(
             forKey: .saveIndicator, default: defaults.saveIndicator, diagnostics: diagnostics)
         smartPaste = container.lenientValue(
@@ -420,6 +370,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
         panel = container.lenientValue(
             forKey: .panel, default: defaults.panel, diagnostics: diagnostics)
     }
+
+    public var peekHoldSeconds: TimeInterval { max(0, Double(peekHold) / 1000) }
 
     /// Bounded so a typo can't render the app unreadable or unusable.
     public var clampedFontScale: Double { Metrics.clampFontScale(fontScale) }

@@ -1,6 +1,6 @@
 # Wisp
 
-A dead-simple macOS scratchpad. ⌃⌥. to summon, type, Esc to dismiss.
+A dead-simple macOS scratchpad. Tap ⌃⌥. to pin it, hold it to peek, Esc to dismiss.
 
 <p align="center">
   <img src="docs/screenshot.png" width="720" alt="Wisp">
@@ -32,7 +32,8 @@ first leaves a dangling login item.
 
 ## Features
 
-- **⌃⌥.** to summon from anywhere (rebindable)
+- **⌃⌥.** from anywhere (rebindable): tap to pin the panel, tap again to dismiss; hold past `peekHold` to peek, and it closes when you let go
+- **Movable** — drag the panel anywhere and it opens there next time; **Reset Position** (⌃⌥0) puts it back
 - **Light / dark / system** appearance — one-click cycle, follows macOS by default
 - **Smart editing** — lists auto-continue, `---` becomes a divider, `**bold**` and `*italic*` render inline
 - **Bulleted lists** — `- ` renders as a real bullet with a hanging indent; ⇥ / ⇧⇥ nest and un-nest an item, and ⌫ inside the indent un-nests too; ⌫ at the start of the text takes the marker off; ↵ on an empty nested item steps out a level; ⇧↵ continues an item on a new line
@@ -43,7 +44,7 @@ first leaves a dangling login item.
 - **Line editing** — ⌘D duplicates the line or selection; ⌘↩ / ⌘⇧↩ open a new line below / above it, keeping its indent; ⌥↑ / ⌥↓ move it; ⌘C / ⌘X take the whole line when nothing is selected, and ⌘V puts it back in above the current one
 - **⌘L** makes the line a bulleted list item, or unmakes it; **⌘⇧L** makes it a task, or checks it off
 - **Text size** — ⌘= / ⌘- step it, ⌘0 resets, and the footer has buttons for both
-- **Menu bar icon** — left click for the menu, right click to summon the panel
+- **Menu bar icon** — left click for the menu, right click to pin the panel
 - **Launch at Login** — toggle in the menu bar menu
 - **Refresh** — ⌘R re-reads the config and the note from disk
 - **Live reload** — changes to either from another app, Mac, or sync client appear on their own
@@ -72,9 +73,9 @@ network. A config seeded before the key existed can add the line by hand:
 | Key                     | Default                   | What it does                                                                                                                 |
 | ----------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `theme`                 | `"system"`                | `light`, `dark`, or follow macOS                                                                                             |
-| `fonts.notes`           | `"Inter Nerd Font"`       | The notes body face                                                                                                          |
-| `fonts.ui`              | `"Inter Nerd Font Propo"` | Header, footer, and overlays                                                                                                 |
-| `fonts.code`            | `"JetBrainsMono Nerd Font"` | `` `inline code` `` runs. A real monospace — `fonts.notes` is only fixed-advance for its icon glyphs                        |
+| `fonts.notes`           | _(system font)_           | The notes body face, by family name                                                                                          |
+| `fonts.ui`              | _(system font)_           | Header, footer, and overlays                                                                                                 |
+| `fonts.code`            | _(system monospace)_      | `` `inline code` `` runs, and the whole body in source view                                                                  |
 | `fontScale`             | `1.0`                     | Multiplies every type size, body and chrome. ⌘= / ⌘- step it by 0.1. Clamped to 0.6–2.5                                     |
 | `saveIndicator`         | `true`                    | Flashes a dot in the top corner each time the note is written                                                                 |
 | `smartPaste`            | `true`                    | ⌘V onto a blank line writes a tab-separated grid as a pipe table and short plain lines as a bulleted list                    |
@@ -85,11 +86,12 @@ network. A config seeded before the key existed can add the line by hand:
 | `caret.blink`           | `true`                    | Fade the caret in and out while idle; `false` keeps it solid                                                                 |
 | `background.blur`       | `true`                    | Blurs whatever is behind the panel                                                                                           |
 | `background.opacity`    | _(theme's own)_           | Alpha of the panel's tint, 0–1. `1` is a solid panel; unset keeps each theme's tuned value                                   |
-| `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on                                                                        |
-| `position`              | `"auto"`                  | `auto` opens the panel centred, top edge a tenth down the screen, and pins it there; `manual` leaves it wherever you drag it |
+| `peekHold`              | `250`                     | Milliseconds the summon chord must be held to peek instead of pin. `0` always peeks                                          |
+| `monitor`               | `"primary"`               | `pointer` opens on whichever display the cursor is on, carrying a saved position to the same relative spot there             |
+| `position`              | _(written on drag)_       | Top-left `x` / `y` in screen points, saved when a dragged panel hides. `null` — Reset Position — is the default spot, centred with its top edge 5% down |
 | `scratchpadPath`        | `""`                      | Folder for `scratchpad.md`; empty means `~/Documents`                                                                        |
 | `keymap.*`              | _(see below)_             | Every shortcut, rebindable. `keymap.summon` is the global chord, e.g. `cmd+shift+space`                                      |
-| `panel`                 | _(written on first hide)_ | Remembered `width` / `height`, plus `x` / `y` once the panel has been dragged under `manual`                                 |
+| `panel`                 | _(written on first hide)_ | Remembered `width` / `height`                                                                                                |
 
 ### Keymap
 
@@ -105,7 +107,8 @@ what a Caps Lock remapped to a hyperkey sends.
 | ----------------------------------------- | ---------- |
 | `summon`                                  | `ctrl+opt+.` |
 | `find` / `settings` / `refresh`           | `cmd+f` / `cmd+,` / `cmd+r` |
-| `reveal`                              | `opt+cmd+r` |
+| `reveal`                                  | `opt+cmd+r` |
+| `resetPosition`                           | `ctrl+opt+0` |
 | `help`                                    | `["f1", "cmd+/"]` |
 | `bold` / `italic` / `highlight` / `underline` / `strikethrough` / `code` | `cmd+b` / `cmd+i` / `opt+h` / `cmd+u` / `cmd+shift+s` / `cmd+e` |
 | `toggleTheme`                             | `cmd+t` |
@@ -149,8 +152,8 @@ closed too. A chord that doesn't
 parse is dropped; an action left with no working chord at all is named in the
 footer.
 
-Neither font is bundled — both are referenced by name, and Wisp falls back to
-the system face (and says so in the footer) when one isn't installed.
+No font is bundled. A named family is looked up by name, and Wisp falls back to
+the system face (and says so in the footer) when it isn't installed.
 
 Wisp rewrites only the key it changed, so hand-added comments, key order, and
 indentation all survive a settings change made from the UI.

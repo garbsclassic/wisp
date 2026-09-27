@@ -52,35 +52,11 @@ struct ConfigDecodingTests {
         #expect(config.fonts.notes == FontSet().notes)
     }
 
-    @Test("A remembered frame decodes, and its absence is not an error")
+    @Test("A remembered size decodes, and its absence is not an error")
     func panelFrame() throws {
         #expect(try decode("{}").panel == nil)
-        let config = try decode(
-            #"{ "panel": { "x": 10, "y": 20, "width": 800, "height": 640 } }"#)
-        #expect(config.panel == PanelFrame(width: 800, height: 640, x: 10, y: 20))
-    }
-
-    /// A size-only frame is what `position: auto` and a never-dragged
-    /// `manual` panel both write, so it has to be a first-class shape and
-    /// not a malformed one.
-    @Test("A frame with no origin decodes as one")
-    func panelFrameWithoutOrigin() throws {
         let config = try decode(#"{ "panel": { "width": 800, "height": 640 } }"#)
-        #expect(config.panel?.origin == nil)
-        #expect(config.panel?.width == 800)
-    }
-
-    /// A lone coordinate describes no placement, so it reads as none.
-    @Test("Half an origin is no origin")
-    func panelFrameHalfOrigin() throws {
-        let config = try decode(#"{ "panel": { "width": 800, "height": 640, "x": 10 } }"#)
-        #expect(config.panel?.origin == nil)
-    }
-
-    @Test("The pre-rename w / h keys still carry a remembered size")
-    func panelFrameLegacyKeys() throws {
-        let config = try decode(#"{ "panel": { "x": 10, "y": 20, "w": 800, "h": 640 } }"#)
-        #expect(config.panel == PanelFrame(width: 800, height: 640, x: 10, y: 20))
+        #expect(config.panel == PanelFrame(width: 800, height: 640))
     }
 
     /// A panel object with no size at all can't be honoured, and a key
@@ -88,15 +64,9 @@ struct ConfigDecodingTests {
     @Test("A sizeless panel object is reported, not silently defaulted")
     func panelFrameWithoutSize() throws {
         let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "panel": { "x": 10, "y": 20 } }"#, diagnostics: diagnostics)
+        let config = try decode(#"{ "panel": { "width": 800 } }"#, diagnostics: diagnostics)
         #expect(config.panel == nil)
         #expect(diagnostics.malformedKeys == ["panel"])
-    }
-
-    @Test("Position defaults to auto and reads both modes")
-    func position() throws {
-        #expect(try decode("{}").position == .auto)
-        #expect(try decode(#"{ "position": "manual" }"#).position == .manual)
     }
 }
 
@@ -411,5 +381,102 @@ struct DefaultFontScaleTests {
             WispConfig.self, from: Data(#"{ "fontSize": "large", "fontScale": 1.2 }"#.utf8))
         #expect(config.fontScale == 1.2)
         #expect(diagnostics.malformedKeys.isEmpty)
+    }
+}
+
+@Suite("Position")
+struct PositionConfigTests {
+    private func decode(_ json: String, diagnostics: ConfigDiagnostics? = nil) throws -> WispConfig {
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        if let diagnostics { decoder.userInfo[.configDiagnostics] = diagnostics }
+        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
+    }
+
+    @Test("An absent key means nil")
+    func absent() throws {
+        #expect(try decode("{}").position == nil)
+    }
+
+    @Test("An explicit null means nil without a diagnostic")
+    func explicitNull() throws {
+        let diagnostics = ConfigDiagnostics()
+        let config = try decode(#"{ "position": null }"#, diagnostics: diagnostics)
+        #expect(config.position == nil)
+        #expect(diagnostics.malformedKeys.isEmpty)
+    }
+
+    @Test("An {x,y} object decodes")
+    func objectShape() throws {
+        let config = try decode(#"{ "position": { "x": 12, "y": 34 } }"#)
+        #expect(config.position == PanelPosition(x: 12, y: 34))
+    }
+
+    /// A string, e.g. the old `manual`/`auto` enum's spelling, looks like it's
+    /// doing something and isn't, so it's named rather than silently dropped.
+    @Test("A wrong shape is reported in malformedKeys as \"position\" and falls back to nil")
+    func wrongShape() throws {
+        let diagnostics = ConfigDiagnostics()
+        let config = try decode(#"{ "position": "manual" }"#, diagnostics: diagnostics)
+        #expect(config.position == nil)
+        #expect(diagnostics.malformedKeys == ["position"])
+    }
+}
+
+@Suite("Peek hold")
+struct PeekHoldConfigTests {
+    @Test("Defaults to 250")
+    func defaults() {
+        #expect(WispConfig().peekHold == 250)
+    }
+
+    @Test("Converts to seconds, clamping a negative value to 0")
+    func seconds() {
+        #expect(WispConfig(peekHold: 250).peekHoldSeconds == 0.25)
+        #expect(WispConfig(peekHold: 0).peekHoldSeconds == 0)
+        #expect(WispConfig(peekHold: -100).peekHoldSeconds == 0)
+    }
+}
+
+@Suite("FontSet")
+struct FontSetConfigTests {
+    @Test("Every face defaults to nil, the system's own")
+    func defaults() {
+        let fonts = FontSet()
+        #expect(fonts.notes == nil)
+        #expect(fonts.ui == nil)
+        #expect(fonts.code == nil)
+    }
+
+    @Test("An explicit null face is quiet, the same as an absent one")
+    func explicitNull() throws {
+        let diagnostics = ConfigDiagnostics()
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        decoder.userInfo[.configDiagnostics] = diagnostics
+        let config = try decoder.decode(
+            WispConfig.self, from: Data(#"{ "fonts": { "notes": null } }"#.utf8))
+        #expect(config.fonts.notes == nil)
+        #expect(diagnostics.malformedKeys.isEmpty)
+    }
+}
+
+@Suite("Panel")
+struct PanelFrameConfigTests {
+    /// `PanelFrame` carries only a size — where the panel sits is
+    /// `WispConfig.position`, kept apart because Clef shares that key and not
+    /// this one.
+    @Test("panel is size-only: it neither reads nor writes a coordinate")
+    func sizeOnly() throws {
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        let config = try decoder.decode(
+            WispConfig.self,
+            from: Data(#"{ "panel": { "width": 800, "height": 640, "x": 12, "y": 34 } }"#.utf8))
+        #expect(config.panel == PanelFrame(width: 800, height: 640))
+
+        let data = try JSONEncoder().encode(config.panel)
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(Set(object?.keys ?? [:].keys) == ["width", "height"])
     }
 }

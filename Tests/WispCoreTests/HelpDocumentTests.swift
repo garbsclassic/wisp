@@ -79,7 +79,7 @@ struct HelpDocumentTests {
     @Test("A hyperkey summon reaches the page as one glyph")
     func hyperkeySummon() {
         let document = HelpDocument.make(keymap: Keymap([.summon: "ctrl+opt+shift+cmd+."]))
-        let row = document.sections.flatMap(\.rows).first { $0.detail == "summon · dismiss panel" }
+        let row = document.sections.flatMap(\.rows).first { $0.detail.hasPrefix("tap to pin") }
 
         #expect(row?.key == "❖.")
     }

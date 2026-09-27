@@ -6,11 +6,21 @@ import Testing
 @Suite("Typography", .serialized)
 @MainActor
 struct TypographyTests {
-    @Test("The families default to the Nerd Font pair")
-    func families() {
-        #expect(Typography.notesFamily == "Inter Nerd Font")
-        #expect(Typography.uiFamily == "Inter Nerd Font Propo")
-        #expect(Typography.codeFamily == "JetBrainsMono Nerd Font")
+    /// `FontSet()` is what every field defaults to, so nothing here should
+    /// ever be reported missing or resolve to a custom family.
+    @Test("The default FontSet resolves to no custom family, and falls back correctly")
+    func defaultsToTheSystemFace() {
+        defer { Typography.configure(fonts: FontSet(), scale: 1) }
+        Typography.configure(fonts: FontSet(), scale: 1)
+
+        #expect(Typography.notesFamily == nil)
+        #expect(Typography.uiFamily == nil)
+        #expect(Typography.codeFamily == nil)
+        #expect(Typography.missingFamilies.isEmpty)
+        #expect(Typography.notesFont(13).familyName == NSFont.systemFont(ofSize: 13).familyName)
+        #expect(
+            Typography.codeFont(atResolvedSize: 13).fontDescriptor.symbolicTraits
+                .contains(.monoSpace))
     }
 
     /// The one face with a real fallback of its own: code that quietly
@@ -68,19 +78,6 @@ struct TypographyTests {
     @Test("A resolved face keeps the requested size")
     func sizes() {
         #expect(Typography.notesFont(20).pointSize == 20)
-    }
-
-    /// Fonts are referenced by name, never bundled, so both branches are
-    /// real: on a machine without the Nerd Font installed the fallback has
-    /// to be the one that resolves.
-    @Test("Resolution either finds the Nerd Font or falls back off it")
-    func resolution() {
-        let body = Typography.notesFont(20)
-        if Typography.notesInstalled {
-            #expect(body.familyName == "Inter Nerd Font")
-        } else {
-            #expect(body.familyName != "Inter Nerd Font")
-        }
     }
 
     /// Heading styling and ⌘B derive scaled bold from the base descriptor.

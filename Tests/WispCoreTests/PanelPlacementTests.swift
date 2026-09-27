@@ -1,0 +1,244 @@
+import CoreGraphics
+import Foundation
+import Testing
+
+@testable import WispCore
+
+@Suite("PanelPlacement.defaultTopLeft")
+struct DefaultTopLeftTests {
+    let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+    let size = CGSize(width: 800, height: 640)
+
+    @Test("Centred horizontally")
+    func centredHorizontally() {
+        let topLeft = PanelPlacement.defaultTopLeft(for: size, on: screen)
+        #expect(topLeft.x == (screen.width - size.width) / 2)
+    }
+
+    @Test("The top edge sits topInset of the way down from the screen's top")
+    func topEdge() {
+        let topLeft = PanelPlacement.defaultTopLeft(for: size, on: screen)
+        #expect(topLeft.y == screen.maxY - screen.height * PanelPlacement.topInset)
+    }
+
+    /// AppKit pixel-aligns whatever frame it's handed, so a fractional origin
+    /// would come back changed and read as a drag.
+    @Test("The result lands on whole points")
+    func wholePoints() {
+        let odd = CGRect(x: 0, y: 0, width: 1443, height: 907)
+        let topLeft = PanelPlacement.defaultTopLeft(for: size, on: odd)
+        #expect(topLeft.x == topLeft.x.rounded())
+        #expect(topLeft.y == topLeft.y.rounded())
+    }
+
+    /// The origin is relative to the screen, not the global coordinate
+    /// space — a second display to the right isn't a 1440-point offset.
+    @Test("A screen with a non-zero origin is placed against its own bounds")
+    func nonZeroOrigin() {
+        let second = CGRect(x: 1440, y: 300, width: 1920, height: 1080)
+        let topLeft = PanelPlacement.defaultTopLeft(for: size, on: second)
+        #expect(topLeft.x == (second.minX + (second.width - size.width) / 2).rounded())
+        #expect(topLeft.y == (second.maxY - second.height * PanelPlacement.topInset).rounded())
+    }
+
+    /// A panel larger than the screen still has to arrive whole and
+    /// grabbable, rather than hanging off an edge.
+    @Test("A size bigger than the screen is fitted onto it")
+    func fittedToScreen() {
+        let small = CGRect(x: 0, y: 0, width: 600, height: 400)
+        let topLeft = PanelPlacement.defaultTopLeft(for: size, on: small)
+        let fitted = PanelPlacement.fitted(size, to: small)
+        let frame = PanelPlacement.frame(topLeft: topLeft, size: fitted)
+        #expect(frame == small)
+    }
+}
+
+@Suite("PanelPlacement.topLeft")
+struct TopLeftTests {
+    let size = CGSize(width: 800, height: 640)
+    let primary = CGRect(x: 0, y: 0, width: 1440, height: 900)
+    let secondary = CGRect(x: 1440, y: 0, width: 1920, height: 1080)
+
+    @Test("A nil saved position gives the default on the target")
+    func nilSaved() {
+        let topLeft = PanelPlacement.topLeft(
+            for: size, saved: nil, target: primary, screens: [primary], followsTarget: false)
+        #expect(topLeft == PanelPlacement.defaultTopLeft(for: size, on: primary))
+    }
+
+    /// Not following: a reachable saved point wins wherever it is, even when
+    /// that's a screen other than the target.
+    @Test("A reachable saved point that isn't following is returned unchanged, even off-target")
+    func reachableNotFollowing() {
+        let saved = CGPoint(x: 1600, y: 900)
+        let topLeft = PanelPlacement.topLeft(
+            for: size, saved: saved, target: primary, screens: [primary, secondary],
+            followsTarget: false)
+        #expect(topLeft == saved)
+    }
+
+    /// The display the point was saved on is no longer in `screens` — as if
+    /// unplugged — so nothing on the current setup overlaps it enough.
+    @Test("An unreachable saved point on an unplugged display gives the default on the target")
+    func unpluggedDisplay() {
+        let saved = CGPoint(x: 1600, y: 900)
+        let topLeft = PanelPlacement.topLeft(
+            for: size, saved: saved, target: primary, screens: [primary], followsTarget: false)
+        #expect(topLeft == PanelPlacement.defaultTopLeft(for: size, on: primary))
+    }
+
+    /// Only a sliver — less than `minVisible` — overlaps the one screen
+    /// left, which isn't enough to grab and drag back.
+    @Test("A saved point overlapping a screen by less than minVisible gives the default")
+    func lessThanMinVisibleOverlap() {
+        let saved = CGPoint(x: primary.maxX - 50, y: 300)
+        let topLeft = PanelPlacement.topLeft(
+            for: size, saved: saved, target: primary, screens: [primary], followsTarget: false)
+        #expect(topLeft == PanelPlacement.defaultTopLeft(for: size, on: primary))
+    }
+
+    /// `monitor: pointer` carries a reachable saved point to the target,
+    /// relative to the screen it was actually saved on.
+    @Test("followsTarget carries a reachable point to the target, relative to its source screen")
+    func followsTarget() {
+        let saved = CGPoint(x: 400, y: 800)
+        let topLeft = PanelPlacement.topLeft(
+            for: size, saved: saved, target: secondary, screens: [primary, secondary],
+            followsTarget: true)
+        #expect(topLeft == PanelPlacement.carried(saved, size: size, from: primary, to: secondary))
+        #expect(topLeft != saved)
+    }
+}
+
+@Suite("PanelPlacement.carried")
+struct CarriedTests {
+    @Test("The same corner of the source screen maps to the same corner of the destination")
+    func sameCorner() {
+        let size = CGSize(width: 800, height: 640)
+        let source = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let destination = CGRect(x: 2000, y: 0, width: 1440, height: 900)
+        let carried = PanelPlacement.carried(
+            source.topLeft, size: size, from: source, to: destination)
+        #expect(carried == destination.topLeft)
+    }
+
+    /// A quarter of the way across, three quarters down the free space on
+    /// one display lands at the same fractions on the next.
+    @Test("The relative position within the free space is kept")
+    func relativePosition() {
+        let size = CGSize(width: 800, height: 500)
+        let source = CGRect(x: 0, y: 0, width: 1000, height: 900)
+        let destination = CGRect(x: 0, y: 0, width: 2000, height: 1800)
+        // Slack is 200 wide, 400 tall on the source: a quarter across, three
+        // quarters down lands exactly on 50 and 600.
+        let point = CGPoint(x: 50, y: 600)
+        let carried = PanelPlacement.carried(point, size: size, from: source, to: destination)
+        // Destination slack is 1200 wide, 1300 tall: the same quarter and
+        // three-quarters land on 300 and 825.
+        #expect(carried == CGPoint(x: 300, y: 825))
+    }
+
+    /// The panel remembered from a larger display still has to arrive whole
+    /// on a smaller one.
+    @Test("The size is fitted to a smaller destination")
+    func fitsSmallerDestination() {
+        let size = CGSize(width: 800, height: 640)
+        let source = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let destination = CGRect(x: 0, y: 0, width: 600, height: 400)
+        let carried = PanelPlacement.carried(
+            source.topLeft, size: size, from: source, to: destination)
+        let frame = PanelPlacement.frame(
+            topLeft: carried, size: PanelPlacement.fitted(size, to: destination))
+        #expect(frame.width == destination.width)
+        #expect(frame.height == destination.height)
+    }
+
+    /// A panel exactly as wide (and tall) as its screen has no free space to
+    /// be relative within; the centre is as good an answer as any.
+    @Test("Zero slack gives the ratio 0.5")
+    func zeroSlackGivesHalf() {
+        let size = CGSize(width: 1440, height: 900)
+        let source = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let destination = CGRect(x: 0, y: 0, width: 2000, height: 1200)
+        let carried = PanelPlacement.carried(
+            source.topLeft, size: size, from: source, to: destination)
+        #expect(carried == CGPoint(x: 280, y: 1050))
+    }
+}
+
+@Suite("PanelPlacement.frame")
+struct FrameTests {
+    @Test("The origin's y is the top minus the height, and both coordinates round")
+    func originFromTopLeft() {
+        let frame = PanelPlacement.frame(
+            topLeft: CGPoint(x: 10.4, y: 500.6), size: CGSize(width: 800, height: 640))
+        #expect(frame.origin.x == 10)
+        #expect(frame.origin.y == -139)
+        #expect(frame.size == CGSize(width: 800, height: 640))
+    }
+}
+
+@Suite("PanelPlacement.isReachable")
+struct IsReachableTests {
+    let screen = CGRect(x: 0, y: 0, width: 1000, height: 1000)
+
+    @Test("An overlap of exactly minVisible in both dimensions is reachable")
+    func exactlyAtBoundary() {
+        let frame = CGRect(
+            x: screen.maxX - PanelPlacement.minVisible, y: screen.maxY - PanelPlacement.minVisible,
+            width: 300, height: 300)
+        #expect(PanelPlacement.isReachable(frame, on: [screen]))
+    }
+
+    @Test("An overlap one point short of minVisible in either dimension is not reachable")
+    func oneShortOfBoundary() {
+        let frame = CGRect(
+            x: screen.maxX - PanelPlacement.minVisible + 1,
+            y: screen.maxY - PanelPlacement.minVisible + 1,
+            width: 300, height: 300)
+        #expect(!PanelPlacement.isReachable(frame, on: [screen]))
+    }
+}
+
+@Suite("PanelPlacement.hasMoved")
+struct HasMovedTests {
+    let placed = CGPoint(x: 100, y: 100)
+
+    @Test("A drag of exactly the tolerance in either axis is not a move")
+    func atTolerance() {
+        #expect(!PanelPlacement.hasMoved(from: placed, to: CGPoint(x: 101, y: 100)))
+        #expect(!PanelPlacement.hasMoved(from: placed, to: CGPoint(x: 100, y: 99)))
+    }
+
+    @Test("Anything past the tolerance in either axis is a move")
+    func beyondTolerance() {
+        #expect(PanelPlacement.hasMoved(from: placed, to: CGPoint(x: 101.1, y: 100)))
+        #expect(PanelPlacement.hasMoved(from: placed, to: CGPoint(x: 100, y: 98.9)))
+    }
+}
+
+@Suite("CGRect.topLeft")
+struct CGRectTopLeftTests {
+    @Test("The top-left corner is minX, maxY")
+    func topLeft() {
+        let rect = CGRect(x: 10, y: 20, width: 100, height: 50)
+        #expect(rect.topLeft == CGPoint(x: 10, y: 70))
+    }
+}
+
+@Suite("PanelPosition")
+struct PanelPositionTests {
+    @Test("Round trips through JSON")
+    func roundTrip() throws {
+        let position = PanelPosition(x: 12.5, y: -34.25)
+        let data = try JSONEncoder().encode(position)
+        #expect(try JSONDecoder().decode(PanelPosition.self, from: data) == position)
+    }
+
+    @Test("Decodes a plain {x,y} object")
+    func plainObject() throws {
+        let position = try JSONDecoder().decode(
+            PanelPosition.self, from: Data(#"{"x":1,"y":2}"#.utf8))
+        #expect(position == PanelPosition(x: 1, y: 2))
+    }
+}

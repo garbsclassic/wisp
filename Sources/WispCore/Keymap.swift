@@ -81,6 +81,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case resetFontScale
 
     case reveal
+    case resetPosition
 
     /// What the menu item reads.
     public var title: String {
@@ -111,6 +112,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .decreaseFontScale: return "Decrease Font Size"
         case .resetFontScale: return "Reset Font Size"
         case .reveal: return "Reveal in Finder"
+        case .resetPosition: return "Reset Position"
         }
     }
 
@@ -157,6 +159,9 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         // ⌘R with Option, beside the plain ⌘R it is a cousin of: one
         // re-reads the note, the other goes and looks at it.
         case .reveal: return "opt+cmd+r"
+        // ⌘0 resets the text size; ⌃⌥ is the window family, and ⌃⌥0 is the
+        // same "back to default" there. Same default as Clef's.
+        case .resetPosition: return "ctrl+opt+0"
         }
     }
 

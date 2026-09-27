@@ -45,7 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.resetStorageLocation()
             },
             onReveal: { [weak self] in self?.revealInFinder() },
-            onSummon: { [weak panel] in panel?.toggle() }
+            onResetPosition: { [weak panel] in panel?.resetPosition() },
+            onSummon: { [weak panel] in panel?.togglePin() }
         )
         menuBarController?.apply(settings.config.keymap)
 
@@ -104,8 +105,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Bring Wisp to the front and show the panel — the re-launch path,
     /// which is the only launch-adjacent one that opens anything now. The
-    /// hotkey summon stays separate (toggle()) so it doesn't steal focus
-    /// from whatever app the user was in when they pressed the chord.
+    /// hotkey summon stays separate so it doesn't steal focus from
+    /// whatever app the user was in when they pressed the chord.
     private func presentForUserAction() {
         NSApp.activate(ignoringOtherApps: true)
         panelController?.openIfNeeded()
@@ -113,9 +114,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @discardableResult
     private func registerHotKey(_ hk: HotKey) -> Bool {
-        hotKey.register(keyCode: hk.keyCode, modifiers: hk.modifiers) { [weak self] in
-            self?.panelController?.toggle()
-        }
+        hotKey.register(
+            keyCode: hk.keyCode, modifiers: hk.modifiers,
+            onPress: { [weak self] in
+                self?.panelController?.handleChordDown(modifiers: hk.modifiers)
+            },
+            onRelease: { [weak self] in self?.panelController?.handleChordUp() })
     }
 
     @objc func showFind(_ sender: Any?) {
@@ -134,6 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleStrikethrough(_ sender: Any?) { model.toggleStrikethrough() }
     @objc func toggleCode(_ sender: Any?) { model.toggleCode() }
     @objc func reveal(_ sender: Any?) { revealInFinder() }
+    @objc func resetPosition(_ sender: Any?) { panelController?.resetPosition() }
     @objc func duplicateSelection(_ sender: Any?) { model.duplicateSelection() }
     @objc func openLineBelow(_ sender: Any?) { model.openLine(below: true) }
     @objc func openLineAbove(_ sender: Any?) { model.openLine(below: false) }
@@ -148,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the menu items land here, so a chord and its menu item can't drift.
     private func perform(_ action: KeymapAction) {
         switch action {
-        case .summon: panelController?.toggle()
+        case .summon: panelController?.togglePin()
         case .find: showFind(nil)
         case .settings: openSettings(nil)
         case .refresh: refresh(nil)
@@ -174,6 +179,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .decreaseFontScale: model.stepFontScale(by: -1)
         case .resetFontScale: model.resetFontScale()
         case .reveal: revealInFinder()
+        case .resetPosition: resetPosition(nil)
         }
     }
 
@@ -341,11 +347,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyBindings?.apply(settings.config.keymap)
             menuBarController?.apply(settings.config.keymap)
         }
-        // A reloaded `position` decides whether the panel can be dragged.
-        // Only the movability, not the placement: re-placing would jerk
-        // the panel out from under someone mid-sentence.
-        panelController?.applyPositionMode()
-
         // The note itself moved, so the watcher is pointed at the wrong
         // directory and the mtime baseline describes the wrong file.
         if settings.config.scratchpadPath != previous.scratchpadPath {

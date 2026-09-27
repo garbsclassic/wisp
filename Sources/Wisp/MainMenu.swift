@@ -39,6 +39,7 @@ enum MainMenuBuilder {
         .decreaseFontScale: #selector(AppDelegate.decreaseFontScale(_:)),
         .resetFontScale: #selector(AppDelegate.resetFontScale(_:)),
         .reveal: #selector(AppDelegate.reveal(_:)),
+        .resetPosition: #selector(AppDelegate.resetPosition(_:)),
     ]
 
     /// The action a menu item stands for, recovered from its selector.
@@ -51,16 +52,22 @@ enum MainMenuBuilder {
     static func make(target: AnyObject, keymap: Keymap) -> NSMenu {
         let mainMenu = NSMenu()
 
+        // The conventional bar: app, File, Edit, Format, View, Window, Help.
         mainMenu.addItem(
             submenu: "Wisp",
             items: [
                 item(.settings, target: target, keymap: keymap),
-                item(.refresh, target: target, keymap: keymap),
-                item(.reveal, target: target, keymap: keymap),
                 .separator(),
                 NSMenuItem(
                     title: "Quit Wisp", action: #selector(NSApplication.terminate(_:)),
                     keyEquivalent: "q"),
+            ])
+
+        mainMenu.addItem(
+            submenu: "File",
+            items: [
+                item(.refresh, target: target, keymap: keymap),
+                item(.reveal, target: target, keymap: keymap),
             ])
 
         let redo = NSMenuItem(
@@ -119,6 +126,9 @@ enum MainMenuBuilder {
                 item(.cycleTheme, target: target, keymap: keymap),
                 item(.sourceView, target: target, keymap: keymap),
             ])
+
+        mainMenu.addItem(
+            submenu: "Window", items: [item(.resetPosition, target: target, keymap: keymap)])
 
         // Titled "Shortcuts" rather than "Help" so AppKit doesn't claim it
         // as *the* help menu and graft its search field on.

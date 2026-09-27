@@ -1,90 +1,87 @@
 import AppKit
 import SwiftUI
 
-/// Font resolution for the Inter Nerd Font pairing. Notes are set in the
-/// non-Propo family, whose Nerd Font icon glyphs share one advance so
-/// they column-align; chrome text takes the Propo variant. Both families
-/// are proportional for Latin text — the suffix only describes icon
-/// width — so numeric labels ask for `tabularDigits` rather than a
-/// monospaced design. Neither font is bundled; both resolve by family
-/// name and fall back to the system sans, which is the default
-/// experience on machines without them installed.
+/// Font resolution for the three configured faces. Each is either a family
+/// name or nil for the system's own — SF Pro for notes and chrome, SF Mono
+/// for code — and a named family that isn't installed falls back to the same
+/// system face, with the footer saying which one didn't resolve.
+///
 /// Configured once at launch from `fonts` and `fontScale`, then read from
 /// everywhere. `@MainActor` rather than immutable because the families come
 /// from the config file, which isn't known until the app has started.
 @MainActor
 public enum Typography {
-    /// Notes body, icon glyphs at a fixed advance (`InterNF-*` faces).
-    public private(set) static var notesFamily = FontSet().notes
-    /// Proportional Nerd Font for UI text (`InterNFP-*` faces).
-    public private(set) static var uiFamily = FontSet().ui
-    /// Monospace, for `` `inline code` ``.
-    public private(set) static var codeFamily = FontSet().code
+    /// The families actually in use: nil wherever the system face draws,
+    /// whether by choice or because the configured one isn't installed.
+    ///
+    /// Resolved at configure time rather than per call: `NSFont(name:)`
+    /// costs ~2µs on a hit and ~12µs on a miss with no negative caching,
+    /// and `ui(_:)` is called ~40 times per overlay body evaluation. A
+    /// font activated mid-session needs a relaunch to be picked up.
+    public private(set) static var notesFamily: String?
+    public private(set) static var uiFamily: String?
+    public private(set) static var codeFamily: String?
 
-    // Resolved at configure time rather than per call: `NSFont(name:)`
-    // costs ~2µs on a hit and ~12µs on a miss with no negative caching,
-    // and `ui(_:)` is called ~40 times per overlay body evaluation. A
-    // font activated mid-session needs a relaunch to be picked up.
-    public private(set) static var notesInstalled = NSFont(name: notesFamily, size: 12) != nil
-    public private(set) static var uiInstalled = NSFont(name: uiFamily, size: 12) != nil
-    public private(set) static var codeInstalled = NSFont(name: codeFamily, size: 12) != nil
+    /// The configured families that didn't resolve, for the footer warning.
+    /// Fonts are referenced by name and never bundled, so this is a real
+    /// case rather than a defensive one.
+    public private(set) static var missingFamilies: [String] = []
 
     /// Multiplies every type size and nothing else — rules, padding, and
     /// the panel's own proportions are untouched, so a dense display can be
     /// made readable without redrawing the layout.
     public private(set) static var scale: CGFloat = 1
 
-    /// The configured families that didn't resolve, for the footer warning.
-    /// Fonts are referenced by name and never bundled, so this is a real
-    /// case rather than a defensive one.
-    public static var missingFamilies: [String] {
-        (notesInstalled ? [] : [notesFamily]) + (uiInstalled ? [] : [uiFamily])
-            + (codeInstalled ? [] : [codeFamily])
-    }
-
     /// Point sizes at the current scale. The single place the scale is
     /// applied — call sites keep passing their design sizes.
     static func scaled(_ size: CGFloat) -> CGFloat { size * scale }
 
     public static func configure(fonts: FontSet, scale: Double) {
-        notesFamily = fonts.notes
-        uiFamily = fonts.ui
-        codeFamily = fonts.code
-        notesInstalled = NSFont(name: notesFamily, size: 12) != nil
-        uiInstalled = NSFont(name: uiFamily, size: 12) != nil
-        codeInstalled = NSFont(name: codeFamily, size: 12) != nil
+        var missing: [String] = []
+        func resolve(_ family: String?) -> String? {
+            guard let family else { return nil }
+            guard NSFont(name: family, size: 12) != nil else {
+                missing.append(family)
+                return nil
+            }
+            return family
+        }
+        notesFamily = resolve(fonts.notes)
+        uiFamily = resolve(fonts.ui)
+        codeFamily = resolve(fonts.code)
+        missingFamilies = missing
         self.scale = CGFloat(scale)
     }
 
     // MARK: AppKit
 
-    /// Body face for the NSTextView. Falls back to system sans when the
-    /// Nerd Font is missing — never returns nil. Bold and italic derive
-    /// from this base via symbolic traits, same as before the swap.
+    /// Body face for the NSTextView. Bold and italic derive from this base
+    /// via symbolic traits.
     public static func notesFont(_ size: CGFloat) -> NSFont {
         let size = scaled(size)
-        return NSFont(name: notesFamily, size: size) ?? .systemFont(ofSize: size)
+        return notesFamily.flatMap { NSFont(name: $0, size: size) } ?? .systemFont(ofSize: size)
     }
 
     /// Chrome face for the places that typeset with AppKit rather than
     /// SwiftUI — the help page, whose rows live in an `NSTextView`. Weight
-    /// is not a parameter: the custom family carries it in the family name,
+    /// is not a parameter: a custom family carries it in the family name,
     /// and everything drawn through this is regular.
     public static func uiFont(_ size: CGFloat) -> NSFont {
         let size = scaled(size)
-        return NSFont(name: uiFamily, size: size) ?? .systemFont(ofSize: size)
+        return uiFamily.flatMap { NSFont(name: $0, size: size) } ?? .systemFont(ofSize: size)
     }
 
     /// The face for a `` `code` `` run, at whatever size the surrounding
     /// text is already using — a span inside a heading keeps the heading's
-    /// size. Falls back to the system monospace rather than to the body
-    /// face: an unresolved family here would otherwise render code as plain
-    /// prose, which is the one thing the markers are there to deny.
+    /// size. The system face here is the system *monospace*, not the body
+    /// face: code set as plain prose is the one thing the markers are there
+    /// to deny.
     ///
     /// The size arrives already scaled, since it comes off a resolved font
     /// rather than from a `Metrics` constant.
     public static func codeFont(atResolvedSize size: CGFloat) -> NSFont {
-        NSFont(name: codeFamily, size: size) ?? .monospacedSystemFont(ofSize: size, weight: .regular)
+        codeFamily.flatMap { NSFont(name: $0, size: size) }
+            ?? .monospacedSystemFont(ofSize: size, weight: .regular)
     }
 
     /// The code face at a *design* size, scaled the way `notesFont` is — for
@@ -105,13 +102,13 @@ public enum Typography {
     }
 
     /// UI face at a SwiftUI size/weight. `tabularDigits` keeps numeric
-    /// labels from reflowing as their digits change — Inter ships `tnum`,
-    /// and the system fallback has its own tabular figures.
+    /// labels from reflowing as their digits change — the system face has
+    /// its own tabular figures, and a custom family is asked for `tnum`.
     ///
-    /// With `tnum` on, the Nerd Font build of Inter also turns contextual
-    /// alternates off. Inter's `calt` swaps the colon between two digits
-    /// for a raised one, and the patched font's table for that points at
-    /// an icon glyph — `12:34` drew a globe where the colon should be.
+    /// With `tnum` on, a custom family also turns contextual alternates off.
+    /// Inter's `calt` swaps the colon between two digits for a raised one,
+    /// and the Nerd Font build's table for that points at an icon glyph —
+    /// `12:34` drew a globe where the colon should be.
     /// Only the tabular path is affected, and only there is the feature
     /// worth losing.
     public static func ui(
@@ -120,7 +117,7 @@ public enum Typography {
         tabularDigits: Bool = false
     ) -> Font {
         let size = scaled(size)
-        guard uiInstalled else {
+        guard let uiFamily else {
             let base = Font.system(size: size, weight: weight)
             return tabularDigits ? base.monospacedDigit() : base
         }

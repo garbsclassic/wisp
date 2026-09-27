@@ -5,8 +5,8 @@ import Carbon.HIToolbox
 /// keypress without requesting Accessibility permission.
 ///
 /// Modern alternatives (NSEvent.addGlobalMonitorForEvents) require the user
-/// to grant Accessibility access; Carbon does not. The API is C and a bit
-/// crusty, but a thin wrapper is well under 100 lines.
+/// to grant Accessibility access; Carbon does not. Carbon also reports the
+/// key's *release*, which is what makes hold-to-peek possible.
 @MainActor
 final class HotKeyMonitor {
     private var hotKeyRef: EventHotKeyRef?
@@ -17,7 +17,12 @@ final class HotKeyMonitor {
     // The Carbon callback fires on the main run loop but isn't formally
     // MainActor-isolated. We only mutate this dict from MainActor methods,
     // so reads from the callback are safe in practice.
-    private static nonisolated(unsafe) var handlers: [UInt32: () -> Void] = [:]
+    private static nonisolated(unsafe) var handlers: [UInt32: Handlers] = [:]
+
+    private struct Handlers {
+        let pressed: () -> Void
+        let released: () -> Void
+    }
 
     init() {
         id = Self.nextID
@@ -31,13 +36,16 @@ final class HotKeyMonitor {
     /// `keyCode` is a Carbon kVK_* value; `modifiers` is an OR of cmdKey /
     /// shiftKey / optionKey / controlKey from Carbon.
     @discardableResult
-    func register(keyCode: UInt32, modifiers: UInt32, handler: @escaping () -> Void) -> Bool {
+    func register(
+        keyCode: UInt32, modifiers: UInt32,
+        onPress: @escaping () -> Void, onRelease: @escaping () -> Void
+    ) -> Bool {
         // Drop any existing registration first so re-registering after a
         // user-driven hotkey change doesn't pile up dead refs.
         unregister()
 
         Self.installSharedEventHandler()
-        Self.handlers[id] = handler
+        Self.handlers[id] = Handlers(pressed: onPress, released: onRelease)
 
         let signature: OSType = 0x57495350  // 'WISP'
         let hotKeyID = EventHotKeyID(signature: signature, id: id)
@@ -65,10 +73,12 @@ final class HotKeyMonitor {
         guard !eventHandlerInstalled else { return }
         eventHandlerInstalled = true
 
-        var spec = EventTypeSpec(
-            eventClass: OSType(kEventClassKeyboard),
-            eventKind: UInt32(kEventHotKeyPressed)
-        )
+        var specs = [
+            EventTypeSpec(
+                eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
+            EventTypeSpec(
+                eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased)),
+        ]
 
         InstallEventHandler(
             GetEventDispatcherTarget(),
@@ -84,13 +94,14 @@ final class HotKeyMonitor {
                     &hotKeyID
                 )
                 guard status == noErr,
-                      let handler = HotKeyMonitor.handlers[hotKeyID.id]
+                      let handlers = HotKeyMonitor.handlers[hotKeyID.id]
                 else { return noErr }
-                DispatchQueue.main.async { handler() }
+                let pressed = GetEventKind(event) == UInt32(kEventHotKeyPressed)
+                DispatchQueue.main.async { pressed ? handlers.pressed() : handlers.released() }
                 return noErr
             },
-            1,
-            &spec,
+            specs.count,
+            &specs,
             nil,
             nil
         )

@@ -35,19 +35,16 @@
       "additionalProperties": false,
       "properties": {
         "notes": {
-          "description": "The notes body face.",
-          "type": "string",
-          "default": "Inter Nerd Font"
+          "description": "The notes body face, by family name. Omit or null for the system font.",
+          "type": ["string", "null"]
         },
         "ui": {
-          "description": "Header, footer, and overlays.",
-          "type": "string",
-          "default": "Inter Nerd Font Propo"
+          "description": "Header, footer, and overlays. Omit or null for the system font.",
+          "type": ["string", "null"]
         },
         "code": {
-          "description": "`inline code` runs. A real monospace — fonts.notes is only fixed-advance for its icon glyphs.",
-          "type": "string",
-          "default": "JetBrainsMono Nerd Font"
+          "description": "`inline code` runs, and the whole body in source view. Omit or null for the system monospace.",
+          "type": ["string", "null"]
         }
       }
     },
@@ -79,16 +76,26 @@
       }
     },
     "monitor": {
-      "description": "primary opens on the menu bar's screen; pointer on whichever display the cursor is on.",
+      "description": "primary opens on the menu bar's screen, or wherever a saved position is; pointer on whichever display the cursor is on, with a saved position carried to the same relative spot there.",
       "type": "string",
       "enum": ["primary", "pointer"],
       "default": "primary"
     },
     "position": {
-      "description": "auto opens the panel centred, top edge a tenth down the screen; manual leaves it wherever you drag it.",
-      "type": "string",
-      "enum": ["auto", "manual"],
-      "default": "auto"
+      "description": "Where the panel was last dragged to: its top-left corner in screen points, y growing upward. Written when the panel hides. Omit or null — which Reset Position writes — for the default spot, centred with its top edge 5% down the screen.",
+      "type": ["object", "null"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      },
+      "required": ["x", "y"],
+      "additionalProperties": false
+    },
+    "peekHold": {
+      "description": "Milliseconds the summon chord must be held before the panel peeks — closing when the chord is let go — instead of pinning. 0 always peeks.",
+      "type": "integer",
+      "minimum": 0,
+      "default": 250
     },
     "saveIndicator": {
       "description": "Flashes a dot in the top corner each time the note is written.",
@@ -135,7 +142,8 @@
         "increaseFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+=" },
         "decreaseFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+-" },
         "resetFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+0" },
-        "reveal": { "$ref": "#/$defs/chordSet", "default": "opt+cmd+r" }
+        "reveal": { "$ref": "#/$defs/chordSet", "default": "opt+cmd+r" },
+        "resetPosition": { "$ref": "#/$defs/chordSet", "default": "ctrl+opt+0" }
       }
     },
     "indent": {
@@ -173,15 +181,14 @@
       }
     },
     "panel": {
-      "description": "The remembered panel frame in screen points. Written on first hide; x / y only once the panel has been dragged under position: manual.",
+      "description": "The remembered panel size in screen points, written when the panel hides.",
       "type": ["object", "null"],
       "properties": {
         "width": { "type": "number" },
-        "height": { "type": "number" },
-        "x": { "type": ["number", "null"] },
-        "y": { "type": ["number", "null"] }
+        "height": { "type": "number" }
       },
-      "required": ["width", "height"]
+      "required": ["width", "height"],
+      "additionalProperties": false
     }
   }
 }

@@ -109,14 +109,19 @@ final class Settings: ObservableObject {
         write(["scratchpadPath"], path)
     }
 
-    /// Written when the panel hides, never while it moves — see
-    /// `PanelController.handleHide`. The caller decides whether the origin
-    /// is part of it: `position: auto` never writes one, and `manual`
-    /// only once the panel has actually been dragged.
+    /// The panel's size, written when it hides.
     func setPanel(_ panel: PanelFrame) {
         guard panel != config.panel else { return }
         config.panel = panel
         write(["panel"], panel)
+    }
+
+    /// Where the panel was dragged to, or nil — written as `null` — to go
+    /// back to the default spot. See `PanelPositioner`.
+    func setPosition(_ position: PanelPosition?) {
+        guard position != config.position else { return }
+        config.position = position
+        write(["position"], position)
     }
 
     /// Re-reads wisp.jsonc from disk — the Refresh menu item, for a file
@@ -180,8 +185,7 @@ final class Settings: ObservableObject {
             let rect = NSRectFromString(saved)
             if !rect.isEmpty {
                 migrated.panel = PanelFrame(
-                    width: Double(rect.width), height: Double(rect.height),
-                    x: Double(rect.origin.x), y: Double(rect.origin.y))
+                    width: Double(rect.width), height: Double(rect.height))
             }
         }
 

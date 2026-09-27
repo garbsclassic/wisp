@@ -239,7 +239,7 @@ final class ConfigStoreTests {
     func panelFrameRoundTrip() throws {
         _ = ConfigStore.loadOrSeed()
         var config = WispConfig()
-        config.panel = PanelFrame(width: 800, height: 640, x: 12, y: 34)
+        config.panel = PanelFrame(width: 800, height: 640)
         try ConfigStore.update(["panel"], to: config.panel, in: config)
         #expect(ConfigStore.loadOrSeed().config.panel == config.panel)
     }
@@ -249,7 +249,7 @@ final class ConfigStoreTests {
     @Test("write emits $schema first, and loadOrSeed round-trips through it")
     func schemaKeyRoundTrips() throws {
         var config = WispConfig()
-        config.panel = PanelFrame(width: 800, height: 640, x: 12, y: 34)
+        config.panel = PanelFrame(width: 800, height: 640)
         try ConfigStore.write(config)
 
         let text = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
@@ -339,14 +339,15 @@ struct SchemaSyncTests {
         return Set(object?.keys ?? [:].keys)
     }
 
-    @Test("Every top-level key the encoder writes is in the schema, plus panel")
+    @Test("Every top-level key the encoder writes is in the schema, plus the optional ones")
     func topLevelKeysMatchSchema() throws {
         let written = try Self.encodedKeys(of: WispConfig())
         let schemaKeys = try Self.schemaProperties(at: [])
-        // "panel" is absent from a default encode (`nil` omits the key), and
-        // "$schema" is only ever written by `SchemaTagged`, not by
-        // `WispConfig` itself — both are schema properties nonetheless.
-        #expect(schemaKeys == written.union(["panel", "$schema"]))
+        // "panel" and "position" are absent from a default encode (`nil`
+        // omits the key), and "$schema" is only ever written by
+        // `SchemaTagged`, not by `WispConfig` itself — all three are schema
+        // properties nonetheless.
+        #expect(schemaKeys == written.union(["panel", "position", "$schema"]))
     }
 
     @Test("keymap's schema keys match KeymapAction's cases")

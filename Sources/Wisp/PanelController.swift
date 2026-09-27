@@ -1,8 +1,12 @@
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 import WispCore
 
 private let panelSize = CGSize(width: 800, height: 640)
+/// A remembered size smaller than this on either side is a corrupted value,
+/// not a choice, and the default size is used instead.
+private let minimumSide: CGFloat = 200
 /// The radius a standard macOS window has had since Big Sur.
 ///
 /// A constant rather than a lookup: AppKit exposes no API for the system
@@ -20,14 +24,28 @@ final class PanelController {
     private let tint: NSView
     private let inner: NSView
     private let outer: NSView
-    /// The frame `placePanel` last put the panel at. `position: manual`
-    /// compares against it on hide to tell a drag from an untouched
-    /// panel that simply opened where it was told to.
-    private var placedFrame: NSRect?
+    private let positioner: PanelPositioner
+
+    /// Tap to pin, hold to peek — see `SummonState`. Assigned only through
+    /// `send`, which does what the change calls for, and by `handleHide`,
+    /// which is told after the fact.
+    private(set) var state: SummonState = .hidden
+    /// Fires once the chord has been held for `peekHold`, turning the summon
+    /// into a peek. A release before then cancels it and leaves a pin.
+    private var holdTimer: Timer?
+    /// The summon chord's modifiers as `CGEventFlags`, so a peek can outlast
+    /// the release of its key for as long as they're still down.
+    private var summonModifierFlags: CGEventFlags = []
+    /// Polls for a peek's modifiers lifting, once its key has come up.
+    private var modifierWatchTimer: Timer?
 
     init(model: EditorModel, settings: Settings) {
         self.model = model
         self.settings = settings
+        positioner = PanelPositioner(
+            monitor: { settings.config.monitor },
+            saved: { settings.config.position },
+            save: { settings.setPosition($0) })
         let contentRect = NSRect(origin: .zero, size: panelSize)
         panel = FloatingPanel(
             contentRect: contentRect,
@@ -46,8 +64,6 @@ final class PanelController {
         // through v0.1.23. Removing it entirely and using the system
         // shadow gave us back a clean rounded shadow with no corner leak.
         panel.hasShadow = true
-        // Actual value comes from `applyPosition()`, below — `auto`
-        // places the panel itself, so there is nowhere for a drag to go.
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
@@ -112,7 +128,7 @@ final class PanelController {
 
         panel.contentView = outer
 
-        placePanel()
+        positioner.place(panel, size: rememberedSize)
 
         applyTheme(model.theme)
         model.onThemeChange = { [weak self] theme in
@@ -140,15 +156,19 @@ final class PanelController {
     /// panel showing but not accepting input.
     var isPanelFocused: Bool { panel.isVisible && panel.isKeyWindow }
 
+    /// Pins the panel unless it already is — for the menu items that need
+    /// it on screen and focused before they can do anything.
     func openIfNeeded() {
-        if !panel.isVisible {
-            toggle()
-        }
+        if state != .pinned { send(.togglePin) }
+    }
+
+    func togglePin() {
+        send(.togglePin)
     }
 
     func dismiss() {
         if panel.isVisible {
-            panel.orderOut(nil)
+            send(.dismiss)
         } else {
             // Already off screen — still tear down, in case something
             // hid the panel without going through orderOut.
@@ -159,40 +179,144 @@ final class PanelController {
     /// The one place hide-time teardown lives. Idempotent: `dismiss()`
     /// and the panel's own orderOut can both reach it for a single hide.
     private func handleHide() {
+        // Esc and the like order the panel out directly; the summon state
+        // hears about it here rather than at each of those call sites.
+        cancelHoldTimer()
+        cancelModifierWatch()
+        state = .hidden
         saveFrame()
         // orderOut leaves the SwiftUI hierarchy mounted, so overlays and
         // their app-wide key monitors survive the hide unless we say so.
         model.dismissAllOverlays()
     }
 
-    func toggle() {
-        if panel.isVisible {
-            dismiss()
-        } else {
-            // Every summon, not just the first: `position: auto` and
-            // `monitor: pointer` both place against the screen the user is
-            // looking at *now*. For a settled `manual` panel it re-applies
-            // the frame it already has, which is a no-op.
-            placePanel()
+    /// Moves the panel back to its default spot and forgets the saved one.
+    func resetPosition() {
+        positioner.reset(panel)
+    }
+
+    // MARK: Summon
+
+    /// The summon chord went down. The panel comes up at once; which mode it
+    /// settles into is decided by what happens next. Pressing it while
+    /// pinned dismisses.
+    func handleChordDown(modifiers: UInt32) {
+        summonModifierFlags = Self.cgEventFlags(forCarbonModifiers: modifiers)
+        send(.chordDown)
+    }
+
+    /// Before the hold elapses the release makes a pin. For a peek, letting
+    /// go of the key alone doesn't end it while the chord's modifiers are
+    /// still down; it ends when they lift.
+    func handleChordUp() {
+        let held = !summonModifierFlags.isEmpty && modifiersStillHeld()
+        send(.chordUp(modifiersHeld: held))
+        if state == .peeking { watchForModifierRelease() }
+    }
+
+    /// The one place `state` changes on purpose, and the showing, hiding,
+    /// and timing that follow from it.
+    ///
+    /// A summon shows the panel without making it key, so a peek never
+    /// takes the keyboard from the app underneath. Only a pin takes focus —
+    /// it's the mode for typing into.
+    private func send(_ event: SummonState.Event) {
+        let previous = state
+        state = state.next(on: event, peeksImmediately: settings.config.peekHoldSeconds == 0)
+
+        if event == .chordDown || state != .summoning { cancelHoldTimer() }
+        if state != .peeking { cancelModifierWatch() }
+        guard state != previous || event == .chordDown else { return }
+
+        switch state {
+        case .hidden:
+            panel.orderOut(nil)
+        case .summoning:
+            show()
+            startHoldTimer()
+        case .peeking:
+            show()
+        case .pinned:
+            show()
             panel.makeKeyAndOrderFront(nil)
-            applyTheme(model.theme)
-            // Pick up changes another Mac wrote to scratchpad.md while
-            // we were dismissed — covers the iCloud/Dropbox sync case.
-            // Cheap (one stat + maybe one read), so safe to do every
-            // open.
-            model.reloadFromDiskIfChanged()
             model.requestFocus()
-            model.refreshPlaceholder()
-            // Recompute shadow against current content alpha and force a
-            // visual-effect re-render so the blur picks up the right
-            // appearance on first show.
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.visualEffect.state = .inactive
-                self.visualEffect.state = .active
-                self.panel.invalidateShadow()
+        }
+    }
+
+    /// Brings the panel up without taking focus. A no-op when it's already
+    /// up, so re-summoning a peek doesn't jump it back into place.
+    private func show() {
+        guard !panel.isVisible else { return }
+        // Every summon, not just the first: `monitor: pointer` places against
+        // the screen the user is looking at *now*.
+        positioner.place(panel, size: rememberedSize)
+        applyTheme(model.theme)
+        // Pick up changes another Mac wrote to scratchpad.md while
+        // we were dismissed — covers the iCloud/Dropbox sync case.
+        // Cheap (one stat + maybe one read), so safe to do every
+        // open.
+        model.reloadFromDiskIfChanged()
+        model.refreshPlaceholder()
+        panel.orderFrontRegardless()
+        // Recompute shadow against current content alpha and force a
+        // visual-effect re-render so the blur picks up the right
+        // appearance on first show.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.visualEffect.state = .inactive
+            self.visualEffect.state = .active
+            self.panel.invalidateShadow()
+        }
+    }
+
+    private func startHoldTimer() {
+        let hold = settings.config.peekHoldSeconds
+        holdTimer = Timer.scheduledTimer(withTimeInterval: hold, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.send(.holdElapsed) }
+        }
+    }
+
+    private func cancelHoldTimer() {
+        holdTimer?.invalidate()
+        holdTimer = nil
+    }
+
+    /// `true` while every modifier in the summon chord is still physically
+    /// down. A state *query*, so unlike a `.flagsChanged` monitor it needs no
+    /// Accessibility or Input Monitoring grant — the same reason the chord
+    /// itself is a Carbon hotkey.
+    private func modifiersStillHeld() -> Bool {
+        CGEventSource.flagsState(.combinedSessionState).intersection(summonModifierFlags)
+            == summonModifierFlags
+    }
+
+    /// Polls fast enough that letting go reads as immediate, without
+    /// installing anything that needs a permission grant.
+    private func watchForModifierRelease() {
+        modifierWatchTimer?.invalidate()
+        modifierWatchTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) {
+            [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, !self.modifiersStillHeld() else { return }
+                self.send(.modifiersReleased)
             }
         }
+    }
+
+    private func cancelModifierWatch() {
+        modifierWatchTimer?.invalidate()
+        modifierWatchTimer = nil
+    }
+
+    /// Carbon's modifier masks and `CGEventFlags` are different bit layouts
+    /// for the same four keys.
+    private static func cgEventFlags(forCarbonModifiers modifiers: UInt32) -> CGEventFlags {
+        var flags: CGEventFlags = []
+        if modifiers & UInt32(cmdKey) != 0 { flags.insert(.maskCommand) }
+        if modifiers & UInt32(optionKey) != 0 { flags.insert(.maskAlternate) }
+        if modifiers & UInt32(controlKey) != 0 { flags.insert(.maskControl) }
+        if modifiers & UInt32(shiftKey) != 0 { flags.insert(.maskShift) }
+        return flags
     }
 
     private func applyTheme(_ theme: Theme) {
@@ -214,79 +338,12 @@ final class PanelController {
 
     // MARK: Placement
 
-    /// Puts the panel where the config says it goes, and decides whether
-    /// the user is allowed to move it from there.
-    ///
-    /// `position: auto` places it on every summon — centred, top edge a
-    /// tenth down — and ignores any remembered origin. `manual` restores
-    /// the remembered frame, falling back to the auto placement when there
-    /// isn't a usable one: never dragged, or dragged onto a display that
-    /// has since been unplugged.
-    ///
-    /// `monitor: pointer` chooses the screen for both modes, and in
-    /// `manual` carries the remembered frame's position *relative to* its
-    /// old screen, so the panel lands in the same spot on whichever display
-    /// you are looking at.
-    private func placePanel() {
-        applyPositionMode()
-
-        let manual = settings.config.position == .manual
-        let screens = NSScreen.screens.map { $0.visibleFrame }
-        let saved = settings.config.panel
-        let size = saved.map { NSSize(width: $0.width, height: $0.height) } ?? panelSize
-        let target = targetScreen()
-        let auto = PanelFrameStore.autoFrame(size: size, on: target)
-
-        guard manual, let saved, let origin = saved.origin else {
-            setPlacedFrame(auto)
-            return
-        }
-
-        let remembered = NSRect(
-            x: origin.x, y: origin.y, width: saved.width, height: saved.height)
-        guard PanelFrameStore.isUsable(remembered, onScreens: screens) else {
-            setPlacedFrame(auto)
-            return
-        }
-
-        if settings.config.monitor == .pointer {
-            let anchor = screens.first { $0.intersects(remembered) } ?? target
-            setPlacedFrame(PanelFrameStore.moved(remembered, from: anchor, to: target))
-        } else {
-            setPlacedFrame(remembered)
-        }
-    }
-
-    /// Whether the user can drag the panel. Split out of `placePanel` so
-    /// a config reload can pick up a changed `position` without also
-    /// moving the panel that is currently on screen.
-    func applyPositionMode() {
-        let manual = settings.config.position == .manual
-        panel.isMovable = manual
-        panel.isMovableByWindowBackground = manual
-    }
-
-    /// The screen to place against: the pointer's under `monitor: pointer`,
-    /// otherwise the one holding the menu bar — which is `screens.first`,
-    /// not `NSScreen.main`. `main` is the screen holding the *focused*
-    /// window, so on a two-display desk it follows whatever app the user
-    /// was in when they summoned Wisp.
-    private func targetScreen() -> NSRect {
-        if settings.config.monitor == .pointer,
-            let pointer = NSScreen.screens.first(where: {
-                $0.frame.contains(NSEvent.mouseLocation)
-            })
-        {
-            return pointer.visibleFrame
-        }
-        return NSScreen.screens.first?.visibleFrame ?? NSRect(origin: .zero, size: panelSize)
-    }
-
-    /// Recording where we put the panel is what lets `saveFrame` tell a
-    /// drag from a panel that just opened where it was told to.
-    private func setPlacedFrame(_ frame: NSRect) {
-        panel.setFrame(frame, display: false)
-        placedFrame = frame
+    /// The size the panel was last left at, or the default one.
+    private var rememberedSize: CGSize {
+        guard let saved = settings.config.panel,
+            saved.width >= minimumSide, saved.height >= minimumSide
+        else { return panelSize }
+        return CGSize(width: saved.width, height: saved.height)
     }
 
     /// Called from `applicationWillTerminate` — see `saveFrame`.
@@ -295,34 +352,12 @@ final class PanelController {
         saveFrame()
     }
 
-    /// The frame is written when the panel hides, not while it moves: the
-    /// only reader is the next summon, so one write per panel session is
-    /// exactly sufficient — and a slow drag can't emit a burst of rewrites
-    /// over someone's hand edits.
-    ///
-    /// The size is always remembered. The origin is only written once the
-    /// panel has actually been moved off where it was placed, so under
-    /// `auto` — which never moves it — the config's `x` / `y` are left
-    /// exactly as the user wrote them, and under `manual` an untouched
-    /// panel keeps falling back to the auto placement rather than freezing
-    /// itself at one absolute point on one display.
+    /// Written when the panel hides, never while it moves or resizes: the
+    /// only reader is the next summon, so one write per showing is enough.
     private func saveFrame() {
-        let frame = panel.frame
-        guard frame.width >= PanelFrameStore.minSize else { return }
-
-        // A point of slack: AppKit pixel-aligns the frame it was handed,
-        // and no one drags a window one point on purpose.
-        let moved =
-            settings.config.position == .manual
-            && (placedFrame.map {
-                abs($0.origin.x - frame.origin.x) > 1 || abs($0.origin.y - frame.origin.y) > 1
-            } ?? true)
-        let origin = moved ? frame.origin : nil
-
-        settings.setPanel(
-            PanelFrame(
-                width: Double(frame.width), height: Double(frame.height),
-                x: origin.map { Double($0.x) } ?? settings.config.panel?.x,
-                y: origin.map { Double($0.y) } ?? settings.config.panel?.y))
+        positioner.saveIfMoved(panel)
+        let size = panel.frame.size
+        guard size.width >= minimumSide, size.height >= minimumSide else { return }
+        settings.setPanel(PanelFrame(width: Double(size.width), height: Double(size.height)))
     }
 }

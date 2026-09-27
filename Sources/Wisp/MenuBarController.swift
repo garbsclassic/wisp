@@ -2,7 +2,7 @@ import AppKit
 import WispCore
 
 /// Owns the single status-bar item. A left click opens the menu, a right
-/// click summons the panel — the same toggle as the hotkey. The menu
+/// click pins the panel, or dismisses the pin that's up. The menu
 /// refreshes its dynamic state — Launch at Login checkmark, Reset
 /// Scratchpad Folder visibility — in menuNeedsUpdate rather than being
 /// rebuilt each time. Wording and icons follow Clef's menu where an item
@@ -19,6 +19,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let onPickStorageLocation: () -> Void
     private let onResetStorageLocation: () -> Void
     private let onReveal: () -> Void
+    private let onResetPosition: () -> Void
     private let onSummon: () -> Void
     private let menu = NSMenu()
 
@@ -41,6 +42,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         onPickStorageLocation: @escaping () -> Void,
         onResetStorageLocation: @escaping () -> Void,
         onReveal: @escaping () -> Void,
+        onResetPosition: @escaping () -> Void,
         onSummon: @escaping () -> Void
     ) {
         self.onSetHotKey = onSetHotKey
@@ -52,6 +54,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.onPickStorageLocation = onPickStorageLocation
         self.onResetStorageLocation = onResetStorageLocation
         self.onReveal = onReveal
+        self.onResetPosition = onResetPosition
         self.onSummon = onSummon
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
@@ -69,13 +72,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.delegate = self
 
-        // Opens wisp.jsonc in whatever app owns .jsonc — the same move as
-        // Clef's Settings…, and the only way most settings are changed.
-        let settings = makeItem(
-            "Settings…", symbol: "gearshape", action: #selector(handleOpenConfig)
+        // Menu-bar-extra order: the app's own actions first, then its
+        // settings, Quit last. Wording and icons follow Clef's menu where an
+        // item exists in both.
+        let resetPosition = makeItem(
+            "Reset Position", symbol: "arrow.up.and.down.and.arrow.left.and.right",
+            action: #selector(handleResetPosition)
         )
-        boundItems.append((.settings, settings))
-        menu.addItem(settings)
+        boundItems.append((.resetPosition, resetPosition))
+        menu.addItem(resetPosition)
 
         // Re-reads wisp.jsonc and re-checks scratchpad.md's mtime — for
         // either changing underfoot via iCloud/Dropbox/chezmoi sync.
@@ -85,9 +90,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         boundItems.append((.refresh, refresh))
         menu.addItem(refresh)
 
-        menu.addItem(makeItem(
-            "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
-        ))
+        let reveal = makeItem(
+            "Reveal in Finder", symbol: "doc.text.magnifyingglass",
+            action: #selector(handleReveal)
+        )
+        boundItems.append((.reveal, reveal))
+        menu.addItem(reveal)
+
+        menu.addItem(.separator())
 
         menu.addItem(makeItem(
             "Scratchpad Folder…", symbol: "folder", action: #selector(handlePickStorageLocation)
@@ -100,22 +110,23 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         resetItem = reset
         menu.addItem(reset)
 
-        menu.addItem(.separator())
-
-        let reveal = makeItem(
-            "Reveal in Finder", symbol: "doc.text.magnifyingglass",
-            action: #selector(handleReveal)
-        )
-        boundItems.append((.reveal, reveal))
-        menu.addItem(reveal)
-
-        menu.addItem(.separator())
+        menu.addItem(makeItem(
+            "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
+        ))
 
         let launch = makeItem(
             "Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin)
         )
         launchItem = launch
         menu.addItem(launch)
+
+        // Opens wisp.jsonc in whatever app owns .jsonc — the same move as
+        // Clef's Settings…, and the only way most settings are changed.
+        let settings = makeItem(
+            "Settings…", symbol: "gearshape", action: #selector(handleOpenConfig)
+        )
+        boundItems.append((.settings, settings))
+        menu.addItem(settings)
 
         menu.addItem(.separator())
 
@@ -307,5 +318,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func handleReveal() {
         onReveal()
+    }
+
+    @objc private func handleResetPosition() {
+        onResetPosition()
     }
 }
