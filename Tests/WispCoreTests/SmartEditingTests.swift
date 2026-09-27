@@ -5,36 +5,40 @@ import Testing
 
 @Suite("SmartEditing: horizontal rule")
 struct HorizontalRuleTests {
-    @Test("The trigger is exactly three dashes, whitespace allowed around it")
-    func trigger() {
-        #expect(SmartEditing.isHorizontalRuleTrigger("---"))
-        #expect(SmartEditing.isHorizontalRuleTrigger("  ---  "))
-        #expect(!SmartEditing.isHorizontalRuleTrigger("--"))
-        #expect(!SmartEditing.isHorizontalRuleTrigger("----"))
-        #expect(!SmartEditing.isHorizontalRuleTrigger("--- hello"))
-        #expect(!SmartEditing.isHorizontalRuleTrigger("hello ---"))
-        #expect(!SmartEditing.isHorizontalRuleTrigger(""))
-    }
-
     @Test("The stored rule is markdown-standard")
     func constant() {
         #expect(SmartEditing.horizontalRule == "---")
     }
 
-    /// The renderer's predicate is looser than the trigger: it also has to
-    /// recognize lines already on disk, including the legacy `─` form.
+    /// CommonMark's thematic break shape: three or more of one repeated marker character
+    /// (`-`, `*`, or `_`), spaces or tabs allowed between them. `───` (U+2500, box drawing) used
+    /// to be accepted as a legacy upstream form, but Obsidian renders it as text, so it no longer
+    /// qualifies — nor does a dash run that trails off into box-drawing characters.
     @Test(
-        "A rendered rule line is three or more dashes or box-drawing dashes",
+        "A rendered rule line is three or more of one repeated marker character",
         arguments: [
             ("---", true),
             ("----", true),
-            (String(repeating: "─", count: 40), true),
-            ("---" + String(repeating: "─", count: 5), true),
+            ("***", true),
+            ("___", true),
+            ("* * *", true),
+            ("_ _ _", true),
+            ("- - -", true),
+            ("-- -", true),
+            ("   ---", true),
+            ("--- ", true),
+            ("*****", true),
             ("--", false),
             ("", false),
             ("---x", false),
             ("x---", false),
-            ("-- -", false),
+            ("    ---", false),
+            ("-*-", false),
+            ("**", false),
+            ("-- ", false),
+            ("───", false),
+            (String(repeating: "─", count: 40), false),
+            ("---" + String(repeating: "─", count: 5), false),
         ]
     )
     func renderedLine(line: String, expected: Bool) {
@@ -50,6 +54,201 @@ struct HorizontalRuleTests {
             )
         )
     }
+
+    // MARK: Setext underlines
+
+    private func isRule(_ text: String, at offset: Int) -> Bool {
+        let ns = text as NSString
+        let line = LineEdits.lineRange(in: ns, at: offset)
+        return SmartEditing.isHorizontalRuleLine(lineRange: line, in: ns)
+    }
+
+    private func isSetext(_ text: String, at offset: Int) -> Bool {
+        let ns = text as NSString
+        let line = LineEdits.lineRange(in: ns, at: offset)
+        return SmartEditing.isSetextUnderline(lineRange: line, in: ns)
+    }
+
+    /// Every fixture below puts the `---` on the text's last line, with no trailing newline.
+    private func isRuleAtEnd(_ text: String) -> Bool {
+        isRule(text, at: (text as NSString).length - 1)
+    }
+
+    private func isSetextAtEnd(_ text: String) -> Bool {
+        isSetext(text, at: (text as NSString).length - 1)
+    }
+
+    @Test("Three dashes directly under paragraph text is a setext underline, not a rule")
+    func setextUnderlineUnderParagraph() {
+        #expect(isSetextAtEnd("Text\n---"))
+        #expect(!isRuleAtEnd("Text\n---"))
+    }
+
+    @Test(
+        "Three dashes are a rule, not an underline, with nothing plain above to underline",
+        arguments: ["---", "\n---", "# H\n---"]
+    )
+    func ruleWithNothingToUnderline(text: String) {
+        #expect(isRuleAtEnd(text))
+        #expect(!isSetextAtEnd(text))
+    }
+
+    @Test("A rule line ends the paragraph, so two rules in a row are both rules")
+    func twoConsecutiveRuleLines() {
+        // Off the first line: `---` there opens frontmatter.
+        let ns = "\n---\n---" as NSString
+        #expect(
+            SmartEditing.isHorizontalRuleLine(
+                lineRange: LineEdits.lineRange(in: ns, at: 1), in: ns))
+        #expect(
+            SmartEditing.isHorizontalRuleLine(
+                lineRange: LineEdits.lineRange(in: ns, at: 5), in: ns))
+    }
+
+    @Test(
+        "A rule under a list item, quote, table row, or indented code stays a rule",
+        arguments: [
+            "- item\n---",
+            "- [ ] task\n---",
+            "1. one\n---",
+            "> quote\n---",
+            "| a | b |\n---",
+            "    code\n---",
+        ]
+    )
+    func ruleUnderNonParagraphBlock(text: String) {
+        #expect(isRuleAtEnd(text))
+        #expect(!isSetextAtEnd(text))
+    }
+
+    @Test(
+        "A rule inside an unclosed fence is code; one after a closed fence stays a rule",
+        arguments: [
+            ("```\n---\n```\n---", "```"),
+            ("~~~\n---\n~~~\n---", "~~~"),
+        ] as [(String, String)]
+    )
+    func ruleInsideThenAfterFence(text: String, fence: String) {
+        let ns = text as NSString
+        let insideDashes = LineEdits.lineRange(in: ns, at: (fence as NSString).length + 1)
+        let afterDashes = LineEdits.lineRange(in: ns, at: ns.length - 1)
+        #expect(!SmartEditing.isHorizontalRuleLine(lineRange: insideDashes, in: ns))
+        #expect(SmartEditing.isHorizontalRuleLine(lineRange: afterDashes, in: ns))
+    }
+
+    @Test("A tilde fence doesn't close a backtick fence")
+    func tildeDoesNotCloseBacktickFence() {
+        let ns = "```\n~~~\n---" as NSString
+        let dashes = LineEdits.lineRange(in: ns, at: ns.length - 1)
+        #expect(SmartEditing.isInsideFence(lineStart: dashes.location, in: ns))
+        #expect(!SmartEditing.isHorizontalRuleLine(lineRange: dashes, in: ns))
+    }
+
+    @Test("A shorter closing fence doesn't close a longer one")
+    func shorterFenceDoesNotClose() {
+        let ns = "````\n---\n```\n---" as NSString
+        let lastDashes = LineEdits.lineRange(in: ns, at: ns.length - 1)
+        #expect(SmartEditing.isInsideFence(lineStart: lastDashes.location, in: ns))
+        #expect(!SmartEditing.isHorizontalRuleLine(lineRange: lastDashes, in: ns))
+    }
+
+    @Test("A bare closing fence closes an opener that carried an info string")
+    func infoStringOpenerClosesWithBareFence() {
+        let ns = "```swift\n```\n---" as NSString
+        let dashes = LineEdits.lineRange(in: ns, at: ns.length - 1)
+        #expect(!SmartEditing.isInsideFence(lineStart: dashes.location, in: ns))
+        #expect(SmartEditing.isHorizontalRuleLine(lineRange: dashes, in: ns))
+    }
+
+    @Test("A rule inside an unclosed fence with text above it is neither a rule nor an underline")
+    func ruleInsideUnclosedFenceIsPlainCode() {
+        let ns = "```\nText\n---" as NSString
+        let dashes = LineEdits.lineRange(in: ns, at: ns.length - 1)
+        #expect(!SmartEditing.isHorizontalRuleLine(lineRange: dashes, in: ns))
+        #expect(!SmartEditing.isSetextUnderline(lineRange: dashes, in: ns))
+    }
+
+    @Test("isInsideFence is true only between an opening fence and its closer")
+    func isInsideFenceTrueAndFalseCases() {
+        let ns = "before\n```\ninside\n```\nafter" as NSString
+        #expect(!SmartEditing.isInsideFence(lineStart: 0, in: ns))
+        let insideLine = LineEdits.lineRange(in: ns, at: ns.range(of: "inside").location)
+        #expect(SmartEditing.isInsideFence(lineStart: insideLine.location, in: ns))
+        let afterLine = LineEdits.lineRange(in: ns, at: ns.length - 1)
+        #expect(!SmartEditing.isInsideFence(lineStart: afterLine.location, in: ns))
+    }
+
+    @Test(
+        "A rule under a list item's continuation line or lazy line stays a rule",
+        arguments: ["- item\n  more\n---", "- item\nlazy\n---"]
+    )
+    func ruleUnderListContinuation(text: String) {
+        #expect(isRuleAtEnd(text))
+        #expect(!isSetextAtEnd(text))
+    }
+
+    @Test("A box-drawing underline is plain text — neither a rule nor a setext underline")
+    func boxDrawingUnderlineIsPlainText() {
+        #expect(!isRuleAtEnd("Text\n───"))
+        #expect(!isSetextAtEnd("Text\n───"))
+    }
+
+    @Test("Two dashes are too short to be either a rule or an underline")
+    func tooShortToBeEither() {
+        #expect(!isRuleAtEnd("Text\n--"))
+        #expect(!isSetextAtEnd("Text\n--"))
+    }
+}
+
+@Suite("SmartEditing: setextLevel")
+struct SetextLevelTests {
+    private func level(_ text: String) -> Int? {
+        let ns = text as NSString
+        let line = LineEdits.lineRange(in: ns, at: ns.length - 1)
+        return SmartEditing.setextLevel(lineRange: line, in: ns)
+    }
+
+    private func isRule(_ text: String) -> Bool {
+        let ns = text as NSString
+        let line = LineEdits.lineRange(in: ns, at: ns.length - 1)
+        return SmartEditing.isHorizontalRuleLine(lineRange: line, in: ns)
+    }
+
+    @Test(
+        "Under paragraph text, a run of `*` or `_`, or a space-separated dash run, is a rule",
+        arguments: ["Text\n***", "Text\n___", "Text\n- - -"]
+    )
+    func nonPlainDashRunsUnderParagraphAreRulesNotUnderlines(text: String) {
+        #expect(level(text) == nil)
+        #expect(isRule(text))
+    }
+
+    @Test("A plain run of three or more dashes under paragraph text is a level-2 underline")
+    func dashesUnderParagraphAreLevelTwo() {
+        #expect(level("Text\n---") == 2)
+        #expect(!isRule("Text\n---"))
+    }
+
+    @Test(
+        "A plain run of three or more equals under paragraph text is a level-1 underline",
+        arguments: ["Text\n===", "Text\n=== ", "Text\n   ==="]
+    )
+    func equalsUnderParagraphIsLevelOne(text: String) {
+        #expect(level(text) == 1)
+        #expect(!isRule(text))
+    }
+
+    @Test("Two equals signs are too short to be a heading underline, and never a rule")
+    func tooShortEqualsIsNeither() {
+        #expect(level("Text\n==") == nil)
+        #expect(!isRule("Text\n=="))
+    }
+
+    @Test("Equals signs with nothing plain above them are neither a rule nor a heading underline")
+    func equalsAloneIsNeither() {
+        #expect(level("===") == nil)
+        #expect(!isRule("==="))
+    }
 }
 
 @Suite("SmartEditing: list continuation")
@@ -60,6 +259,14 @@ struct ListMarkerTests {
     )
     func unordered(line: String, marker: String) {
         #expect(SmartEditing.nextListMarker(for: line) == marker)
+    }
+
+    @Test(
+        "A rule-shaped line doesn't continue as a list, star- or dash-separated alike",
+        arguments: ["* * *", "- - -"]
+    )
+    func ruleShapedLineIsNotAList(line: String) {
+        #expect(SmartEditing.nextListMarker(for: line) == nil)
     }
 
     @Test(
@@ -216,6 +423,18 @@ struct ListItemTests {
     func horizontalRule() {
         #expect(parse("---") == nil)
         #expect(parse("-----") == nil)
+    }
+
+    @Test("A star-separated rule is not a bullet whose content is `* *`")
+    func starSeparatedRuleIsNotABullet() {
+        #expect(parse("* * *") == nil)
+    }
+
+    @Test("A setext `---` under a paragraph is not a bullet either")
+    func setextUnderlineIsNotABullet() {
+        let ns = "Text\n---" as NSString
+        let line = LineEdits.lineRange(in: ns, at: ns.length - 1)
+        #expect(SmartEditing.listItem(lineRange: line, in: ns) == nil)
     }
 
     @Test("A trailing newline doesn't change the parse")
@@ -942,6 +1161,24 @@ struct RenumberTests {
         #expect(
             apply("1. a\n  1. x\n2. b\n  1. y\n  5. z\n")
                 == "1. a\n  1. x\n2. b\n  1. y\n  2. z\n")
+    }
+
+    @Test("A fenced code block's `1.` lines are untouched; the run after it still renumbers")
+    func fencedCodeIsSkippedButTheRunAfterItStillRenumbers() {
+        let text = "```md\n1. first\n1. second\n1. third\n```\n1. a\n1. b"
+        let prefix = "```md\n1. first\n1. second\n1. third\n```\n1. a\n" as NSString
+        let edits = SmartEditing.renumber(in: text as NSString)
+        #expect(edits.count == 1)
+        #expect(edits.first?.range == NSRange(location: prefix.length, length: 1))
+        #expect(edits.first?.replacement == "2")
+        #expect(apply(text) == "```md\n1. first\n1. second\n1. third\n```\n1. a\n2. b")
+    }
+
+    @Test("Repeated markers inside frontmatter yield no edits")
+    func frontmatterIsSkipped() {
+        let text = "---\n1. x\n1. y\n---\n"
+        #expect(SmartEditing.renumber(in: text as NSString).isEmpty)
+        #expect(apply(text) == text)
     }
 }
 

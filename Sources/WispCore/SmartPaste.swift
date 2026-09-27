@@ -50,6 +50,11 @@ public enum SmartPaste {
     /// as-is.
     static func bulletedList(_ lines: [String]) -> String? {
         guard lines.allSatisfy(isPlainItem) else { return nil }
+        // Together, not line by line: a table row, a fence, a quote, or a setext underline is
+        // Markdown already, and only shows as such beside its neighbours.
+        let blocks = MarkdownBlocks(lines.joined(separator: "\n") as NSString)
+        guard blocks.lines.allSatisfy({ if case .text = $0.kind { true } else { false } })
+        else { return nil }
         return lines.map { "- " + $0.trimmingCharacters(in: .whitespaces) }.joined(separator: "\n")
     }
 
@@ -57,7 +62,7 @@ public enum SmartPaste {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, trimmed.count <= maxItemLength else { return false }
         guard SmartEditing.nextListMarker(for: trimmed) == nil,
-            !SmartEditing.isHorizontalRuleTrigger(trimmed),
+            !SmartEditing.isRuleShaped(trimmed),
             trimmed.firstMatch(of: /^#{1,6}\s/) == nil
         else { return false }
         return true

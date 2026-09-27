@@ -91,8 +91,8 @@ public struct HelpDocument: Equatable, Sendable {
                 Row("- · * · +", "bulleted list"),
                 Row("1. · A. · a.", "numbered list"),
                 Row("- [ ]", "task — click the box to check it"),
-                Row("# · ## · ###", "headings"),
-                Row("---", "horizontal rule"),
+                Row("# · ## · ###", "headings — or === · --- under a line"),
+                Row("--- · *** · ___", "horizontal rule"),
                 Row("⌘V on a blank line", "grid → table, lines → list"),
             ]),
         ])

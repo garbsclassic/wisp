@@ -3,14 +3,10 @@ import Foundation
 public enum SmartEditing {
     /// Plain-text horizontal rule, stored as the markdown-standard
     /// `---`. The visual full-width line is drawn by the custom layout
-    /// manager (HorizontalRuleLayoutManager) — the on-disk text is
+    /// manager (NotesLayoutManager) — the on-disk text is
     /// just three dashes, so rendering tracks the panel's width and
     /// the file remains portable plain markdown.
     public static let horizontalRule = "---"
-
-    public static func isHorizontalRuleTrigger(_ line: String) -> Bool {
-        line.trimmingCharacters(in: .whitespaces) == "---"
-    }
 
     /// Given a line of text, return the marker to insert on the next line if
     /// this line is a list item. Returns `nil` if not a list, or the next
@@ -22,6 +18,8 @@ public enum SmartEditing {
     /// nested item continues the list at the depth it was already at rather
     /// than dropping it back to the margin.
     public static func nextListMarker(for line: String) -> String? {
+        // `* * *` and `- - -` would otherwise continue as bullets.
+        if isRuleShaped(line) { return nil }
         // Before the plain bullet, which this would otherwise match as a
         // bullet whose content is `[ ]`. The next box is always empty —
         // a new task starts undone whatever the one above it says.
@@ -156,9 +154,9 @@ public enum SmartEditing {
         let indentWidth = index - lineRange.location
         let markerStart = index
 
-        // An HR is three or more `-` and nothing else; it would otherwise
-        // parse as a bullet whose content is the remaining dashes.
-        if isHorizontalRuleLine(lineRange: lineRange, in: text) { return nil }
+        // A rule shape (`- - -`, `* * *`) would otherwise parse as a bullet whose content is
+        // the rest of the marks.
+        if MarkdownBlocks.isRuleShaped(lineRange: lineRange, in: text) { return nil }
 
         var marker: ListItem.Marker
         if index < contentEnd, isBulletCharacter(text.character(at: index)) {
@@ -433,11 +431,18 @@ public enum SmartEditing {
         struct Run { let kind: Kind; var next: Int }
         var runs: [Int: Run] = [:]
         var edits: [LineEdits.Edit] = []
+        // A `1.` in a code block or in frontmatter is text to keep as written, not a list item.
+        let blocks = MarkdownBlocks(text)
 
         var lineStart = 0
         while lineStart < text.length {
             let line = LineEdits.lineRange(in: text, at: lineStart)
             defer { lineStart = NSMaxRange(line) }
+            if let kind = blocks.line(at: line.location)?.kind,
+                kind == .fencedCode || kind == .frontmatter
+            {
+                continue
+            }
 
             guard let item = listItem(lineRange: line, in: text) else {
                 let blankOrFlush =
@@ -555,33 +560,49 @@ public enum SmartEditing {
         return (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)
     }
 
-    /// Pure: is the given line content (a line range in `nsString`) an
-    /// HR-only line — at least three characters, all of which are either
-    /// `-` (0x2D) or `─` (0x2500), with the trailing newline allowed.
-    /// Lives here rather than on the layout manager so it is testable
-    /// without AppKit.
-    public static func isHorizontalRuleLine(lineRange: NSRange, in nsString: NSString) -> Bool {
-        var contentEnd = lineRange.location + lineRange.length
-        if contentEnd > lineRange.location,
-           nsString.character(at: contentEnd - 1) == 0x0A {
-            contentEnd -= 1
-        }
-        let contentLength = contentEnd - lineRange.location
-        if contentLength < 3 { return false }
-        for i in 0..<contentLength {
-            let c = nsString.character(at: lineRange.location + i)
-            if c != 0x2D && c != 0x2500 { return false }
-        }
-        return true
+    /// Is the given line drawn as a rule? Classifies the whole note to answer, so it suits a
+    /// test about one line, not a loop over lines: a pass over every line reads `MarkdownBlocks`
+    /// once. The wrappers below make the same trade, and are internal for the same reason.
+    static func isHorizontalRuleLine(lineRange: NSRange, in text: NSString) -> Bool {
+        MarkdownBlocks(text).line(at: lineRange.location)?.kind == .rule
     }
 
-    /// Convenience overload — treats the whole String as the line content,
-    /// with no trailing newline expected.
-    public static func isHorizontalRuleLine(_ line: String) -> Bool {
-        let ns = line as NSString
-        return isHorizontalRuleLine(
-            lineRange: NSRange(location: 0, length: ns.length),
-            in: ns
-        )
+    /// Convenience overload — treats the whole String as the note, one line long.
+    static func isHorizontalRuleLine(_ line: String) -> Bool {
+        isHorizontalRuleLine(lineRange: NSRange(location: 0, length: 0), in: line as NSString)
+    }
+
+    /// True when the line underlines the paragraph above it, making it a setext heading.
+    static func isSetextUnderline(lineRange: NSRange, in text: NSString) -> Bool {
+        setextLevel(lineRange: lineRange, in: text) != nil
+    }
+
+    /// The level a setext underline gives the paragraph above it: 1 for `===`, 2 for `---`, or
+    /// nil when the line isn't one.
+    static func setextLevel(lineRange: NSRange, in text: NSString) -> Int? {
+        guard case .setextUnderline(let level, _) = MarkdownBlocks(text).line(
+            at: lineRange.location)?.kind
+        else { return nil }
+        return level
+    }
+
+    /// Where the paragraph that ends on the line just above `lineStart` begins, or nil when that
+    /// line isn't paragraph text a setext underline could turn into a heading.
+    static func paragraphStart(above lineStart: Int, in text: NSString) -> Int? {
+        guard lineStart > 0,
+            case .text(let start) = MarkdownBlocks(text).line(at: lineStart - 1)?.kind
+        else { return nil }
+        return start
+    }
+
+    /// True when `lineStart` falls inside a fenced code block, between its fences.
+    static func isInsideFence(lineStart: Int, in text: NSString) -> Bool {
+        MarkdownBlocks(text).line(at: lineStart)?.kind == .fencedCode
+    }
+
+    static func isRuleShaped(_ content: String) -> Bool {
+        let ns = content as NSString
+        return MarkdownBlocks.isRuleShaped(
+            lineRange: NSRange(location: 0, length: ns.length), in: ns)
     }
 }

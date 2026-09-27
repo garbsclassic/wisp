@@ -90,6 +90,14 @@ struct SmartPasteFormatTests {
         #expect(SmartPaste.format(text) == nil)
     }
 
+    @Test(
+        "A rule-shaped line among otherwise-plain ones disqualifies the whole paste",
+        arguments: ["milk\n* * *\neggs\n", "milk\n- - -\neggs\n"]
+    )
+    func ruleShapedLineDisqualifiesPaste(text: String) {
+        #expect(SmartPaste.format(text) == nil)
+    }
+
     @Test("CRLF and CR newlines are normalised the same as LF")
     func alternateNewlinesNormalised() {
         #expect(SmartPaste.format("milk\r\neggs\r\n") == "- milk\n- eggs")
@@ -106,6 +114,26 @@ struct SmartPasteFormatTests {
         #expect(
             SmartPaste.format("a\tb\nc\td\n\n")
                 == "| a   | b   |\n| --- | --- |\n| c   | d   |")
+    }
+
+    @Test("Three plain lines still become a bulleted list")
+    func threePlainLinesBecomeList() {
+        #expect(SmartPaste.format("milk\neggs\nbread\n") == "- milk\n- eggs\n- bread")
+    }
+
+    /// No single line here trips `isPlainItem`'s own checks, but the lines read as Markdown
+    /// together, so bulleting them would double up their own syntax.
+    @Test(
+        "A paste that is already Markdown as a whole is left untouched, not bulleted",
+        arguments: [
+            "| a | b |\n| c | d |\n",
+            "```bash\nbrew install foo\n```\n",
+            "> one\n> two\n",
+            "Title\n=====\nmilk\n",
+        ]
+    )
+    func pasteThatIsAlreadyMarkdownIsNotBulleted(text: String) {
+        #expect(SmartPaste.format(text) == nil)
     }
 }
 

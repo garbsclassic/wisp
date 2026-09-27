@@ -283,7 +283,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// Wipes the whole storage back to plain body text, so a content pass
     /// can run against a known state.
     ///
-    /// `.kern`, `.underlineStyle`, `.strikethroughStyle` and `.backgroundColor`
+    /// `.kern`, `.underlineStyle`, `.strikethroughStyle`, `.horizontalRule` and `.backgroundColor`
     /// are *removed* rather than overwritten: none has a base value to reset to, and each is set
     /// on ranges that move as the text is edited — a marker's kern would
     /// otherwise stay on whatever character ends up at that offset, and a
@@ -296,6 +296,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         storage.removeAttribute(.kern, range: range)
         storage.removeAttribute(.underlineStyle, range: range)
         storage.removeAttribute(.strikethroughStyle, range: range)
+        storage.removeAttribute(.horizontalRule, range: range)
         storage.addAttributes(
             [.font: font, .foregroundColor: color, .paragraphStyle: paragraph], range: range)
     }
@@ -319,32 +320,32 @@ struct MinimalTextEditor: NSViewRepresentable {
         in storage: NSTextStorage, baseFont: NSFont, indent: Indent, palette: Palette
     ) {
         let marks = Escapes.scan(storage.string)
-        styleHorizontalRules(in: storage)
+        let ns = storage.string as NSString
+        let blocks = MarkdownBlocks(ns)
         styleLists(in: storage, baseFont: baseFont, indent: indent, palette: palette)
         styleHeadings(
-            in: storage, baseFont: baseFont, palette: palette,
-            headings: storage.string.extractHeadings())
+            in: storage, baseFont: baseFont, palette: palette, headings: blocks.headings(in: ns))
         styleInlineMarkup(in: storage, baseFont: baseFont, palette: palette, marks: marks)
+        // Last: `***` and `_ _ _` also match the inline emphasis patterns, which would paint
+        // over the clear that hides a rule's characters.
+        styleHorizontalRules(in: storage, blocks: blocks)
     }
 
-    /// Apply bold, a per-level size, and a per-level colour to lines that
-    /// begin with a markdown heading marker (`#` through `######`). Plain
-    /// text on disk; these are per-range attributes so the heading reads as
-    /// a section title without leaving plain-text mode.
+    /// Apply bold, a per-level size, and a per-level colour to each heading: a `#` line, or a
+    /// paragraph through its `===` or `---` underline. The marker that makes it a heading is
+    /// dimmed. Plain text on disk; these are per-range attributes so the heading reads as a
+    /// section title without leaving plain-text mode.
     private static func styleHeadings(
         in storage: NSTextStorage, baseFont: NSFont, palette: Palette, headings: [Heading]
     ) {
-        let ns = storage.string as NSString
         for heading in headings {
             let font = headingFont(level: heading.level, baseFont: baseFont)
             let color = palette.headings[heading.level - 1]
-            var styleRange = ns.lineRange(for: NSRange(location: heading.lineStart, length: 0))
-            if styleRange.length > 0,
-               ns.character(at: styleRange.location + styleRange.length - 1) == 0x0A {
-                styleRange.length -= 1
-            }
+            let styleRange = NSRange(
+                location: heading.lineStart, length: heading.end - heading.lineStart)
             storage.addAttribute(.font, value: font, range: styleRange)
             storage.addAttribute(.foregroundColor, value: color, range: styleRange)
+            storage.addAttribute(.foregroundColor, value: palette.faint, range: heading.marker)
         }
     }
 
@@ -636,34 +637,17 @@ struct MinimalTextEditor: NSViewRepresentable {
         return NSFont(descriptor: descriptor, size: base.pointSize) ?? base
     }
 
-    /// Walks the storage line-by-line; for any line whose entire
-    /// content is HR markers (the new `---` form, or the legacy
-    /// `─` x N form from pre-0.1.38 files), set the foreground to
-    /// `.clear` so the characters are invisible. The full-width
-    /// rule is then drawn by `NotesLayoutManager`.
-    private static func styleHorizontalRules(in storage: NSTextStorage) {
+    /// Hides every rule line's characters with a `.clear` foreground and tags the line with
+    /// `.horizontalRule`, which `NotesLayoutManager` reads to draw the full-width rule without
+    /// classifying the note again.
+    private static func styleHorizontalRules(in storage: NSTextStorage, blocks: MarkdownBlocks) {
         let ns = storage.string as NSString
-        let total = ns.length
-        var lineStart = 0
-        while lineStart < total {
-            let lineRange = ns.lineRange(for: NSRange(location: lineStart, length: 0))
-            if SmartEditing.isHorizontalRuleLine(
-                lineRange: lineRange, in: ns
-            ) {
-                var contentRange = lineRange
-                if contentRange.length > 0,
-                   ns.character(at: contentRange.location + contentRange.length - 1) == 0x0A {
-                    contentRange.length -= 1
-                }
-                if contentRange.length > 0 {
-                    storage.addAttribute(
-                        .foregroundColor,
-                        value: NSColor.clear,
-                        range: contentRange
-                    )
-                }
-            }
-            lineStart = lineRange.location + lineRange.length
+        for line in blocks.lines where line.kind == .rule {
+            let content = NSRange(
+                location: line.range.location,
+                length: MarkdownBlocks.contentEnd(of: line.range, in: ns) - line.range.location)
+            storage.addAttributes(
+                [.foregroundColor: NSColor.clear, .horizontalRule: true], range: content)
         }
     }
 
@@ -824,6 +808,19 @@ struct MinimalTextEditor: NSViewRepresentable {
             // the rest of the line is empty — i.e., user is finishing "---"
             // at the end of a fresh line, not editing inside content.
             guard beforeCursor == "--", afterCursor.isEmpty else { return true }
+            // Under paragraph text the dashes are a setext underline: they stay as typed, and
+            // the restyle makes the paragraph a heading. In code or frontmatter they're text.
+            let blocks = MarkdownBlocks(s)
+            if let kind = blocks.line(at: lineRange.location)?.kind,
+                kind == .fencedCode || kind == .frontmatter
+            {
+                return true
+            }
+            if lineRange.location > 0,
+                case .text(paragraphStart: .some) = blocks.line(at: lineRange.location - 1)?.kind
+            {
+                return true
+            }
 
             let twoDashRange = NSRange(location: lineRange.location, length: 2)
             replaceWithHorizontalRule(in: textView, range: twoDashRange)
@@ -846,17 +843,6 @@ struct MinimalTextEditor: NSViewRepresentable {
                 location: lineRange.location,
                 length: lineEnd - lineRange.location
             ))
-
-            // Fallback path: catches `---` that arrived via paste, where the
-            // typed-character interceptor above wouldn't fire.
-            if !lastSourceView, SmartEditing.isHorizontalRuleTrigger(line) {
-                let replaceRange = NSRange(
-                    location: lineRange.location,
-                    length: lineEnd - lineRange.location
-                )
-                replaceWithHorizontalRule(in: textView, range: replaceRange)
-                return true
-            }
 
             // ⇧↵ reaches here as a plain `insertNewline:` — AppKit binds
             // no selector to the shifted key — so the modifier is read off

@@ -13,6 +13,12 @@ import WispCore
 ///
 /// The rule spans the line fragment's full width, so it tracks panel
 /// resizes for free.
+extension NSAttributedString.Key {
+    /// Set by the styling pass on a line that is a thematic break, so drawing needn't work out
+    /// again which `---` lines are rules and which underline a heading.
+    static let horizontalRule = NSAttributedString.Key("WispHorizontalRule")
+}
+
 final class NotesLayoutManager: NSLayoutManager {
     /// Stroke color for horizontal rules, refreshed on every theme flip
     /// via `applyPalette`.
@@ -76,7 +82,10 @@ final class NotesLayoutManager: NSLayoutManager {
         let charEnd = charRange.location + charRange.length
         while lineStart < charEnd {
             let lineRange = nsString.lineRange(for: NSRange(location: lineStart, length: 0))
-            if SmartEditing.isHorizontalRuleLine(lineRange: lineRange, in: nsString) {
+            if lineRange.length > 0,
+                textStorage.attribute(.horizontalRule, at: lineRange.location, effectiveRange: nil)
+                    != nil
+            {
                 drawRule(for: lineRange, at: origin, in: context)
             } else {
                 drawGuides(for: lineRange, in: nsString, at: origin)
