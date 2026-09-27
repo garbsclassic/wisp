@@ -34,5 +34,6 @@ Wisp and Clef summon, place, remember, and reset their panels the same way, from
 - [x] `resetPosition` action, status menu and Window menu items
 - [x] `fonts.*` optional, system by default
 - [x] Status menu and hidden main menu reordered
-- [ ] Tests for the new Core code
-- [ ] Review, install, verify
+- [x] Tests for the new Core code
+- [x] Review: four findings fixed — edge-flush carry, per-screen sizing, `null` seed, Clef save on quit
+- [ ] Verify chords, drag, and visuals on an unlocked screen

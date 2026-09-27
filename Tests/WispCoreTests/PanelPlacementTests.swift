@@ -242,3 +242,62 @@ struct PanelPositionTests {
         #expect(position == PanelPosition(x: 1, y: 2))
     }
 }
+
+@Suite("PanelPlacement.screen(under:) and home(of:)")
+struct ScreenUnderTests {
+    static let laptop = CGRect(x: 0, y: 0, width: 1512, height: 944)
+    static let external = CGRect(x: 1512, y: 0, width: 2560, height: 1415)
+    static let size = CGSize(width: 800, height: 640)
+
+    /// A panel dragged flush to the top of a screen has its top-left on that
+    /// screen's `maxY`, which `CGRect.contains` counts as outside.
+    @Test("A saved corner on a screen's top edge is still carried by monitor: pointer")
+    func flushTopEdgeIsCarried() {
+        let saved = CGPoint(x: 300, y: Self.laptop.maxY)
+        let topLeft = PanelPlacement.topLeft(
+            for: Self.size, saved: saved, target: Self.external,
+            screens: [Self.laptop, Self.external], followsTarget: true)
+        #expect(topLeft.x >= Self.external.minX)
+        #expect(topLeft == PanelPlacement.carried(
+            saved, size: Self.size, from: Self.laptop, to: Self.external))
+    }
+
+    @Test("The screen under a frame is the one it overlaps most")
+    func largestOverlapWins() {
+        let straddling = CGRect(x: 1312, y: 100, width: 800, height: 640)
+        #expect(
+            PanelPlacement.screen(under: straddling, in: [Self.laptop, Self.external])
+                == Self.external)
+        let offEverything = CGRect(x: -2000, y: 100, width: 800, height: 640)
+        #expect(PanelPlacement.screen(under: offEverything, in: [Self.laptop]) == nil)
+    }
+
+    /// Under `monitor: primary` a saved position is used wherever it is, so
+    /// a panel sized per screen has to be sized for that screen.
+    @Test("A reachable saved position's home is the screen it's on, when not following")
+    func homeIsWhereTheSavedPositionIs() {
+        let saved = CGPoint(x: 100, y: 900)
+        #expect(
+            PanelPlacement.home(
+                of: saved, size: Self.size, target: Self.external,
+                screens: [Self.laptop, Self.external], followsTarget: false) == Self.laptop)
+    }
+
+    @Test("The home is the target when following, unsaved, or unreachable")
+    func homeFallsBackToTarget() {
+        let screens = [Self.laptop, Self.external]
+        let onLaptop = CGPoint(x: 100, y: 900)
+        #expect(
+            PanelPlacement.home(
+                of: onLaptop, size: Self.size, target: Self.external, screens: screens,
+                followsTarget: true) == Self.external)
+        #expect(
+            PanelPlacement.home(
+                of: nil, size: Self.size, target: Self.external, screens: screens,
+                followsTarget: false) == Self.external)
+        #expect(
+            PanelPlacement.home(
+                of: CGPoint(x: -5000, y: 900), size: Self.size, target: Self.external,
+                screens: screens, followsTarget: false) == Self.external)
+    }
+}

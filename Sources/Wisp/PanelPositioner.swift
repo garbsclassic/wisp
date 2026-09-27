@@ -47,21 +47,35 @@ final class PanelPositioner {
     }
 
     /// Puts the panel where it was last left, or at the default spot.
-    func place(_ panel: NSWindow, size: CGSize) {
-        let size = PanelPlacement.fitted(size, to: targetScreen)
+    ///
+    /// `size` is asked per screen, since a panel sized as a share of the
+    /// screen has to be sized for the one it lands on — which, for a saved
+    /// position under `monitor: primary`, needn't be the target.
+    func place(_ panel: NSWindow, size: (CGRect) -> CGSize) {
+        let target = targetScreen
+        let screens = NSScreen.screens.map(\.visibleFrame)
+        let saved = saved()?.point
+        let follows = monitor() == .pointer
+        let home = PanelPlacement.home(
+            of: saved, size: size(target), target: target, screens: screens,
+            followsTarget: follows)
+        let fitted = PanelPlacement.fitted(size(home), to: home)
         let topLeft = PanelPlacement.topLeft(
-            for: size, saved: saved()?.point, target: targetScreen,
-            screens: NSScreen.screens.map(\.visibleFrame),
-            followsTarget: monitor() == .pointer)
-        panel.setFrame(PanelPlacement.frame(topLeft: topLeft, size: size), display: false)
+            for: fitted, saved: saved, target: target, screens: screens, followsTarget: follows)
+        panel.setFrame(PanelPlacement.frame(topLeft: topLeft, size: fitted), display: false)
         placedTopLeft = panel.frame.topLeft
     }
 
     /// Changes the size without moving the top edge — wherever the panel is
-    /// now, including somewhere it was dragged to since it was placed.
-    func resize(_ panel: NSWindow, to size: CGSize) {
+    /// now, including somewhere it was dragged to since it was placed — sized
+    /// for the screen it's on.
+    func resize(_ panel: NSWindow, to size: (CGRect) -> CGSize) {
+        let screen =
+            PanelPlacement.screen(under: panel.frame, in: NSScreen.screens.map(\.visibleFrame))
+            ?? targetScreen
+        let fitted = PanelPlacement.fitted(size(screen), to: screen)
         panel.setFrame(
-            PanelPlacement.frame(topLeft: panel.frame.topLeft, size: size), display: true)
+            PanelPlacement.frame(topLeft: panel.frame.topLeft, size: fitted), display: true)
     }
 
     /// Remembers the panel's spot if it was dragged since it was placed.
@@ -75,9 +89,9 @@ final class PanelPositioner {
 
     /// Forgets the saved spot, and moves a panel that's on screen back to the
     /// default one straight away.
-    func reset(_ panel: NSWindow) {
+    func reset(_ panel: NSWindow, size: (CGRect) -> CGSize) {
         save(nil)
         placedTopLeft = nil
-        if panel.isVisible { place(panel, size: panel.frame.size) }
+        if panel.isVisible { place(panel, size: size) }
     }
 }

@@ -264,6 +264,26 @@ final class ConfigStoreTests {
         #expect(load.config == config)
     }
 
+    /// A full write spells an unsaved position as `null`, so the first drag
+    /// replaces that value in place instead of falling back to a rewrite of
+    /// the whole file — which would drop a comment added since.
+    @Test("A written config carries position: null, and the first save edits it in place")
+    func firstPositionSaveIsInPlace() throws {
+        var config = WispConfig()
+        try ConfigStore.write(config)
+        let written = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
+        #expect(written.contains(#""position" : null"#))
+
+        try ("// kept\n" + written).write(
+            to: ConfigStore.fileURL, atomically: true, encoding: .utf8)
+        config.position = PanelPosition(x: 12, y: 34)
+        try ConfigStore.update(["position"], to: config.position, in: config)
+
+        let after = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
+        #expect(after.hasPrefix("// kept"))
+        #expect(ConfigStore.loadOrSeed().config.position == PanelPosition(x: 12, y: 34))
+    }
+
     @Test("installSchema copies the source into the config directory")
     func installSchemaCopies() throws {
         let source = root.appendingPathComponent("source.schema.json")

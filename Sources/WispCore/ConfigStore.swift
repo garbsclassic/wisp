@@ -107,11 +107,18 @@ public enum ConfigStore {
     private struct SchemaTagged: Encodable {
         let config: WispConfig
 
-        private enum Keys: String, CodingKey { case schema = "$schema" }
+        private enum Keys: String, CodingKey {
+            case schema = "$schema"
+            case position
+        }
 
         func encode(to encoder: any Encoder) throws {
             var container = encoder.container(keyedBy: Keys.self)
             try container.encode(schemaReference, forKey: .schema)
+            // An unsaved position is written as `null` rather than left out,
+            // so saving one later is an in-place edit of this key instead of
+            // a fallback rewrite of the whole file.
+            if config.position == nil { try container.encodeNil(forKey: .position) }
             try config.encode(to: encoder)
         }
     }

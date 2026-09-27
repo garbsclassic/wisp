@@ -325,3 +325,4 @@
   geometry (⌘X after ⌘⌫ at the end); with rounding on it stopped triggering in every sequence
   tried, so that half is verified by log rather than by eye. Both themes checked on a mixed note:
   bullets, guides, boxes, rule all sit as before. No test target covers the view layer. 442 tests.
+- 2026-09-26 — [unified-panel](plan-unified-panel.md): hold-to-peek, always-movable panel saved as a top-left `position`, Reset Position (⌃⌥0), system fonts, menus in menu-bar-extra order — shared placement code now mirrors Clef's. Review caught a flush-edge `contains` miss and full-file rewrites on the first save; both fixed. Verified on a locked screen only: default and saved placements measured exact by window bounds (455,89 and 200,207), an unreachable save falls back, main menu order read over AX. Chords, drags, and pixels unverified.

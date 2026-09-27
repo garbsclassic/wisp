@@ -128,7 +128,7 @@ final class PanelController {
 
         panel.contentView = outer
 
-        positioner.place(panel, size: rememberedSize)
+        positioner.place(panel, size: { [rememberedSize] _ in rememberedSize })
 
         applyTheme(model.theme)
         model.onThemeChange = { [weak self] theme in
@@ -192,7 +192,7 @@ final class PanelController {
 
     /// Moves the panel back to its default spot and forgets the saved one.
     func resetPosition() {
-        positioner.reset(panel)
+        positioner.reset(panel, size: { [rememberedSize] _ in rememberedSize })
     }
 
     // MARK: Summon
@@ -249,7 +249,7 @@ final class PanelController {
         guard !panel.isVisible else { return }
         // Every summon, not just the first: `monitor: pointer` places against
         // the screen the user is looking at *now*.
-        positioner.place(panel, size: rememberedSize)
+        positioner.place(panel, size: { [rememberedSize] _ in rememberedSize })
         applyTheme(model.theme)
         // Pick up changes another Mac wrote to scratchpad.md while
         // we were dismissed — covers the iCloud/Dropbox sync case.

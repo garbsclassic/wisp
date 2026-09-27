@@ -69,8 +69,35 @@ public enum PanelPlacement {
         }
         guard followsTarget else { return saved }
 
-        let source = screens.first { $0.contains(saved) } ?? target
+        let source = screen(under: frame(topLeft: saved, size: size), in: screens) ?? target
         return carried(saved, size: size, from: source, to: target)
+    }
+
+    /// The screen a panel at `topLeft` would sit on: the one `topLeft(…)` puts
+    /// it on when it doesn't follow the target, or `target` itself. Asked
+    /// before the size is known — a panel sized as a share of its screen needs
+    /// the screen first — so reachability is judged at `size`, the size it
+    /// would have on `target`.
+    public static func home(
+        of saved: CGPoint?, size: CGSize, target: CGRect, screens: [CGRect],
+        followsTarget: Bool
+    ) -> CGRect {
+        guard !followsTarget, let saved else { return target }
+        let frame = frame(topLeft: saved, size: size)
+        guard isReachable(frame, on: screens) else { return target }
+        return screen(under: frame, in: screens) ?? target
+    }
+
+    /// The screen `frame` overlaps most, or nil when it's on none. By overlap
+    /// rather than by containing a corner: a panel pushed flush to a screen's
+    /// top edge has its top-left on that edge, which `CGRect.contains` counts
+    /// as outside.
+    public static func screen(under frame: CGRect, in screens: [CGRect]) -> CGRect? {
+        func area(_ screen: CGRect) -> CGFloat {
+            let overlap = frame.intersection(screen)
+            return overlap.isNull ? 0 : overlap.width * overlap.height
+        }
+        return screens.filter { area($0) > 0 }.max { area($0) < area($1) }
     }
 
     /// The window frame for a top-left corner, in AppKit's bottom-left origin.
