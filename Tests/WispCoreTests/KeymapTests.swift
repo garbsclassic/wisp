@@ -144,9 +144,9 @@ struct KeymapTests {
 
     /// Same default as Clef's, so the two apps agree on the chord even where
     /// they don't share a `Keymap` type.
-    @Test("Reset Position defaults to ctrl+opt+0, titled, and panel-scoped")
+    @Test("Reset Position defaults to cmd+opt+0, titled, and panel-scoped")
     func resetPositionAction() {
-        #expect(KeymapAction.resetPosition.defaultChords == "ctrl+opt+0")
+        #expect(KeymapAction.resetPosition.defaultChords == "cmd+opt+0")
         #expect(KeymapAction.resetPosition.title == "Reset Position")
         #expect(KeymapAction.resetPosition.isPanelScoped)
     }

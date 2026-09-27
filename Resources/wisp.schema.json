@@ -143,7 +143,7 @@
         "decreaseFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+-" },
         "resetFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+0" },
         "reveal": { "$ref": "#/$defs/chordSet", "default": "opt+cmd+r" },
-        "resetPosition": { "$ref": "#/$defs/chordSet", "default": "ctrl+opt+0" }
+        "resetPosition": { "$ref": "#/$defs/chordSet", "default": "cmd+opt+0" }
       }
     },
     "indent": {
