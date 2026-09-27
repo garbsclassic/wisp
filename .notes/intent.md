@@ -47,3 +47,7 @@ whitespace also renders itself, so a two-space nested item steps in by four spac
 oversight: two spaces of Inter is eight points, which does not read as a nesting step; doubled it
 is about the width of `• `, which is the step Apple Notes uses. `headIndent` and the continuation-
 line indent both include the doubling, so wrapped and continuation lines land on the item's text.
+
+## Reset Position has a chord here but not in Clef
+
+⌥⌘0 is scoped to the focused panel here. Clef's HUD never takes focus, so the same chord would have to be claimed globally from the app underneath; Clef keeps Reset Position as a menu item only.

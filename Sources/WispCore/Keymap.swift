@@ -159,8 +159,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         // ⌘R with Option, beside the plain ⌘R it is a cousin of: one
         // re-reads the note, the other goes and looks at it.
         case .reveal: return "opt+cmd+r"
-        // ⌘0 resets the text size; ⌥⌘0 resets the panel's place. Same
-        // default as Clef's.
+        // ⌘0 resets the text size; ⌥⌘0 resets the panel's place. Clef has
+        // no chord for this — see its intent.md.
         case .resetPosition: return "cmd+opt+0"
         }
     }
