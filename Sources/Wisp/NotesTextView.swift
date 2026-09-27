@@ -156,7 +156,7 @@ final class NotesTextView: NSTextView {
         let edited = length != lengthAtLastCaretUpdate
         lengthAtLastCaretUpdate = length
 
-        guard caretIsWanted, let window else {
+        guard caretIsWanted, let layoutManager, let textContainer else {
             caret.update(to: nil, color: insertionPointColor, animated: false)
             return
         }
@@ -164,10 +164,22 @@ final class NotesTextView: NSTextView {
             wantsLayer = true
             layer?.addSublayer(caret.layer)
         }
-        // The `NSTextInputClient` contract: an empty range yields the
-        // insertion point, the same rect the IME candidate window keys off.
-        let onScreen = firstRect(forCharacterRange: selectedRange(), actualRange: nil)
-        var frame = convert(window.convertFromScreen(onScreen), from: nil)
+        // An empty range yields the insertion point: a zero-width rect the
+        // height of its line fragment. Not `firstRect(forCharacterRange:)`,
+        // which clips to the visible rect — a line half past the bottom
+        // edge came back half height and the baseline below rode up with it.
+        var count = 0
+        guard
+            let rects = layoutManager.rectArray(
+                forCharacterRange: selectedRange(),
+                withinSelectedCharacterRange: selectedRange(),
+                in: textContainer, rectCount: &count),
+            count > 0
+        else {
+            caret.update(to: nil, color: insertionPointColor, animated: false)
+            return
+        }
+        var frame = rects[0].offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y)
         // Centred on the boundary as AppKit's indicator is, then snapped to
         // device pixels so a 1x display doesn't smear it over three columns.
         frame.origin.x -= CaretLayer.width / 2
