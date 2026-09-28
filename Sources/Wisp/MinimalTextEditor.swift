@@ -57,6 +57,9 @@ struct MinimalTextEditor: NSViewRepresentable {
     var ruleStyle: RuleStyle
     /// Applied on the text view directly, like `caret`.
     var spellcheck: Bool
+    /// The text view's own Check Spelling While Typing item routes here, so
+    /// the model — and the footer — stay the one source of truth.
+    var onToggleSpellcheck: () -> Void
 
     func makeNSView(context: Context) -> NSScrollView {
         let (scrollView, textView) = NotesTextView.makeScrollView()
@@ -77,14 +80,9 @@ struct MinimalTextEditor: NSViewRepresentable {
         textView.isRichText = false
         textView.importsGraphics = false
         textView.usesFindBar = false
-        textView.isAutomaticQuoteSubstitutionEnabled = false
-        textView.isAutomaticDashSubstitutionEnabled = false
-        textView.isAutomaticTextReplacementEnabled = false
-        // Squiggles and suggestions only: nothing rewrites a word behind you.
-        textView.isAutomaticSpellingCorrectionEnabled = false
-        textView.isGrammarCheckingEnabled = false
         textView.isContinuousSpellCheckingEnabled = spellcheck
-        if spellcheck { Self.checkSpelling(in: textView) }
+        textView.onToggleSpellcheck = onToggleSpellcheck
+        if spellcheck { textView.checkSpellingEverywhere() }
         textView.textContainerInset = .zero
         textView.textContainer?.lineFragmentPadding = 0
         textView.indentUnit = indent.unit
@@ -121,21 +119,28 @@ struct MinimalTextEditor: NSViewRepresentable {
         if context.coordinator.lastFontScale != fontScale
             || context.coordinator.lastIndent != indent
             || context.coordinator.lastSourceView != isSourceView
-            || context.coordinator.lastRuleStyle != ruleStyle
         {
             context.coordinator.lastFontScale = fontScale
             context.coordinator.lastIndent = indent
             context.coordinator.lastSourceView = isSourceView
-            context.coordinator.lastRuleStyle = ruleStyle
             textView.indentUnit = indent.unit
             restyle(textView)
+        }
+        // Drawing only: the rule's line and the blank lines around it are
+        // styled the same either way.
+        if context.coordinator.lastRuleStyle != ruleStyle,
+            let layoutManager = textView.layoutManager as? NotesLayoutManager
+        {
+            context.coordinator.lastRuleStyle = ruleStyle
+            layoutManager.ruleStyle = ruleStyle
+            textView.needsDisplay = true
         }
         if textView.caretStyle != caret {
             textView.caretStyle = caret
         }
         if textView.isContinuousSpellCheckingEnabled != spellcheck {
             textView.isContinuousSpellCheckingEnabled = spellcheck
-            if spellcheck { Self.checkSpelling(in: textView) }
+            if spellcheck { textView.checkSpellingEverywhere() }
         }
         textView.smartPaste = smartPaste
         if context.coordinator.lastTheme != theme {
@@ -210,17 +215,6 @@ struct MinimalTextEditor: NSViewRepresentable {
         Self.applyPalette(
             Palette.for(theme), to: textView, font: Self.baseFont(isSourceView: isSourceView),
             indent: indent, isSourceView: isSourceView, ruleStyle: ruleStyle)
-    }
-
-    /// Continuous checking only looks at text as it is edited, so a note
-    /// already on screen when checking comes on would show no marks until
-    /// the next keystroke. Spelling only: the other checking types rewrite.
-    private static func checkSpelling(in textView: NSTextView) {
-        DispatchQueue.main.async {
-            textView.checkText(
-                in: NSRange(location: 0, length: (textView.string as NSString).length),
-                types: NSTextCheckingResult.CheckingType.spelling.rawValue, options: [:])
-        }
     }
 
     /// The face the whole body is set in. Raw mode takes the code family,
@@ -727,10 +721,10 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lastSourceView: Bool = false
         var lastRuleStyle: RuleStyle = .line
         /// Where the last `--` → `—` and third-↵ rule landed, so the next
-        /// press of the same key can take them back. Cleared as soon as the
-        /// caret leaves the spot right after them.
-        var lastAutoDash: Int?
-        var lastAutoRule: Int?
+        /// press of the same key can take them back, and where each left
+        /// the caret. Cleared as soon as the caret leaves that spot.
+        var lastAutoDash: (at: Int, caret: Int)?
+        var lastAutoRule: (at: Int, caret: Int)?
 
         let caretOffset: Binding<Int>
 
@@ -746,10 +740,10 @@ struct MinimalTextEditor: NSViewRepresentable {
             guard let textView = notification.object as? NSTextView else { return }
             let selection = textView.selectedRange()
             let offset = selection.location
-            if let dash = lastAutoDash, selection != NSRange(location: dash + 1, length: 0) {
+            if let dash = lastAutoDash, selection != NSRange(location: dash.caret, length: 0) {
                 lastAutoDash = nil
             }
-            if let rule = lastAutoRule, selection != NSRange(location: rule + 5, length: 0) {
+            if let rule = lastAutoRule, selection != NSRange(location: rule.caret, length: 0) {
                 lastAutoRule = nil
             }
             DispatchQueue.main.async { [caretOffset] in
@@ -849,31 +843,28 @@ struct MinimalTextEditor: NSViewRepresentable {
                 let s = textView.string as NSString
                 let cursor = affectedCharRange.location
                 if let revert = SmartEditing.emDashRevert(
-                    in: s, cursor: cursor, autoDash: lastAutoDash, typed: typed)
+                    in: s, cursor: cursor, autoDash: lastAutoDash?.at, typed: typed)
                 {
                     lastAutoDash = nil
                     notes.apply(revert)
                     return false
                 }
-                if typed == "-", SmartEditing.emDashEdit(in: s, cursor: cursor) != nil {
+                if typed == "-" {
                     // The dash types as usual and the pair is swapped a turn
                     // later, in an undo group of its own — so ⌘Z takes back
                     // the substitution and leaves the `--` that was typed,
                     // the way macOS autocorrect does.
-                    let pair = NSRange(location: cursor - 1, length: 2)
+                    let typedCaret = cursor + 1
                     DispatchQueue.main.async { [weak self, weak notes] in
                         guard let self, let notes,
-                            notes.selectedRange() == NSRange(location: NSMaxRange(pair), length: 0),
-                            NSMaxRange(pair) <= (notes.string as NSString).length,
-                            (notes.string as NSString).substring(with: pair) == "--"
+                            notes.selectedRange() == NSRange(location: typedCaret, length: 0),
+                            let edit = SmartEditing.emDashEdit(
+                                in: notes.string as NSString, cursor: typedCaret)
                         else { return }
                         notes.breakUndoCoalescing()
-                        notes.apply(LineEdits.Edit(
-                            range: pair, replacement: "—",
-                            selection: NSRange(location: pair.location + 1, length: 0)))
-                        self.lastAutoDash = pair.location
+                        notes.apply(edit)
+                        self.lastAutoDash = (edit.range.location, edit.selection.location)
                     }
-                    return true
                 }
             }
 
@@ -910,9 +901,7 @@ struct MinimalTextEditor: NSViewRepresentable {
             // Under paragraph text the dashes are a setext underline: they stay as typed, and
             // the restyle makes the paragraph a heading. In code or frontmatter they're text.
             let blocks = MarkdownBlocks(s)
-            if let kind = blocks.line(at: lineRange.location)?.kind,
-                kind == .fencedCode || kind == .frontmatter
-            {
+            if blocks.line(at: lineRange.location)?.kind.isCode == true {
                 return true
             }
             if lineRange.location > 0,
@@ -947,20 +936,19 @@ struct MinimalTextEditor: NSViewRepresentable {
             // no selector to the shifted key — so the modifier is read off
             // the event. Inside an item it starts a continuation line;
             // anywhere else it is an ordinary ↵.
-            if let event = NSApp.currentEvent, event.type == .keyDown,
-                event.modifierFlags.contains(.shift),
-                let continuation = SmartEditing.continuationLine(in: s, cursor: cursor) {
+            let isShifted = NSApp.currentEvent.map {
+                $0.type == .keyDown && $0.modifierFlags.contains(.shift)
+            } ?? false
+            if isShifted, let continuation = SmartEditing.continuationLine(in: s, cursor: cursor) {
                 replace(in: textView, range: selection, with: continuation)
                 return true
             }
 
-            let isShifted = NSApp.currentEvent.map {
-                $0.type == .keyDown && $0.modifierFlags.contains(.shift)
-            } ?? false
             if selection.length == 0, !lastSourceView, !isShifted,
                 let notes = textView as? NotesTextView
             {
-                if let revert = SmartEditing.ruleRevert(in: s, cursor: cursor, autoRule: lastAutoRule)
+                if let revert = SmartEditing.ruleRevert(
+                    in: s, cursor: cursor, autoRule: lastAutoRule?.at)
                 {
                     lastAutoRule = nil
                     notes.apply(revert)
@@ -968,7 +956,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                 }
                 if let edit = SmartEditing.ruleOnReturn(in: s, cursor: cursor) {
                     notes.apply(edit)
-                    lastAutoRule = cursor
+                    lastAutoRule = (edit.range.location, edit.selection.location)
                     return true
                 }
             }

@@ -4,8 +4,9 @@ import Foundation
 /// at the footer wants it.
 public enum RelativeTime {
     /// Under a minute is `just now`, as is a date in the future — a clock skewed by sync is not
-    /// worth a stranger phrase. Minutes and hours count elapsed time; days count calendar days,
-    /// so 23:59 yesterday is `yesterday` at 00:01. Past a week it's the date.
+    /// worth a stranger phrase. Under a day counts elapsed minutes or hours, so 23:59 reads as
+    /// `2 min ago` at 00:01. Past that it counts calendar days, so 10:00 two days back reads as
+    /// `2 days ago` at 09:00, 47 hours on. Past a week it's the date.
     public static func coarse(
         _ date: Date, now: Date, calendar: Calendar = .current, locale: Locale = .current
     ) -> String {

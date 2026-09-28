@@ -62,10 +62,9 @@ struct HelpOverlay: View {
         .background(Color(palette.panel).opacity(0.97))
     }
 
-    /// Header and footer share one shape, and take the same insets as the
-    /// app's own bars — the page crossfades onto them, and a bar that shifts
-    /// by 8pt on the way in is more noticeable than one drawn 8pt off the
-    /// mockup.
+    /// The footer bar, on the same insets as the app's own — the page
+    /// crossfades onto them, and a bar that shifts by 8pt on the way in is
+    /// more noticeable than one drawn 8pt off the mockup.
     @ViewBuilder
     private func chrome<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         HStack(spacing: 12) {
@@ -76,8 +75,7 @@ struct HelpOverlay: View {
         .lineLimit(1)
         .padding(.horizontal, Metrics.chromeInsetX)
         .padding(.vertical, Metrics.chromeInsetY)
-        // Leading, like the heading strip this bar replaces — a lone label
-        // in a full-width row centres itself otherwise.
+        // Leading: a full-width row with no spacer centres itself otherwise.
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(palette.chrome))
     }

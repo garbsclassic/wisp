@@ -94,6 +94,8 @@ public struct HelpDocument: Equatable, Sendable {
                 Row("- [ ]", "task — click the box to check it"),
                 Row("# · ## · ###", "headings — or === · --- under a line"),
                 Row("--- · *** · ___", "horizontal rule"),
+                Row("↵ ↵ ↵", "rule after a paragraph — ↵ again removes it"),
+                Row("--", "em dash — - or > again gives back --- or -->"),
                 Row("⌘V on a blank line", "grid → table, lines → list"),
             ]),
         ])

@@ -163,9 +163,11 @@ struct FooterBar: View {
     }
 }
 
-/// Footer text that is also a control: lifts from `muted` to `text` on
-/// hover, like `GlyphButton`. Disabled, it is plain text — no lift, no
-/// pointer, no tooltip — so a label with nothing to do doesn't pretend.
+/// A footer control. Hovering lifts it from `muted` to `text` — a fade
+/// rather than a snap, since the footer is the quietest part of the panel
+/// and a hard flip there reads as a flicker. Disabled, it is plain text —
+/// no lift, no pointer, no tooltip — so a label with nothing to do doesn't
+/// pretend.
 struct HoverTextButton<Label: View>: View {
     let help: String
     var isEnabled = true
@@ -199,28 +201,17 @@ struct HoverTextButton<Label: View>: View {
 }
 
 /// Footer buttons share one shape: an SF Symbol in a fixed box, so the
-/// row's spacing doesn't rag as the icons change. Hovering lifts the glyph
-/// from `muted` to `text` — a fade rather than a snap, since the footer is
-/// the quietest part of the panel and a hard flip there reads as a flicker.
+/// row's spacing doesn't rag as the icons change.
 struct GlyphButton: View {
     let symbol: String
     let help: String
     let action: () -> Void
-    @Environment(\.palette) private var palette
-    @State private var isHovered = false
 
     var body: some View {
-        Button(action: action) {
+        HoverTextButton(help: help, action: action) {
             Image(systemName: symbol)
                 .font(Typography.ui(Metrics.chromeSize))
                 .frame(width: Metrics.footerButtonWidth, height: Metrics.footerButtonHeight)
-                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color(isHovered ? palette.text : palette.muted))
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
-        .onHover { isHovered = $0 }
-        .pointerCursor()
-        .help(help)
     }
 }

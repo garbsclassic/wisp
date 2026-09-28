@@ -13,13 +13,22 @@ private func apply(_ edit: LineEdits.Edit, to text: String) -> (String, Int) {
 
 @Suite("SmartEditing: em dash on the second `-`")
 struct EmDashEditTests {
+    /// Types the second `-` at `cursor`, as the keystroke does, then asks
+    /// for the edit — so a test reads as the text before the key and the
+    /// text after it.
+    private func typed(_ text: String, cursor: Int) -> String {
+        let typed = NSMutableString(string: text)
+        typed.insert("-", at: cursor)
+        return typed as String
+    }
+
     private func edit(_ text: String, cursor: Int) -> LineEdits.Edit? {
-        SmartEditing.emDashEdit(in: text as NSString, cursor: cursor)
+        SmartEditing.emDashEdit(in: typed(text, cursor: cursor) as NSString, cursor: cursor + 1)
     }
 
     private func applied(_ text: String, cursor: Int) -> (String, Int)? {
         guard let e = edit(text, cursor: cursor) else { return nil }
-        return apply(e, to: text)
+        return apply(e, to: typed(text, cursor: cursor))
     }
 
     @Test("A dash right after a letter becomes an em dash")

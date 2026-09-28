@@ -31,6 +31,16 @@ public struct MarkdownBlocks: Sendable {
         case indentedCode
         /// The `---` … `---` properties block at the top of the note, as Obsidian reads it.
         case frontmatter
+
+        /// Code or metadata rather than prose: no typing shortcuts, no spellcheck. Exhaustive,
+        /// so a new kind has to say which it is.
+        public var isCode: Bool {
+            switch self {
+            case .fence, .fencedCode, .indentedCode, .frontmatter: return true
+            case .blank, .text, .listItem, .quote, .tableRow, .heading, .setextUnderline, .rule:
+                return false
+            }
+        }
     }
 
     public struct Line: Equatable, Sendable {
@@ -138,37 +148,43 @@ public struct MarkdownBlocks: Sendable {
     }
 
     /// Everything in the note that is code rather than prose: fenced and indented blocks with
-    /// their fences, frontmatter, and `` `inline` `` spans, the last matched the way the styling
-    /// pass matches them. For the spellchecker, which would otherwise mark every identifier.
+    /// their fences, frontmatter, and `` `inline` `` spans. For the spellchecker, which would
+    /// otherwise mark every identifier.
     public func codeRanges(in text: NSString) -> [NSRange] {
+        let escapes = Escapes.scan(text)
         var ranges: [NSRange] = []
         for line in lines {
-            switch line.kind {
-            case .fence, .fencedCode, .indentedCode, .frontmatter:
+            if line.kind.isCode {
                 ranges.append(line.range)
-            default:
+            } else {
                 let content = NSRange(
                     location: line.range.location,
                     length: Self.contentEnd(of: line.range, in: text) - line.range.location)
-                ranges += Self.codeSpans(in: text, line: content)
+                ranges += Self.codeSpans(in: text, over: content, escapes: escapes).spans
             }
         }
         return ranges
     }
 
-    private static func codeSpans(in text: NSString, line: NSRange) -> [NSRange] {
+    /// The `` `inline` `` spans in `range`, which shouldn't cross a line, read the way the
+    /// styling pass's `` `[^`\n]+` `` over escape-masked text reads them: an escaped backtick
+    /// is text, and an empty pair is two backticks rather than a span. `open` is where a
+    /// backtick still waiting for its closer sits at the end of the range.
+    public static func codeSpans(
+        in text: NSString, over range: NSRange, escapes: Escapes.Marks
+    ) -> (spans: [NSRange], open: Int?) {
         var spans: [NSRange] = []
         var open: Int?
-        for index in line.location..<NSMaxRange(line) where text.character(at: index) == 0x60 {
-            if let start = open {
-                // An empty pair is two backticks, not a span, as `[^`\n]+` has it.
-                if index > start + 1 { spans.append(NSRange(location: start, length: index - start + 1)) }
-                open = index > start + 1 ? nil : index
+        for index in range.location..<NSMaxRange(range)
+        where text.character(at: index) == 0x60 && !escapes.isEscaped(index) {
+            if let start = open, index > start + 1 {
+                spans.append(NSRange(location: start, length: index - start + 1))
+                open = nil
             } else {
                 open = index
             }
         }
-        return spans
+        return (spans, open)
     }
 
     /// Where a line's content ends: before its `\n`, and before a `\r` ahead of it, so a note

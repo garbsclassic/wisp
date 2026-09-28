@@ -351,6 +351,13 @@ struct MarkdownBlocksCodeRangesTests {
         #expect(ranges.map { ns.substring(with: $0) } == ["`x`", "`y`"])
     }
 
+    @Test("An escaped backtick is text, as the styling pass reads it")
+    func escapedBacktick() {
+        let ns = "\\`teh\\` and `x`" as NSString
+        let ranges = MarkdownBlocks(ns).codeRanges(in: ns)
+        #expect(ranges.map { ns.substring(with: $0) } == ["`x`"])
+    }
+
     @Test("An unclosed backtick opens no span")
     func unclosedBacktick() {
         let ns = "a `x b" as NSString

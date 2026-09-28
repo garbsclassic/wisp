@@ -133,9 +133,6 @@ final class EditorModel: ObservableObject {
             settings.setFooterStatus(footerStatus)
         }
     }
-    /// When the note on disk last changed, by us or by a sync. Nil until
-    /// there is a file.
-    @Published private(set) var lastModified: Date?
     /// User-facing choice: light, dark, or follow-system. Persisted.
     @Published var themeSetting: ThemeSetting = .system {
         didSet {
@@ -177,10 +174,9 @@ final class EditorModel: ObservableObject {
     /// mtime of the file the last time we successfully loaded from
     /// disk — or wrote it ourselves, which counts the same way. Drives
     /// reloadFromDiskIfChanged so we only re-read when the file has
-    /// actually moved on (e.g., another Mac wrote to it via iCloud sync).
-    private var lastLoadedMTime: Date? {
-        didSet { lastModified = lastLoadedMTime }
-    }
+    /// actually moved on (e.g., another Mac wrote to it via iCloud sync),
+    /// and the footer's last-modified readout. Nil until there is a file.
+    @Published private(set) var lastLoadedMTime: Date?
     /// True between a keystroke and the debounced save that follows it.
     /// The directory watcher can otherwise fire on a save of ours while
     /// the buffer has already moved past what landed on disk, and the
@@ -216,8 +212,6 @@ final class EditorModel: ObservableObject {
         if let loaded = try? String(contentsOf: url, encoding: .utf8) {
             text = loaded
             lastLoadedMTime = Self.fileMTime(at: url)
-            // `didSet` doesn't run from an initializer.
-            lastModified = lastLoadedMTime
         }
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
         didLoad = true
@@ -580,8 +574,11 @@ struct EditorView: View {
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
-                HeaderBar(labels: barHeadings.map(\.name)) { index in
-                    model.jumpTo(barHeadings[index])
+                // One read, so a click jumps to the heading it was drawn from
+                // even if the note changed since.
+                let headings = barHeadings
+                HeaderBar(labels: headings.map(\.name)) { index in
+                    model.jumpTo(headings[index])
                 }
                 ZStack(alignment: .topLeading) {
                     MinimalTextEditor(
@@ -612,7 +609,8 @@ struct EditorView: View {
                         theme: model.theme,
                         isSourceView: model.isSourceView,
                         ruleStyle: model.settings.config.rule,
-                        spellcheck: model.spellcheck
+                        spellcheck: model.spellcheck,
+                        onToggleSpellcheck: { model.toggleSpellcheck() }
                     )
                     .padding(.horizontal, Metrics.chromeInsetX)
                     .padding(.top, barHeadings.isEmpty ? 24 : 4)
@@ -634,7 +632,7 @@ struct EditorView: View {
                     readout: model.footerStatus == .position
                         ? .position(
                             CaretPosition(in: model.text, at: model.caretOffset), words: wordCount)
-                        : .modified(model.lastModified),
+                        : .modified(model.lastLoadedMTime),
                     onToggleReadout: { model.toggleFooterStatus() },
                     fontScale: model.fontScale,
                     isDefaultFontScale:

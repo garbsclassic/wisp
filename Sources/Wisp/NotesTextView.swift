@@ -17,6 +17,15 @@ final class NotesTextView: NSTextView {
     var indentUnit: String = Indent().unit
     /// Mirrors `smartPaste` in the config; read on every ⌘V.
     var smartPaste: Bool = true
+    /// Where the right-click menu's Check Spelling While Typing goes, so it
+    /// flips the setting rather than just this view.
+    var onToggleSpellcheck: (() -> Void)?
+
+    /// What `setSpellingState` keeps marks off, worked out once per edit:
+    /// AppKit calls it once per misspelled word, and classifying the note
+    /// each time made enabling spellcheck on a long note take seconds.
+    private var codeRanges: [NSRange]?
+    private var storageObserver: (any NSObjectProtocol)?
 
     /// How the caret moves and blinks. Applied on the next reposition.
     var caretStyle: Caret {
@@ -66,6 +75,13 @@ final class NotesTextView: NSTextView {
         textView.minSize = NSSize.zero
         textView.maxSize = NSSize(
             width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+
+        textView.storageObserver = NotificationCenter.default.addObserver(
+            forName: NSTextStorage.didProcessEditingNotification, object: storage, queue: nil
+        ) { [weak textView, weak storage] _ in
+            guard storage?.editedMask.contains(.editedCharacters) == true else { return }
+            MainActor.assumeIsolated { textView?.codeRanges = nil }
+        }
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -541,17 +557,18 @@ final class NotesTextView: NSTextView {
     }
 
     /// Keeps the spellchecker's marks off code: an identifier in backticks
-    /// or a fenced block isn't a misspelled word. Clearing marks passes
-    /// straight through, so switching checking off still wipes them all.
+    /// or a fenced block isn't a misspelled word. Source view too, so no
+    /// mark made there outlives it. Clearing marks passes straight through,
+    /// so switching checking off still wipes them all.
     override func setSpellingState(_ value: Int, range charRange: NSRange) {
-        guard value != 0, !isSourceView else {
+        guard value != 0 else {
             super.setSpellingState(value, range: charRange)
             return
         }
         let text = string as NSString
+        if codeRanges == nil { codeRanges = MarkdownBlocks(text).codeRanges(in: text) }
         var remaining = [charRange]
-        for code in MarkdownBlocks(text).codeRanges(in: text)
-        where NSIntersectionRange(code, charRange).length > 0 {
+        for code in codeRanges ?? [] where NSIntersectionRange(code, charRange).length > 0 {
             remaining = remaining.flatMap { piece -> [NSRange] in
                 let cut = NSIntersectionRange(piece, code)
                 guard cut.length > 0 else { return [piece] }
@@ -562,6 +579,47 @@ final class NotesTextView: NSTextView {
             }
         }
         for piece in remaining { super.setSpellingState(value, range: piece) }
+    }
+
+    /// Continuous checking looks only at text as it is edited, so a note
+    /// already on screen when checking comes on shows no marks until each
+    /// paragraph is touched. Spelling only: the other types rewrite.
+    func checkSpellingEverywhere() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            checkText(
+                in: NSRange(location: 0, length: (string as NSString).length),
+                types: NSTextCheckingResult.CheckingType.spelling.rawValue, options: [:])
+        }
+    }
+
+    override func toggleContinuousSpellChecking(_ sender: Any?) {
+        guard let onToggleSpellcheck else { return super.toggleContinuousSpellChecking(sender) }
+        onToggleSpellcheck()
+    }
+
+    // Wisp never rewrites a word behind you. These stay off even when the
+    // right-click menu's Spelling and Substitutions items ask for them, so
+    // the items can't switch on something nothing would switch back off.
+    override var isGrammarCheckingEnabled: Bool {
+        get { false }
+        set {}
+    }
+    override var isAutomaticSpellingCorrectionEnabled: Bool {
+        get { false }
+        set {}
+    }
+    override var isAutomaticQuoteSubstitutionEnabled: Bool {
+        get { false }
+        set {}
+    }
+    override var isAutomaticDashSubstitutionEnabled: Bool {
+        get { false }
+        set {}
+    }
+    override var isAutomaticTextReplacementEnabled: Bool {
+        get { false }
+        set {}
     }
 
     /// Runs one `LineEdits.Edit` through the delegate/undo bookkeeping and

@@ -8,36 +8,39 @@ import Foundation
 /// user wrote by hand is left alone — so the caller keeps the location it
 /// made and passes it back in.
 extension SmartEditing {
-    /// A `-` typed at `cursor` straight after another: the pair becomes
-    /// `—`. Nil where a double dash means something else: at the start of a
-    /// line, where `---` is on its way to a rule; after a third dash; in
+    /// A `--` just typed, ending at `cursor`: the pair becomes `—`. Nil
+    /// where a double dash means something else: at the start of a line,
+    /// where `---` is on its way to a rule; as part of a longer run; in
     /// code, frontmatter, or a table; and after `<`, `!`, `|`, or `:`,
     /// which start `<!--`, arrows, and table alignment rows.
     public static func emDashEdit(in text: NSString, cursor: Int) -> LineEdits.Edit? {
         let line = LineEdits.lineRange(in: text, at: cursor)
-        let dash = cursor - 1
-        guard dash >= line.location, text.character(at: dash) == hyphen else { return nil }
+        let pair = NSRange(location: cursor - 2, length: 2)
+        guard pair.location >= line.location, cursor <= text.length,
+            text.character(at: pair.location) == hyphen,
+            text.character(at: pair.location + 1) == hyphen
+        else { return nil }
 
-        // Something other than whitespace before the first dash, and that
+        // Something other than whitespace before the pair, and that
         // something isn't a dash or one of the characters that start a
         // different construct.
-        let head = NSRange(location: line.location, length: dash - line.location)
+        let head = NSRange(location: line.location, length: pair.location - line.location)
         guard head.length > 0,
             text.rangeOfCharacter(
                 from: CharacterSet.whitespaces.inverted, options: [], range: head
             ).location != NSNotFound
         else { return nil }
-        guard !"-—<!|:".utf16.contains(text.character(at: dash - 1)) else { return nil }
-
-        switch MarkdownBlocks(text).line(at: line.location)?.kind {
-        case .fence, .fencedCode, .indentedCode, .frontmatter, .tableRow: return nil
-        default: break
+        guard !"-—<!|:".utf16.contains(text.character(at: pair.location - 1)) else { return nil }
+        if let kind = MarkdownBlocks(text).line(at: line.location)?.kind,
+            kind.isCode || kind == .tableRow
+        {
+            return nil
         }
-        guard !isInsideCodeSpan(head, in: text) else { return nil }
+        guard MarkdownBlocks.codeSpans(in: text, over: head, escapes: Escapes.scan(text)).open == nil
+        else { return nil }
 
         return LineEdits.Edit(
-            range: NSRange(location: dash, length: 1), replacement: "—",
-            selection: NSRange(location: cursor, length: 0))
+            range: pair, replacement: "—", selection: NSRange(location: pair.location + 1, length: 0))
     }
 
     /// A `-` or `>` typed at `cursor` right after the `—` that `emDashEdit`
@@ -79,11 +82,8 @@ extension SmartEditing {
 
         // Inside a fence or frontmatter the empty lines are code, not `.blank`, so the guard
         // above has already turned those away. An indented block ends at its blank line, so
-        // that one has to be refused here.
-        switch above {
-        case .blank, .rule, .indentedCode: return nil
-        default: break
-        }
+        // that one is refused here.
+        guard above != .blank, above != .rule, !above.isCode else { return nil }
 
         return LineEdits.Edit(
             range: NSRange(location: cursor, length: 0), replacement: "---\n\n",
@@ -106,25 +106,6 @@ extension SmartEditing {
             selection: NSRange(location: cursor - 3, length: 0))
     }
 
-    /// Whether an odd number of unescaped backticks precede the end of
-    /// `head` — an inline code span left open, as far as the line has got.
-    private static func isInsideCodeSpan(_ head: NSRange, in text: NSString) -> Bool {
-        var open = false
-        var index = head.location
-        while index < NSMaxRange(head) {
-            let c = text.character(at: index)
-            if c == backslash {
-                index += 2
-                continue
-            }
-            if c == backtick { open.toggle() }
-            index += 1
-        }
-        return open
-    }
-
     private static let hyphen = unichar(0x2D)
     private static let emDash = unichar(0x2014)
-    private static let backslash = unichar(0x5C)
-    private static let backtick = unichar(0x60)
 }
