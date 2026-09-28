@@ -180,6 +180,12 @@
         }
       }
     },
+    "rule": {
+      "description": "How --- is drawn: line is a hairline across the text, seam is a book's centred * * * section break.",
+      "type": "string",
+      "enum": ["line", "seam"],
+      "default": "line"
+    },
     "panel": {
       "description": "The remembered panel size in screen points, written when the panel hides.",
       "type": ["object", "null"],

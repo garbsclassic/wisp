@@ -174,6 +174,14 @@ public enum CaretMotion: String, Codable, CaseIterable, Sendable {
     case off
 }
 
+/// How a thematic break (`---`, `***`, `___`) is drawn.
+public enum RuleStyle: String, Codable, CaseIterable, Sendable {
+    /// A hairline across the text column.
+    case line
+    /// A book's section break: `*  *  *`, centred.
+    case seam
+}
+
 /// The caret's animation: how it moves, and whether it blinks.
 ///
 /// Drawn by `NotesTextView` as a Core Animation layer rather than by
@@ -292,6 +300,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
     public var indent: Indent
     /// How the caret moves and blinks.
     public var caret: Caret
+    /// How a `---` rule is drawn.
+    public var rule: RuleStyle
     /// Absent until the panel has been shown and hidden once.
     public var panel: PanelFrame?
 
@@ -310,6 +320,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         keymap: Keymap = Keymap(),
         indent: Indent = Indent(),
         caret: Caret = Caret(),
+        rule: RuleStyle = .line,
         panel: PanelFrame? = nil
     ) {
         self.theme = theme
@@ -326,6 +337,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.keymap = keymap
         self.indent = indent
         self.caret = caret
+        self.rule = rule
         self.panel = panel
     }
 
@@ -365,6 +377,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .indent, default: defaults.indent, diagnostics: diagnostics)
         caret = container.lenientValue(
             forKey: .caret, default: defaults.caret, diagnostics: diagnostics)
+        rule = container.lenientValue(
+            forKey: .rule, default: defaults.rule, diagnostics: diagnostics)
         // `T` is `PanelFrame?` here, so a missing key and an explicit null
         // both land on "no remembered frame".
         panel = container.lenientValue(

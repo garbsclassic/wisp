@@ -42,6 +42,11 @@ final class NotesLayoutManager: NSLayoutManager {
     /// Raw mode draws neither rules nor bullets: both stand in for characters
     /// the styling pass hides, and in raw mode nothing is hidden.
     var isSourceView: Bool = false
+    /// A hairline, or a book's `*  *  *`.
+    var ruleStyle: RuleStyle = .line
+    /// The seam's asterisks take a text tier rather than the hairline's
+    /// colour: thin glyph strokes in `rule` all but vanish on light.
+    var seamColor: NSColor = .tertiaryLabelColor
 
     override init() {
         super.init()
@@ -107,6 +112,10 @@ final class NotesLayoutManager: NSLayoutManager {
 
         let fragmentRect = lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
         let cy = origin.y + fragmentRect.midY
+        if ruleStyle == .seam {
+            drawSeam(in: fragmentRect, centreY: cy, originX: origin.x)
+            return
+        }
         let lineRect = CGRect(
             x: origin.x + fragmentRect.minX,
             y: cy - 0.5,
@@ -117,6 +126,30 @@ final class NotesLayoutManager: NSLayoutManager {
         context.setFillColor(ruleColor.cgColor)
         context.fill(lineRect)
         context.restoreGState()
+    }
+
+    /// Three asterisks spaced an em apart, centred across the text column
+    /// and on the line the hairline would take. Centred on the asterisk's
+    /// own ink rather than its baseline: the glyph sits up at cap height,
+    /// and on the baseline it would read as floating above the gap.
+    private func drawSeam(in fragmentRect: NSRect, centreY: CGFloat, originX: CGFloat) {
+        let seam = NSMutableAttributedString(
+            string: "***", attributes: [.font: bulletFont, .foregroundColor: seamColor])
+        // Kerned after the first two only, so the trailing gap doesn't pull
+        // the group off centre.
+        seam.addAttribute(.kern, value: bulletFont.pointSize, range: NSRange(location: 0, length: 2))
+
+        var glyph = CGGlyph(0)
+        var asterisk = unichar(0x2A)
+        CTFontGetGlyphsForCharacters(bulletFont, &asterisk, &glyph, 1)
+        let ink = bulletFont.boundingRect(forCGGlyph: glyph)
+        // Flipped: ink above the baseline is at smaller y.
+        let baseline = centreY + ink.midY
+
+        let width = seam.size().width
+        seam.draw(at: NSPoint(
+            x: originX + fragmentRect.minX + ((fragmentRect.width - width) / 2).rounded(),
+            y: baseline - bulletFont.ascender))
     }
 
     /// Paints the bullet at the leading edge of the advance the hidden

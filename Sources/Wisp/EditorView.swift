@@ -575,7 +575,8 @@ struct EditorView: View {
                         smartPaste: model.settings.config.smartPaste,
                         caret: model.settings.config.caret,
                         theme: model.theme,
-                        isSourceView: model.isSourceView
+                        isSourceView: model.isSourceView,
+                        ruleStyle: model.settings.config.rule
                     )
                     .padding(.horizontal, Metrics.chromeInsetX)
                     .padding(.top, barHeadings.isEmpty ? 24 : 4)

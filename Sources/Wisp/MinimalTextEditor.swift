@@ -52,6 +52,9 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// `fontScale`, since the resolved attributes live in the storage and
     /// nothing re-derives them on their own.
     var isSourceView: Bool
+    /// Compared in `updateNSView` like `isSourceView`: the layout manager
+    /// draws from it, and nothing else asks for a redraw when it changes.
+    var ruleStyle: RuleStyle
 
     func makeNSView(context: Context) -> NSScrollView {
         let (scrollView, textView) = NotesTextView.makeScrollView()
@@ -84,12 +87,13 @@ struct MinimalTextEditor: NSViewRepresentable {
 
         Self.applyPalette(
             Palette.for(theme), to: textView, font: font, indent: indent,
-            isSourceView: isSourceView)
+            isSourceView: isSourceView, ruleStyle: ruleStyle)
 
         context.coordinator.lastFontScale = fontScale
         context.coordinator.lastIndent = indent
         context.coordinator.lastTheme = theme
         context.coordinator.lastSourceView = isSourceView
+        context.coordinator.lastRuleStyle = ruleStyle
         return scrollView
     }
 
@@ -110,10 +114,12 @@ struct MinimalTextEditor: NSViewRepresentable {
         if context.coordinator.lastFontScale != fontScale
             || context.coordinator.lastIndent != indent
             || context.coordinator.lastSourceView != isSourceView
+            || context.coordinator.lastRuleStyle != ruleStyle
         {
             context.coordinator.lastFontScale = fontScale
             context.coordinator.lastIndent = indent
             context.coordinator.lastSourceView = isSourceView
+            context.coordinator.lastRuleStyle = ruleStyle
             textView.indentUnit = indent.unit
             restyle(textView)
         }
@@ -192,7 +198,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     private func restyle(_ textView: NotesTextView) {
         Self.applyPalette(
             Palette.for(theme), to: textView, font: Self.baseFont(isSourceView: isSourceView),
-            indent: indent, isSourceView: isSourceView)
+            indent: indent, isSourceView: isSourceView, ruleStyle: ruleStyle)
     }
 
     /// The face the whole body is set in. Raw mode takes the code family,
@@ -241,7 +247,8 @@ struct MinimalTextEditor: NSViewRepresentable {
         to textView: NotesTextView,
         font: NSFont,
         indent: Indent,
-        isSourceView: Bool
+        isSourceView: Bool,
+        ruleStyle: RuleStyle
     ) {
         let paragraph = makeParagraphStyle()
         textView.textColor = palette.text
@@ -262,6 +269,8 @@ struct MinimalTextEditor: NSViewRepresentable {
             lm.indentUnit = indent.unit
             lm.guideColor = palette.faint
             lm.isSourceView = isSourceView
+            lm.ruleStyle = ruleStyle
+            lm.seamColor = palette.faint
         }
         if let storage = textView.textStorage {
             resetBaseAttributes(
@@ -328,7 +337,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         styleInlineMarkup(in: storage, baseFont: baseFont, palette: palette, marks: marks)
         // Last: `***` and `_ _ _` also match the inline emphasis patterns, which would paint
         // over the clear that hides a rule's characters.
-        styleHorizontalRules(in: storage, blocks: blocks)
+        styleHorizontalRules(in: storage, baseFont: baseFont, blocks: blocks)
     }
 
     /// Apply bold, a per-level size, and a per-level colour to each heading: a `#` line, or a
@@ -640,14 +649,32 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// Hides every rule line's characters with a `.clear` foreground and tags the line with
     /// `.horizontalRule`, which `NotesLayoutManager` reads to draw the full-width rule without
     /// classifying the note again.
-    private static func styleHorizontalRules(in storage: NSTextStorage, blocks: MarkdownBlocks) {
+    ///
+    /// A blank line directly above or below a rule is set exactly 1em tall — the body's point
+    /// size — rather than the ~1.7em a blank line takes at the body's leading, so the rule sits
+    /// close to the text it divides.
+    private static func styleHorizontalRules(
+        in storage: NSTextStorage, baseFont: NSFont, blocks: MarkdownBlocks
+    ) {
         let ns = storage.string as NSString
-        for line in blocks.lines where line.kind == .rule {
+        let lines = blocks.lines
+        let tight = makeParagraphStyle()
+        tight.lineHeightMultiple = 1
+        tight.minimumLineHeight = baseFont.pointSize
+        tight.maximumLineHeight = baseFont.pointSize
+
+        for (index, line) in lines.enumerated() where line.kind == .rule {
             let content = NSRange(
                 location: line.range.location,
                 length: MarkdownBlocks.contentEnd(of: line.range, in: ns) - line.range.location)
             storage.addAttributes(
                 [.foregroundColor: NSColor.clear, .horizontalRule: true], range: content)
+
+            for neighbour in [index - 1, index + 1] where lines.indices.contains(neighbour) {
+                let blank = lines[neighbour]
+                guard blank.kind == .blank, blank.range.length > 0 else { continue }
+                storage.addAttribute(.paragraphStyle, value: tight, range: blank.range)
+            }
         }
     }
 
@@ -676,6 +703,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         /// is least welcome. List continuation stays: it is typing assistance,
         /// not rendering.
         var lastSourceView: Bool = false
+        var lastRuleStyle: RuleStyle = .line
         /// Where the last `--` → `—` and third-↵ rule landed, so the next
         /// press of the same key can take them back. Cleared as soon as the
         /// caret leaves the spot right after them.
