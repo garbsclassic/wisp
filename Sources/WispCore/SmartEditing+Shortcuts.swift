@@ -77,12 +77,11 @@ extension SmartEditing {
             let above = blocks.line(at: blank.location - 1)?.kind
         else { return nil }
 
+        // Inside a fence or frontmatter the empty lines are code, not `.blank`, so the guard
+        // above has already turned those away. An indented block ends at its blank line, so
+        // that one has to be refused here.
         switch above {
-        case .blank, .rule, .fencedCode, .indentedCode, .frontmatter: return nil
-        default: break
-        }
-        switch blocks.line(at: line.location)?.kind {
-        case .fencedCode, .indentedCode, .frontmatter: return nil
+        case .blank, .rule, .indentedCode: return nil
         default: break
         }
 
