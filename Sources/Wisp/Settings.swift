@@ -87,6 +87,12 @@ final class Settings: ObservableObject {
         write(["spellcheck"], isOn)
     }
 
+    func setFooterStatus(_ status: FooterStatus) {
+        guard status != config.footerStatus else { return }
+        config.footerStatus = status
+        write(["footerStatus"], status)
+    }
+
     /// The one text-size control. `Typography` is reconfigured in the same
     /// call rather than by the caller: the chrome re-resolves its fonts on
     /// the next SwiftUI pass and would otherwise render at a scale the

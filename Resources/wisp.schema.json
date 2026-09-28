@@ -192,6 +192,12 @@
       "type": "boolean",
       "default": false
     },
+    "footerStatus": {
+      "description": "The footer's label: position shows line:column and a word count, modified shows when the note was last saved. Clicking the label flips it.",
+      "type": "string",
+      "enum": ["position", "modified"],
+      "default": "position"
+    },
     "panel": {
       "description": "The remembered panel size in screen points, written when the panel hides.",
       "type": ["object", "null"],

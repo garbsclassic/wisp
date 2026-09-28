@@ -182,6 +182,15 @@ public enum RuleStyle: String, Codable, CaseIterable, Sendable {
     case seam
 }
 
+/// What the footer's leading label shows.
+public enum FooterStatus: String, Codable, CaseIterable, Sendable {
+    /// `12:4 · 120 words`.
+    case position
+    /// When the note was last written to disk. Skips counting the whole
+    /// note on every keystroke.
+    case modified
+}
+
 /// The caret's animation: how it moves, and whether it blinks.
 ///
 /// Drawn by `NotesTextView` as a Core Animation layer rather than by
@@ -305,6 +314,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// Check spelling as you type. Code, fenced blocks, and frontmatter are
     /// skipped. Toggled from the footer and persisted.
     public var spellcheck: Bool
+    /// Clicking the footer's label flips it; persisted.
+    public var footerStatus: FooterStatus
     /// Absent until the panel has been shown and hidden once.
     public var panel: PanelFrame?
 
@@ -325,6 +336,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         caret: Caret = Caret(),
         rule: RuleStyle = .line,
         spellcheck: Bool = false,
+        footerStatus: FooterStatus = .position,
         panel: PanelFrame? = nil
     ) {
         self.theme = theme
@@ -343,6 +355,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.caret = caret
         self.rule = rule
         self.spellcheck = spellcheck
+        self.footerStatus = footerStatus
         self.panel = panel
     }
 
@@ -386,6 +399,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .rule, default: defaults.rule, diagnostics: diagnostics)
         spellcheck = container.lenientValue(
             forKey: .spellcheck, default: defaults.spellcheck, diagnostics: diagnostics)
+        footerStatus = container.lenientValue(
+            forKey: .footerStatus, default: defaults.footerStatus, diagnostics: diagnostics)
         // `T` is `PanelFrame?` here, so a missing key and an explicit null
         // both land on "no remembered frame".
         panel = container.lenientValue(

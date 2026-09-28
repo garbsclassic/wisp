@@ -127,6 +127,15 @@ final class EditorModel: ObservableObject {
             settings.setSpellcheck(spellcheck)
         }
     }
+    @Published var footerStatus: FooterStatus = .position {
+        didSet {
+            guard didLoad else { return }
+            settings.setFooterStatus(footerStatus)
+        }
+    }
+    /// When the note on disk last changed, by us or by a sync. Nil until
+    /// there is a file.
+    @Published private(set) var lastModified: Date?
     /// User-facing choice: light, dark, or follow-system. Persisted.
     @Published var themeSetting: ThemeSetting = .system {
         didSet {
@@ -169,7 +178,9 @@ final class EditorModel: ObservableObject {
     /// disk — or wrote it ourselves, which counts the same way. Drives
     /// reloadFromDiskIfChanged so we only re-read when the file has
     /// actually moved on (e.g., another Mac wrote to it via iCloud sync).
-    private var lastLoadedMTime: Date?
+    private var lastLoadedMTime: Date? {
+        didSet { lastModified = lastLoadedMTime }
+    }
     /// True between a keystroke and the debounced save that follows it.
     /// The directory watcher can otherwise fire on a save of ours while
     /// the buffer has already moved past what landed on disk, and the
@@ -198,12 +209,15 @@ final class EditorModel: ObservableObject {
         }
         fontScale = settings.config.clampedFontScale
         spellcheck = settings.config.spellcheck
+        footerStatus = settings.config.footerStatus
         let chord = settings.config.summonChord
         hotKey = HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers)
         let url = scratchpadURL
         if let loaded = try? String(contentsOf: url, encoding: .utf8) {
             text = loaded
             lastLoadedMTime = Self.fileMTime(at: url)
+            // `didSet` doesn't run from an initializer.
+            lastModified = lastLoadedMTime
         }
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
         didLoad = true
@@ -285,6 +299,11 @@ final class EditorModel: ObservableObject {
 
     func toggleSourceView() {
         isSourceView.toggle()
+        requestFocus()
+    }
+
+    func toggleFooterStatus() {
+        footerStatus = footerStatus == .position ? .modified : .position
         requestFocus()
     }
 
@@ -472,6 +491,7 @@ final class EditorModel: ObservableObject {
         theme = themeSetting.resolve()
         fontScale = settings.config.clampedFontScale
         spellcheck = settings.config.spellcheck
+        footerStatus = settings.config.footerStatus
         helpDocument = HelpDocument.make(keymap: settings.config.keymap)
 
         let chord = settings.config.summonChord
@@ -609,10 +629,19 @@ struct EditorView: View {
                     }
                 }
                 FooterBar(
-                    caret: CaretPosition(in: model.text, at: model.caretOffset),
-                    wordCount: wordCount,
+                    // Only the readout on show is computed: both halves of
+                    // the other one scan the whole note.
+                    readout: model.footerStatus == .position
+                        ? .position(
+                            CaretPosition(in: model.text, at: model.caretOffset), words: wordCount)
+                        : .modified(model.lastModified),
+                    onToggleReadout: { model.toggleFooterStatus() },
+                    fontScale: model.fontScale,
+                    isDefaultFontScale:
+                        model.fontScale == model.settings.config.clampedDefaultFontScale,
                     onDecreaseFontScale: { model.stepFontScale(by: -1) },
                     onIncreaseFontScale: { model.stepFontScale(by: 1) },
+                    onResetFontScale: { model.resetFontScale() },
                     themeSetting: model.themeSetting,
                     isSourceView: model.isSourceView,
                     isSpellcheckOn: model.spellcheck,

@@ -1,11 +1,23 @@
 import SwiftUI
 import WispCore
 
+/// What the footer's leading label reads.
+enum FooterReadout {
+    case position(CaretPosition, words: Int)
+    /// Nil before the note has ever been written.
+    case modified(Date?)
+}
+
 struct FooterBar: View {
-    let caret: CaretPosition
-    let wordCount: Int
+    let readout: FooterReadout
+    let onToggleReadout: () -> Void
+    let fontScale: Double
+    /// Whether ⌘0 would do nothing — the percentage is a reset button only
+    /// when it wouldn't.
+    let isDefaultFontScale: Bool
     let onDecreaseFontScale: () -> Void
     let onIncreaseFontScale: () -> Void
+    let onResetFontScale: () -> Void
     let themeSetting: ThemeSetting
     let isSourceView: Bool
     let isSpellcheckOn: Bool
@@ -26,8 +38,9 @@ struct FooterBar: View {
         HStack(spacing: 16) {
             // One label, not two: the row's spacing and the warning's
             // truncation both key off a single leading text.
-            Text("\(caret.line):\(caret.column) · \(wordsLabel)")
-                .font(Typography.ui(Metrics.chromeSize, tabularDigits: true))
+            HoverTextButton(help: readoutHelp, action: onToggleReadout) {
+                readoutLabel
+            }
             if let warning {
                 // Truncated rather than wrapped: the footer is one line
                 // tall, and the full text is a hover away.
@@ -38,9 +51,7 @@ struct FooterBar: View {
                     .help(warning)
             }
             Spacer()
-            glyphButton(
-                "questionmark", help: hint("Help", .help),
-                action: onHelpClick)
+            zoom
             // Underlined when on, the squiggle it turns on.
             glyphButton(
                 isSpellcheckOn ? "textformat.abc.dottedunderline" : "textformat.abc",
@@ -56,15 +67,9 @@ struct FooterBar: View {
                 action: onToggleSourceView)
             glyphButton(
                 themeIconName, help: hint(themeButtonHelp, .cycleTheme), action: onCycleTheme)
-            // Two buttons rather than the old "Aa" cycle: the scale is
-            // continuous now, and a single button can't express a range
-            // you can move in both directions.
             glyphButton(
-                "textformat.size.smaller", help: hint("Smaller font", .decreaseFontScale),
-                action: onDecreaseFontScale)
-            glyphButton(
-                "textformat.size.larger", help: hint("Larger font", .increaseFontScale),
-                action: onIncreaseFontScale)
+                "questionmark", help: hint("Help", .help),
+                action: onHelpClick)
             glyphButton("xmark", help: "Close   ⎋", action: onDismiss)
         }
         .font(Typography.ui(Metrics.chromeSize))
@@ -73,6 +78,57 @@ struct FooterBar: View {
         .padding(.vertical, Metrics.chromeInsetY)
         .frame(maxWidth: .infinity)
         .background(Color(palette.chrome))
+    }
+
+    /// `−  100%  +`, one control: the steps sit tight against the size they
+    /// change, and the percentage resets it when there is anything to reset.
+    private var zoom: some View {
+        HStack(spacing: 0) {
+            glyphButton(
+                "minus", help: hint("Smaller font", .decreaseFontScale),
+                action: onDecreaseFontScale)
+            HoverTextButton(
+                help: hint("Reset font size", .resetFontScale), isEnabled: !isDefaultFontScale,
+                action: onResetFontScale
+            ) {
+                // The widest the scale can print, laid out and hidden, so
+                // the row doesn't shift as the number shrinks to two digits.
+                ZStack {
+                    Text("888%").hidden()
+                    Text("\(Int((fontScale * 100).rounded()))%")
+                }
+                .font(Typography.ui(Metrics.chromeSize, tabularDigits: true))
+            }
+            glyphButton(
+                "plus", help: hint("Larger font", .increaseFontScale),
+                action: onIncreaseFontScale)
+        }
+    }
+
+    @ViewBuilder
+    private var readoutLabel: some View {
+        switch readout {
+        case .position(let caret, let words):
+            Text("\(caret.line):\(caret.column) · \(words == 1 ? "1 word" : "\(words) words")")
+                .font(Typography.ui(Metrics.chromeSize, tabularDigits: true))
+        case .modified(let date):
+            if let date {
+                // Re-rendered on its own clock, so `just now` moves on with
+                // no keystroke to prompt it; a quarter minute late at worst.
+                TimelineView(.periodic(from: .now, by: 15)) { context in
+                    Text("last modified: \(RelativeTime.coarse(date, now: context.date))")
+                }
+            } else {
+                Text("not saved yet")
+            }
+        }
+    }
+
+    private var readoutHelp: String {
+        switch readout {
+        case .position: return "Show when the note was last saved"
+        case .modified: return "Show line, column, and word count"
+        }
     }
 
     /// A tooltip and the chord that does the same thing, separated by
@@ -105,9 +161,40 @@ struct FooterBar: View {
         case .system: return "System theme"
         }
     }
+}
 
-    private var wordsLabel: String {
-        wordCount == 1 ? "1 word" : "\(wordCount) words"
+/// Footer text that is also a control: lifts from `muted` to `text` on
+/// hover, like `GlyphButton`. Disabled, it is plain text — no lift, no
+/// pointer, no tooltip — so a label with nothing to do doesn't pretend.
+struct HoverTextButton<Label: View>: View {
+    let help: String
+    var isEnabled = true
+    let action: () -> Void
+    @ViewBuilder let label: () -> Label
+    @Environment(\.palette) private var palette
+    @State private var isHovered = false
+
+    var body: some View {
+        Group {
+            if isEnabled {
+                Button(action: action) { label().contentShape(Rectangle()) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color(isHovered ? palette.text : palette.muted))
+                    .animation(.easeInOut(duration: 0.15), value: isHovered)
+                    .onHover { isHovered = $0 }
+                    .pointerCursor()
+                    .help(help)
+            } else {
+                label()
+            }
+        }
+        // Clicking the reset disables it under the pointer, where no hover
+        // exit will ever arrive to put the glyph and cursor back.
+        .onChange(of: isEnabled) { enabled in
+            guard !enabled, isHovered else { return }
+            isHovered = false
+            NSCursor.arrow.set()
+        }
     }
 }
 
