@@ -542,7 +542,7 @@ final class NotesTextView: NSTextView {
 
     /// Runs one `LineEdits.Edit` through the delegate/undo bookkeeping and
     /// restores the selection it names.
-    private func apply(_ edit: LineEdits.Edit) {
+    func apply(_ edit: LineEdits.Edit) {
         performEdit {
             guard replaceText(in: edit.range, with: edit.replacement) else { return }
             setSelectedRange(edit.selection)

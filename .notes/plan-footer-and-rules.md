@@ -19,8 +19,8 @@ Six refinements batched on 2026-09-28. Full design in the session plan; this is 
 ## Checklist
 
 - [x] Help header: section links, click scrolls to the section
-- [ ] Em dash on `--`, third `-` reverts to `---`
-- [ ] Third ↵ inserts a rule, fourth reverts
+- [x] Em dash on `--`, third `-` reverts to `---`
+- [x] Third ↵ inserts a rule, fourth reverts
 - [ ] `rule: "line" | "seam"`, 1em blank lines around rules
 - [ ] Spellcheck: config, toggle chord, menu, help row, footer button, code filtered
 - [ ] Footer: `− 100% +`, status/modified toggle, new order

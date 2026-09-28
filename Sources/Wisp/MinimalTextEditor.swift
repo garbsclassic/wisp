@@ -676,6 +676,11 @@ struct MinimalTextEditor: NSViewRepresentable {
         /// is least welcome. List continuation stays: it is typing assistance,
         /// not rendering.
         var lastSourceView: Bool = false
+        /// Where the last `--` → `—` and third-↵ rule landed, so the next
+        /// press of the same key can take them back. Cleared as soon as the
+        /// caret leaves the spot right after them.
+        var lastAutoDash: Int?
+        var lastAutoRule: Int?
 
         let caretOffset: Binding<Int>
 
@@ -689,7 +694,14 @@ struct MinimalTextEditor: NSViewRepresentable {
         /// binding mid-update is the hazard `restyleContent` documents.
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
-            let offset = textView.selectedRange().location
+            let selection = textView.selectedRange()
+            let offset = selection.location
+            if let dash = lastAutoDash, selection != NSRange(location: dash + 1, length: 0) {
+                lastAutoDash = nil
+            }
+            if let rule = lastAutoRule, selection != NSRange(location: rule + 5, length: 0) {
+                lastAutoRule = nil
+            }
             DispatchQueue.main.async { [caretOffset] in
                 if caretOffset.wrappedValue != offset { caretOffset.wrappedValue = offset }
             }
@@ -778,6 +790,43 @@ struct MinimalTextEditor: NSViewRepresentable {
                 return false
             }
 
+            if !lastSourceView, affectedCharRange.length == 0,
+                let typed = replacementString, typed == "-" || typed == ">",
+                !textView.hasMarkedText(),
+                let event = NSApp.currentEvent, event.type == .keyDown, event.characters == typed,
+                let notes = textView as? NotesTextView
+            {
+                let s = textView.string as NSString
+                let cursor = affectedCharRange.location
+                if let revert = SmartEditing.emDashRevert(
+                    in: s, cursor: cursor, autoDash: lastAutoDash, typed: typed)
+                {
+                    lastAutoDash = nil
+                    notes.apply(revert)
+                    return false
+                }
+                if typed == "-", SmartEditing.emDashEdit(in: s, cursor: cursor) != nil {
+                    // The dash types as usual and the pair is swapped a turn
+                    // later, in an undo group of its own — so ⌘Z takes back
+                    // the substitution and leaves the `--` that was typed,
+                    // the way macOS autocorrect does.
+                    let pair = NSRange(location: cursor - 1, length: 2)
+                    DispatchQueue.main.async { [weak self, weak notes] in
+                        guard let self, let notes,
+                            notes.selectedRange() == NSRange(location: NSMaxRange(pair), length: 0),
+                            NSMaxRange(pair) <= (notes.string as NSString).length,
+                            (notes.string as NSString).substring(with: pair) == "--"
+                        else { return }
+                        notes.breakUndoCoalescing()
+                        notes.apply(LineEdits.Edit(
+                            range: pair, replacement: "—",
+                            selection: NSRange(location: pair.location + 1, length: 0)))
+                        self.lastAutoDash = pair.location
+                    }
+                    return true
+                }
+            }
+
             // Only single-char `-` insertions count. Pastes (multi-char) and
             // undo restorations have different replacement strings, so they
             // skip this path naturally. Raw mode skips it outright: this one
@@ -853,6 +902,25 @@ struct MinimalTextEditor: NSViewRepresentable {
                 let continuation = SmartEditing.continuationLine(in: s, cursor: cursor) {
                 replace(in: textView, range: selection, with: continuation)
                 return true
+            }
+
+            let isShifted = NSApp.currentEvent.map {
+                $0.type == .keyDown && $0.modifierFlags.contains(.shift)
+            } ?? false
+            if selection.length == 0, !lastSourceView, !isShifted,
+                let notes = textView as? NotesTextView
+            {
+                if let revert = SmartEditing.ruleRevert(in: s, cursor: cursor, autoRule: lastAutoRule)
+                {
+                    lastAutoRule = nil
+                    notes.apply(revert)
+                    return true
+                }
+                if let edit = SmartEditing.ruleOnReturn(in: s, cursor: cursor) {
+                    notes.apply(edit)
+                    lastAutoRule = cursor
+                    return true
+                }
             }
 
             if selection.length == 0,

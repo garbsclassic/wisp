@@ -51,3 +51,11 @@ line indent both include the doubling, so wrapped and continuation lines land on
 ## Reset Position's ⌥⌘0 works on the panel here, but only in Clef's open menu
 
 ⌥⌘0 is scoped to the focused panel here. Clef's HUD never takes focus, so the same chord there would have to be claimed globally from the app underneath; Clef scopes it to its status menu instead.
+
+## `--` stays literal at the start of a line
+
+`emDashEdit` refuses a `--` with only whitespace before it. At the start of a line `---` is on its way to a rule, and converting the first two dashes would flash an em dash and need a take-back to get there.
+
+## The fourth ↵ removes the rule instead of adding a line
+
+A third ↵ after prose inserts `---` set off by blank lines; the fourth replaces the `---` with nothing, so the caret doesn't move. The result is what four plain ↵ would have produced, which is the point: the rule was the shortcut, and pressing on means you wanted space.
