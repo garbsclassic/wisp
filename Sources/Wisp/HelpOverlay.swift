@@ -18,9 +18,21 @@ struct HelpOverlay: View {
     let focusToken: Int
     let onClose: () -> Void
 
+    /// The header link last clicked, and a token so clicking the same one
+    /// twice still scrolls back to it.
+    @State private var jumpSection = 0
+    @State private var jumpToken = 0
+
     var body: some View {
         VStack(spacing: 0) {
-            chrome { Text("help") }
+            HeaderBar(
+                labels: document.sections.map(\.title),
+                onJump: { index in
+                    jumpSection = index
+                    jumpToken &+= 1
+                },
+                trailingInset: Metrics.chromeInsetX
+            )
             .overlay(alignment: .bottom) { hairline }
 
             HelpBody(
@@ -31,7 +43,9 @@ struct HelpOverlay: View {
                 findHighlightColor: palette.findHighlight,
                 findHighlightToken: findHighlightToken,
                 findHighlightRange: findHighlightRange,
-                focusToken: focusToken
+                focusToken: focusToken,
+                jumpSection: jumpSection,
+                jumpToken: jumpToken
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 

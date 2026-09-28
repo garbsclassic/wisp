@@ -268,17 +268,39 @@ final class HelpBodyView: NSView {
         textView.scrollRangeToVisible(range)
     }
 
-    /// Which section is pinned, and how far the next one has pushed it.
+    /// Scrolls so the section's label block sits at the top edge, which is
+    /// exactly where the sticky copy takes over from it.
+    func scrollToSection(_ index: Int) {
+        let tops = sectionBlockTops()
+        guard tops.indices.contains(index) else { return }
+        let maxY = max(0, textView.frame.height - scrollView.contentView.bounds.height)
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: min(max(tops[index], 0), maxY)))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        // The link that asked for this is a button, and the scroll keys
+        // should keep working on the page afterwards.
+        window?.makeFirstResponder(textView)
+    }
+
+    /// Where each section's label block starts, in the text view's
+    /// coordinates.
     ///
     /// Positions come from the *used* rect of each title's first line
     /// fragment — the fragment rect itself carries the paragraph spacing
     /// above it, which would put every measurement a section-gap too high.
+    private func sectionBlockTops() -> [CGFloat] {
+        guard let layoutManager = textView.layoutManager, let container = textView.textContainer
+        else { return [] }
+        layoutManager.ensureLayout(for: container)
+        return sectionTitleRanges.map { range in
+            let glyph = layoutManager.glyphIndexForCharacter(at: range.location)
+            let used = layoutManager.lineFragmentUsedRect(forGlyphAt: glyph, effectiveRange: nil)
+            return used.minY + textView.textContainerInset.height - Metrics.chromeInsetY
+        }
+    }
+
+    /// Which section is pinned, and how far the next one has pushed it.
     private func updateSticky() {
-        guard let style,
-            let layoutManager = textView.layoutManager,
-            let container = textView.textContainer,
-            !sectionTitleRanges.isEmpty
-        else {
+        guard let style, !sectionTitleRanges.isEmpty else {
             sticky.isHidden = true
             return
         }
@@ -289,13 +311,7 @@ final class HelpBodyView: NSView {
             return
         }
 
-        layoutManager.ensureLayout(for: container)
-        let blockTops = sectionTitleRanges.map { range -> CGFloat in
-            let glyph = layoutManager.glyphIndexForCharacter(at: range.location)
-            let used = layoutManager.lineFragmentUsedRect(forGlyphAt: glyph, effectiveRange: nil)
-            return used.minY + textView.textContainerInset.height - Metrics.chromeInsetY
-        }
-
+        let blockTops = sectionBlockTops()
         guard let index = blockTops.lastIndex(where: { $0 <= scrollTop }) else {
             sticky.isHidden = true
             return
@@ -326,6 +342,8 @@ struct HelpBody: NSViewRepresentable {
     var findHighlightToken: Int
     var findHighlightRange: NSRange
     var focusToken: Int
+    var jumpSection: Int
+    var jumpToken: Int
 
     func makeNSView(context: Context) -> HelpBodyView {
         let view = HelpBodyView()
@@ -335,6 +353,7 @@ struct HelpBody: NSViewRepresentable {
         context.coordinator.lastStyle = style
         context.coordinator.lastFindHighlightToken = findHighlightToken
         context.coordinator.lastFocusToken = focusToken
+        context.coordinator.lastJumpToken = jumpToken
         // Focus on mount is `viewDidMoveToWindow`'s job — there is no window
         // to make a responder of yet. The token only handles re-focusing,
         // after the find bar has taken it away.
@@ -362,6 +381,10 @@ struct HelpBody: NSViewRepresentable {
                 view.window?.makeFirstResponder(view.textView)
             }
         }
+        if context.coordinator.lastJumpToken != jumpToken {
+            context.coordinator.lastJumpToken = jumpToken
+            view.scrollToSection(jumpSection)
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -372,5 +395,6 @@ struct HelpBody: NSViewRepresentable {
         var lastStyle: HelpTextStyle?
         var lastFindHighlightToken = 0
         var lastFocusToken = 0
+        var lastJumpToken = 0
     }
 }

@@ -1,8 +1,8 @@
 import SwiftUI
 import WispCore
 
-/// The heading strip along the top of the panel — every `#` and `##`
-/// heading in the note, click to jump.
+/// The link strip along the top of the panel — every `#` and `##` heading
+/// in the note, or every section of the help page. Click to jump.
 ///
 /// Scrolls horizontally, and says so: once the list is wider than the bar,
 /// an ellipsis appears at the trailing edge. The scroll view is doing the
@@ -11,8 +11,12 @@ import WispCore
 /// up through `NSHostingView` and the panel grows to fit it. Measured at
 /// 3952pt across on the first attempt.
 struct HeaderBar: View {
-    let headings: [Heading]
-    let onJump: (Heading) -> Void
+    let labels: [String]
+    /// Takes the clicked label's index into `labels`.
+    let onJump: (Int) -> Void
+    /// Room kept clear at the trailing edge. The note's strip stops short of
+    /// the save indicator; the help page has none to avoid.
+    var trailingInset: CGFloat = Metrics.headerTrailingInset
     @Environment(\.palette) private var palette
 
     /// The row's full width, and the bar it has to fit in. The first
@@ -23,7 +27,7 @@ struct HeaderBar: View {
     private var isTruncated: Bool { contentWidth > slotWidth + 0.5 }
 
     var body: some View {
-        if headings.isEmpty {
+        if labels.isEmpty {
             // Nothing to show — keep the slot empty so the panel just looks
             // like before the headings feature existed.
             EmptyView()
@@ -44,9 +48,7 @@ struct HeaderBar: View {
                 }
             }
             .padding(.leading, Metrics.chromeInsetX)
-            // Stops short of the panel edge so a long list doesn't run
-            // under the save indicator.
-            .padding(.trailing, Metrics.headerTrailingInset)
+            .padding(.trailing, trailingInset)
             .font(Typography.ui(Metrics.chromeSize))
             .foregroundStyle(Color(palette.muted))
             .background(Color(palette.chrome))
@@ -55,23 +57,23 @@ struct HeaderBar: View {
 
     private var headingRow: some View {
         HStack(spacing: 0) {
-            ForEach(Array(headings.enumerated()), id: \.element.id) { index, heading in
+            ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
                 if index > 0 {
                     Text("·")
                         .foregroundStyle(Color(palette.rule))
                         .padding(.horizontal, 10)
                 }
-                Button(action: { onJump(heading) }) {
+                Button(action: { onJump(index) }) {
                     // Accent on the headings themselves, not on the row: the
                     // container's `muted` is what the `…` overlay inherits, and
                     // an accented ellipsis reads as a heading you can click.
-                    Text(heading.name)
+                    Text(label)
                         .foregroundStyle(Color(palette.accent))
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
                 .pointerCursor()
-                .help("Jump to “\(heading.name)”")
+                .help("Jump to “\(label)”")
             }
         }
     }

@@ -545,8 +545,8 @@ struct EditorView: View {
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
-                HeaderBar(headings: barHeadings) { heading in
-                    model.jumpTo(heading)
+                HeaderBar(labels: barHeadings.map(\.name)) { index in
+                    model.jumpTo(barHeadings[index])
                 }
                 ZStack(alignment: .topLeading) {
                     MinimalTextEditor(
