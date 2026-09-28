@@ -45,7 +45,7 @@ To remove Wisp, run the uninstall script. It quits Wisp and withdraws the login 
 
 ## Use Wisp
 
-Press ⌘/ or F1, or click `?` in the footer, for the full shortcut list inside the app.
+Press ⌘/ or F1, or click `?` in the footer, for the full shortcut list inside the app. The links along its top jump to each section.
 
 ### Open and close the panel
 
@@ -65,9 +65,12 @@ Wisp styles Markdown as you type and leaves the markers on screen, dimmed.
 - ↵ continues a list. ↵ on an empty nested item moves it out one level. ⇧↵ continues the same item on a new line.
 - `- [ ]` renders as a checkbox. Click it or press ⌘⇧L to check it off.
 - `#` through `######` render bold, with a different color for each level and the `#` marks dimmed. A line of text directly above `===` becomes a level-1 heading, and directly above `---`, a level-2 heading, as on GitHub and in Obsidian. The header strip lists the level-1 and level-2 headings, and a click jumps to one. ⌃⇧↑ and ⌃⇧↓ step through headings at every level.
-- A line of three or more `-`, `*`, or `_` becomes a divider, with or without spaces between them: `---`, `***`, `* * *`. Under a line of text, `---` makes a heading instead, so leave a blank line above it or use `***`. Wisp doesn't draw dividers inside a fenced code block, or in the `---` frontmatter block at the top of a note.
+- A line of three or more `-`, `*`, or `_` becomes a divider, with or without spaces between them: `---`, `***`, `* * *`. Under a line of text, `---` makes a heading instead, so leave a blank line above it or use `***`. Wisp doesn't draw dividers inside a fenced code block, or in the `---` frontmatter block at the top of a note. A blank line next to a divider is shorter than a full line, one em tall. Set `rule` to `seam` to draw dividers as a centered `*  *  *`, the way a book marks a scene break.
+- Press ↵ three times after a paragraph to insert a divider with a blank line on each side. Press ↵ a fourth time to take the divider back out.
+- `--` after a word becomes an em dash (—). Type a third `-` to get `---` back, or `>` to get `-->`. At the start of a line, and in code, `--` stays as typed.
 - ⌘V onto a blank line converts a tab-separated grid to a pipe table, and a run of short plain lines to a bulleted list. Anywhere else, ⌘V pastes the text unchanged. Set `smartPaste` to `false` to turn this off.
 - ⌘F searches the note.
+- F6 or ⌘; turns spell checking on and off, as does the `Abc` button in the footer. Misspelled words get a dotted underline, and right-clicking one lists suggestions. Wisp never corrects a word on its own, and it doesn't check inline code, code blocks, or frontmatter.
 
 ### Format text
 
@@ -99,11 +102,12 @@ A backslash escapes the character after it, so `` \` `` is a literal backtick an
 
 ### Change the view
 
-- ⌘= and ⌘- make the text larger and smaller, and ⌘0 resets it. The footer has buttons for both.
+- ⌘= and ⌘- make the text larger and smaller, and ⌘0 resets it. The footer shows the size as `− 100% +`. Click `−` or `+` to change it, and click the percentage to reset it.
+- Click the line and word count in the footer to show when the note was last saved instead, such as `last modified: 5 min ago`. Click it again to switch back. Wisp remembers the choice.
 - ⌘T cycles the theme through light, dark, and the macOS setting.
 - ⌘⇧V turns on source view, which drops all styling and sets the whole note in `fonts.code`, so the screen shows the file as it is. List continuation on ↵ still works, but `---` no longer turns into a divider. Source view resets when you quit.
 
-F1 reaches Wisp only if macOS is set to **Use F1, F2, etc. keys as standard function keys** in Keyboard settings. Otherwise F1 dims the display. Press fn+F1 or ⌘/ instead.
+F1 and F6 reach Wisp only if macOS is set to **Use F1, F2, etc. keys as standard function keys** in Keyboard settings. Otherwise they do what their key caps show, such as dimming the display. Press fn with the key, or use ⌘/ and ⌘; instead.
 
 ### Store and sync the note
 
@@ -141,6 +145,9 @@ The file's `$schema` key points at `wisp.schema.json` in the same folder. Wisp c
 | `indent.size`        | `2`                  | Spaces per indent level. Ignored when `indent.style` is `tabs`                                                                                        |
 | `caret.motion`       | `"snappy"`           | How the caret moves. `snappy` lands at once and settles, `gliding` slides, and `off` jumps. Reduce Motion forces `off`                                |
 | `caret.blink`        | `true`               | Fades the caret in and out while idle. `false` keeps it solid                                                                                         |
+| `rule`               | `"line"`             | How a divider is drawn: `line` for a thin line across the note, `seam` for a centered `*  *  *`                                                       |
+| `spellcheck`         | `false`              | Checks spelling as you type. F6, ⌘;, and the footer's `Abc` button toggle it                                                                          |
+| `footerStatus`       | `"position"`         | What the footer's label shows: `position` for line, column, and word count, `modified` for when the note was saved                                    |
 | `keymap.*`           | _(see below)_        | Every shortcut                                                                                                                                        |
 | `panel`              | _(written on close)_ | The panel's last `width` and `height`                                                                                                                 |
 
@@ -167,6 +174,7 @@ Wisp drops a chord it can't parse. If that leaves an action with no working chor
 | `help`               | `["f1", "cmd+/"]`  |
 | `cycleTheme`         | `cmd+t`            |
 | `sourceView`         | `cmd+shift+v`      |
+| `toggleSpellcheck`   | `["f6", "cmd+;"]`  |
 | `bold`               | `cmd+b`            |
 | `italic`             | `cmd+i`            |
 | `highlight`          | `opt+h`            |
