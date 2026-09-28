@@ -124,6 +124,7 @@
         "help": { "$ref": "#/$defs/chordSet", "default": ["f1", "cmd+/"] },
         "cycleTheme": { "$ref": "#/$defs/chordSet", "default": "cmd+t" },
         "sourceView": { "$ref": "#/$defs/chordSet", "default": "cmd+shift+v" },
+        "toggleSpellcheck": { "$ref": "#/$defs/chordSet", "default": ["f6", "cmd+;"] },
         "bold": { "$ref": "#/$defs/chordSet", "default": "cmd+b" },
         "italic": { "$ref": "#/$defs/chordSet", "default": "cmd+i" },
         "highlight": { "$ref": "#/$defs/chordSet", "default": "opt+h" },
@@ -185,6 +186,11 @@
       "type": "string",
       "enum": ["line", "seam"],
       "default": "line"
+    },
+    "spellcheck": {
+      "description": "Check spelling as you type; code and frontmatter are skipped. Toggled from the footer.",
+      "type": "boolean",
+      "default": false
     },
     "panel": {
       "description": "The remembered panel size in screen points, written when the panel hides.",

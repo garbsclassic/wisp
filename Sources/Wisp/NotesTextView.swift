@@ -540,6 +540,30 @@ final class NotesTextView: NSTextView {
         return SmartEditing.listItem(lineRange: line, in: text) != nil
     }
 
+    /// Keeps the spellchecker's marks off code: an identifier in backticks
+    /// or a fenced block isn't a misspelled word. Clearing marks passes
+    /// straight through, so switching checking off still wipes them all.
+    override func setSpellingState(_ value: Int, range charRange: NSRange) {
+        guard value != 0, !isSourceView else {
+            super.setSpellingState(value, range: charRange)
+            return
+        }
+        let text = string as NSString
+        var remaining = [charRange]
+        for code in MarkdownBlocks(text).codeRanges(in: text)
+        where NSIntersectionRange(code, charRange).length > 0 {
+            remaining = remaining.flatMap { piece -> [NSRange] in
+                let cut = NSIntersectionRange(piece, code)
+                guard cut.length > 0 else { return [piece] }
+                return [
+                    NSRange(location: piece.location, length: cut.location - piece.location),
+                    NSRange(location: NSMaxRange(cut), length: NSMaxRange(piece) - NSMaxRange(cut)),
+                ].filter { $0.length > 0 }
+            }
+        }
+        for piece in remaining { super.setSpellingState(value, range: piece) }
+    }
+
     /// Runs one `LineEdits.Edit` through the delegate/undo bookkeeping and
     /// restores the selection it names.
     func apply(_ edit: LineEdits.Edit) {

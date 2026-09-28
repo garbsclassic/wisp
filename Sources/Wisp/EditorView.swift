@@ -119,6 +119,14 @@ final class EditorModel: ObservableObject {
             settings.setFontScale(fontScale)
         }
     }
+    /// Mirrors the config so the footer button and the editor can observe
+    /// it; `Settings` persists it.
+    @Published var spellcheck = false {
+        didSet {
+            guard didLoad else { return }
+            settings.setSpellcheck(spellcheck)
+        }
+    }
     /// User-facing choice: light, dark, or follow-system. Persisted.
     @Published var themeSetting: ThemeSetting = .system {
         didSet {
@@ -189,6 +197,7 @@ final class EditorModel: ObservableObject {
             Task { @MainActor in self?.systemAppearanceMaybeChanged() }
         }
         fontScale = settings.config.clampedFontScale
+        spellcheck = settings.config.spellcheck
         let chord = settings.config.summonChord
         hotKey = HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers)
         let url = scratchpadURL
@@ -276,6 +285,11 @@ final class EditorModel: ObservableObject {
 
     func toggleSourceView() {
         isSourceView.toggle()
+        requestFocus()
+    }
+
+    func toggleSpellcheck() {
+        spellcheck.toggle()
         requestFocus()
     }
 
@@ -457,6 +471,7 @@ final class EditorModel: ObservableObject {
         themeSetting = settings.config.theme
         theme = themeSetting.resolve()
         fontScale = settings.config.clampedFontScale
+        spellcheck = settings.config.spellcheck
         helpDocument = HelpDocument.make(keymap: settings.config.keymap)
 
         let chord = settings.config.summonChord
@@ -576,7 +591,8 @@ struct EditorView: View {
                         caret: model.settings.config.caret,
                         theme: model.theme,
                         isSourceView: model.isSourceView,
-                        ruleStyle: model.settings.config.rule
+                        ruleStyle: model.settings.config.rule,
+                        spellcheck: model.spellcheck
                     )
                     .padding(.horizontal, Metrics.chromeInsetX)
                     .padding(.top, barHeadings.isEmpty ? 24 : 4)
@@ -599,9 +615,11 @@ struct EditorView: View {
                     onIncreaseFontScale: { model.stepFontScale(by: 1) },
                     themeSetting: model.themeSetting,
                     isSourceView: model.isSourceView,
+                    isSpellcheckOn: model.spellcheck,
                     keymap: model.settings.config.keymap,
                     onCycleTheme: { model.cycleTheme() },
                     onToggleSourceView: { model.toggleSourceView() },
+                    onToggleSpellcheck: { model.toggleSpellcheck() },
                     onHelpClick: {
                         withAnimation(.easeInOut(duration: 0.18)) {
                             model.showHelp.toggle()

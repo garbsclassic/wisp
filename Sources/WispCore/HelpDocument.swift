@@ -71,6 +71,7 @@ public struct HelpDocument: Equatable, Sendable {
                 Row("⌘← · ↖", "start of list text · then of line"),
                 Row("⌘→ · ↘", "end of line"),
                 Row(group(.previousHeading, .nextHeading), "previous · next heading"),
+                Row(chord(.toggleSpellcheck), "check spelling as you type"),
             ]),
             Section("Format", [
                 Row(chord(.toggleBulletedList), "toggle bulleted list"),

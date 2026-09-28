@@ -55,6 +55,8 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// Compared in `updateNSView` like `isSourceView`: the layout manager
     /// draws from it, and nothing else asks for a redraw when it changes.
     var ruleStyle: RuleStyle
+    /// Applied on the text view directly, like `caret`.
+    var spellcheck: Bool
 
     func makeNSView(context: Context) -> NSScrollView {
         let (scrollView, textView) = NotesTextView.makeScrollView()
@@ -78,6 +80,11 @@ struct MinimalTextEditor: NSViewRepresentable {
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
+        // Squiggles and suggestions only: nothing rewrites a word behind you.
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.isGrammarCheckingEnabled = false
+        textView.isContinuousSpellCheckingEnabled = spellcheck
+        if spellcheck { Self.checkSpelling(in: textView) }
         textView.textContainerInset = .zero
         textView.textContainer?.lineFragmentPadding = 0
         textView.indentUnit = indent.unit
@@ -125,6 +132,10 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
         if textView.caretStyle != caret {
             textView.caretStyle = caret
+        }
+        if textView.isContinuousSpellCheckingEnabled != spellcheck {
+            textView.isContinuousSpellCheckingEnabled = spellcheck
+            if spellcheck { Self.checkSpelling(in: textView) }
         }
         textView.smartPaste = smartPaste
         if context.coordinator.lastTheme != theme {
@@ -199,6 +210,17 @@ struct MinimalTextEditor: NSViewRepresentable {
         Self.applyPalette(
             Palette.for(theme), to: textView, font: Self.baseFont(isSourceView: isSourceView),
             indent: indent, isSourceView: isSourceView, ruleStyle: ruleStyle)
+    }
+
+    /// Continuous checking only looks at text as it is edited, so a note
+    /// already on screen when checking comes on would show no marks until
+    /// the next keystroke. Spelling only: the other checking types rewrite.
+    private static func checkSpelling(in textView: NSTextView) {
+        DispatchQueue.main.async {
+            textView.checkText(
+                in: NSRange(location: 0, length: (textView.string as NSString).length),
+                types: NSTextCheckingResult.CheckingType.spelling.rawValue, options: [:])
+        }
     }
 
     /// The face the whole body is set in. Raw mode takes the code family,

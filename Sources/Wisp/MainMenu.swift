@@ -20,6 +20,7 @@ enum MainMenuBuilder {
         .help: #selector(AppDelegate.toggleHelp(_:)),
         .cycleTheme: #selector(AppDelegate.cycleTheme(_:)),
         .sourceView: #selector(AppDelegate.toggleSourceView(_:)),
+        .toggleSpellcheck: #selector(AppDelegate.toggleSpellcheck(_:)),
         .bold: #selector(AppDelegate.toggleBold(_:)),
         .italic: #selector(AppDelegate.toggleItalic(_:)),
         .highlight: #selector(AppDelegate.toggleHighlight(_:)),
@@ -125,6 +126,7 @@ enum MainMenuBuilder {
                 .separator(),
                 item(.cycleTheme, target: target, keymap: keymap),
                 item(.sourceView, target: target, keymap: keymap),
+                item(.toggleSpellcheck, target: target, keymap: keymap),
             ])
 
         mainMenu.addItem(

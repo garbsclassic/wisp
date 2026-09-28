@@ -58,6 +58,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
 
     case cycleTheme
     case sourceView
+    case toggleSpellcheck
 
     case bold
     case italic
@@ -93,6 +94,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .help: return "Help"
         case .cycleTheme: return "Cycle Theme"
         case .sourceView: return "Source View"
+        case .toggleSpellcheck: return "Check Spelling"
         case .bold: return "Bold"
         case .italic: return "Italic"
         case .highlight: return "Highlight"
@@ -132,6 +134,9 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         // are both taken here, and the other unclaimed ⌘-letters read as
         // formatting commands.
         case .sourceView: return "cmd+shift+v"
+        // No macOS default toggles checking as you type. F6 is Sublime Text's
+        // toggle; ⌘; is the system's own spelling chord, taken over here.
+        case .toggleSpellcheck: return ["f6", "cmd+;"]
         case .highlight: return "opt+h"
         // `<u>` is HTML, not markdown — which is also what Obsidian's own
         // underline command inserts, and this note is read there too.

@@ -8,11 +8,13 @@ struct FooterBar: View {
     let onIncreaseFontScale: () -> Void
     let themeSetting: ThemeSetting
     let isSourceView: Bool
+    let isSpellcheckOn: Bool
     /// Tooltips name their own chord, so a rebind shows up here without
     /// anyone remembering to edit a string.
     let keymap: Keymap
     let onCycleTheme: () -> Void
     let onToggleSourceView: () -> Void
+    let onToggleSpellcheck: () -> Void
     let onHelpClick: () -> Void
     /// A bad config key, an unparseable chord, or a font that isn't
     /// installed. Nil most of the time.
@@ -39,6 +41,13 @@ struct FooterBar: View {
             glyphButton(
                 "questionmark", help: hint("Help", .help),
                 action: onHelpClick)
+            // Underlined when on, the squiggle it turns on.
+            glyphButton(
+                isSpellcheckOn ? "textformat.abc.dottedunderline" : "textformat.abc",
+                help: hint(
+                    isSpellcheckOn ? "Stop checking spelling" : "Check spelling",
+                    .toggleSpellcheck),
+                action: onToggleSpellcheck)
             // Filled when on, the way the theme button swaps its glyph:
             // a footer control that says which way it is currently set.
             glyphButton(

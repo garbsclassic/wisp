@@ -160,6 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .help: toggleHelp(nil)
         case .cycleTheme: cycleTheme(nil)
         case .sourceView: model.toggleSourceView()
+        case .toggleSpellcheck: model.toggleSpellcheck()
         case .bold: model.toggleBold()
         case .italic: model.toggleItalic()
         case .highlight: model.toggleHighlight()
@@ -186,6 +187,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func cycleTheme(_ sender: Any?) { model.cycleTheme() }
 
     @objc func toggleSourceView(_ sender: Any?) { model.toggleSourceView() }
+
+    @objc func toggleSpellcheck(_ sender: Any?) { model.toggleSpellcheck() }
 
     @objc func toggleHelp(_ sender: Any?) {
         withAnimation(.easeInOut(duration: 0.18)) { model.showHelp.toggle() }

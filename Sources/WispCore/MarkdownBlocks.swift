@@ -137,6 +137,40 @@ public struct MarkdownBlocks: Sendable {
         return nil
     }
 
+    /// Everything in the note that is code rather than prose: fenced and indented blocks with
+    /// their fences, frontmatter, and `` `inline` `` spans, the last matched the way the styling
+    /// pass matches them. For the spellchecker, which would otherwise mark every identifier.
+    public func codeRanges(in text: NSString) -> [NSRange] {
+        var ranges: [NSRange] = []
+        for line in lines {
+            switch line.kind {
+            case .fence, .fencedCode, .indentedCode, .frontmatter:
+                ranges.append(line.range)
+            default:
+                let content = NSRange(
+                    location: line.range.location,
+                    length: Self.contentEnd(of: line.range, in: text) - line.range.location)
+                ranges += Self.codeSpans(in: text, line: content)
+            }
+        }
+        return ranges
+    }
+
+    private static func codeSpans(in text: NSString, line: NSRange) -> [NSRange] {
+        var spans: [NSRange] = []
+        var open: Int?
+        for index in line.location..<NSMaxRange(line) where text.character(at: index) == 0x60 {
+            if let start = open {
+                // An empty pair is two backticks, not a span, as `[^`\n]+` has it.
+                if index > start + 1 { spans.append(NSRange(location: start, length: index - start + 1)) }
+                open = index > start + 1 ? nil : index
+            } else {
+                open = index
+            }
+        }
+        return spans
+    }
+
     /// Where a line's content ends: before its `\n`, and before a `\r` ahead of it, so a note
     /// saved with CRLF line endings reads the same as one with LF.
     public static func contentEnd(of lineRange: NSRange, in text: NSString) -> Int {

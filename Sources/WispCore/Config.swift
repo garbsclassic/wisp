@@ -302,6 +302,9 @@ public struct WispConfig: Codable, Equatable, Sendable {
     public var caret: Caret
     /// How a `---` rule is drawn.
     public var rule: RuleStyle
+    /// Check spelling as you type. Code, fenced blocks, and frontmatter are
+    /// skipped. Toggled from the footer and persisted.
+    public var spellcheck: Bool
     /// Absent until the panel has been shown and hidden once.
     public var panel: PanelFrame?
 
@@ -321,6 +324,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         indent: Indent = Indent(),
         caret: Caret = Caret(),
         rule: RuleStyle = .line,
+        spellcheck: Bool = false,
         panel: PanelFrame? = nil
     ) {
         self.theme = theme
@@ -338,6 +342,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.indent = indent
         self.caret = caret
         self.rule = rule
+        self.spellcheck = spellcheck
         self.panel = panel
     }
 
@@ -379,6 +384,8 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .caret, default: defaults.caret, diagnostics: diagnostics)
         rule = container.lenientValue(
             forKey: .rule, default: defaults.rule, diagnostics: diagnostics)
+        spellcheck = container.lenientValue(
+            forKey: .spellcheck, default: defaults.spellcheck, diagnostics: diagnostics)
         // `T` is `PanelFrame?` here, so a missing key and an explicit null
         // both land on "no remembered frame".
         panel = container.lenientValue(
