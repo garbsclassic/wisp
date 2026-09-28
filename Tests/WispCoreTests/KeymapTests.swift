@@ -151,6 +151,19 @@ struct KeymapTests {
         #expect(KeymapAction.resetPosition.isPanelScoped)
     }
 
+    /// `defaultsAllParse` and `defaultsAreUnique` already cover this action through
+    /// `KeymapAction.allCases`, including its collision check against every other default; this
+    /// pins its two chords and title down individually.
+    @Test("Toggle Spellcheck defaults to F6 and cmd+;, both of which parse")
+    func toggleSpellcheckDefaults() {
+        #expect(KeymapAction.toggleSpellcheck.defaultChords == ["f6", "cmd+;"])
+        #expect(KeymapAction.toggleSpellcheck.title == "Check Spelling")
+        let keymap = Keymap()
+        let parsed = keymap.parsedChords(for: .toggleSpellcheck)
+        #expect(parsed.count == 2)
+        #expect(KeymapAction.toggleSpellcheck.isPanelScoped)
+    }
+
     @Test("Only the actions that open the panel are unscoped")
     func scoping() {
         #expect(!KeymapAction.find.isPanelScoped)

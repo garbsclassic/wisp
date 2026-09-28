@@ -461,6 +461,105 @@ struct FontSetConfigTests {
     }
 }
 
+@Suite("Rule style")
+struct RuleStyleConfigTests {
+    private func decode(_ json: String, diagnostics: ConfigDiagnostics? = nil) throws -> WispConfig {
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        if let diagnostics { decoder.userInfo[.configDiagnostics] = diagnostics }
+        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
+    }
+
+    @Test("Defaults to line")
+    func defaults() throws {
+        #expect(try decode("{}").rule == .line)
+    }
+
+    @Test("Decodes seam")
+    func seam() throws {
+        #expect(try decode(#"{ "rule": "seam" }"#).rule == .seam)
+    }
+
+    @Test("Decodes line explicitly")
+    func line() throws {
+        #expect(try decode(#"{ "rule": "line" }"#).rule == .line)
+    }
+
+    @Test("An unknown value is malformed and falls back to line")
+    func unknownValue() throws {
+        let diagnostics = ConfigDiagnostics()
+        let config = try decode(#"{ "rule": "wavy" }"#, diagnostics: diagnostics)
+        #expect(config.rule == .line)
+        #expect(diagnostics.malformedKeys == ["rule"])
+    }
+}
+
+@Suite("Spellcheck")
+struct SpellcheckConfigTests {
+    private func decode(_ json: String, diagnostics: ConfigDiagnostics? = nil) throws -> WispConfig {
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        if let diagnostics { decoder.userInfo[.configDiagnostics] = diagnostics }
+        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
+    }
+
+    @Test("Defaults to off")
+    func defaults() throws {
+        #expect(try decode("{}").spellcheck == false)
+    }
+
+    @Test("Decodes an explicit true")
+    func explicitTrue() throws {
+        #expect(try decode(#"{ "spellcheck": true }"#).spellcheck)
+    }
+
+    @Test("Decodes an explicit false")
+    func explicitFalse() throws {
+        #expect(try decode(#"{ "spellcheck": false }"#).spellcheck == false)
+    }
+
+    @Test("A non-boolean value is malformed and falls back to off")
+    func malformedValue() throws {
+        let diagnostics = ConfigDiagnostics()
+        let config = try decode(#"{ "spellcheck": "yes" }"#, diagnostics: diagnostics)
+        #expect(config.spellcheck == false)
+        #expect(diagnostics.malformedKeys == ["spellcheck"])
+    }
+}
+
+@Suite("Footer status")
+struct FooterStatusConfigTests {
+    private func decode(_ json: String, diagnostics: ConfigDiagnostics? = nil) throws -> WispConfig {
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        if let diagnostics { decoder.userInfo[.configDiagnostics] = diagnostics }
+        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
+    }
+
+    @Test("Defaults to position")
+    func defaults() throws {
+        #expect(try decode("{}").footerStatus == .position)
+    }
+
+    @Test("Decodes modified")
+    func modified() throws {
+        #expect(try decode(#"{ "footerStatus": "modified" }"#).footerStatus == .modified)
+    }
+
+    @Test("Decodes position explicitly")
+    func position() throws {
+        #expect(try decode(#"{ "footerStatus": "position" }"#).footerStatus == .position)
+    }
+
+    @Test("An unknown value is malformed and falls back to position")
+    func unknownValue() throws {
+        let diagnostics = ConfigDiagnostics()
+        let config = try decode(#"{ "footerStatus": "clock" }"#, diagnostics: diagnostics)
+        #expect(config.footerStatus == .position)
+        #expect(diagnostics.malformedKeys == ["footerStatus"])
+    }
+}
+
 @Suite("Panel")
 struct PanelFrameConfigTests {
     /// `PanelFrame` carries only a size — where the panel sits is

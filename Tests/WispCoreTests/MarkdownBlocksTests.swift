@@ -328,6 +328,77 @@ struct MarkdownBlocksIndentedFenceTests {
     }
 }
 
+@Suite("MarkdownBlocks: codeRanges")
+struct MarkdownBlocksCodeRangesTests {
+    @Test("Plain prose with no backticks or code blocks has no code ranges")
+    func plainProse() {
+        let ns = "just some prose, no backticks here" as NSString
+        #expect(MarkdownBlocks(ns).codeRanges(in: ns).isEmpty)
+    }
+
+    @Test("A single inline code span is captured, backticks included")
+    func oneSpan() {
+        let ns = "a `code` b" as NSString
+        let ranges = MarkdownBlocks(ns).codeRanges(in: ns)
+        #expect(ranges == [NSRange(location: 2, length: 6)])
+        #expect(ns.substring(with: ranges[0]) == "`code`")
+    }
+
+    @Test("Two inline spans on the same line are both captured")
+    func twoSpans() {
+        let ns = "a `x` b `y` c" as NSString
+        let ranges = MarkdownBlocks(ns).codeRanges(in: ns)
+        #expect(ranges.map { ns.substring(with: $0) } == ["`x`", "`y`"])
+    }
+
+    @Test("An unclosed backtick opens no span")
+    func unclosedBacktick() {
+        let ns = "a `x b" as NSString
+        #expect(MarkdownBlocks(ns).codeRanges(in: ns).isEmpty)
+    }
+
+    /// The styling pass's `` `[^`\n]+` `` matches "` b `" here too, so spellcheck skips exactly
+    /// what renders in the code face.
+    @Test("An empty backtick pair's second backtick opens the next span, as styling reads it")
+    func emptyPairThenSpan() {
+        let ns = "a `` b `c` d" as NSString
+        let ranges = MarkdownBlocks(ns).codeRanges(in: ns)
+        #expect(ranges.count == 1)
+        #expect(ns.substring(with: ranges[0]) == "` b `")
+    }
+
+    @Test("A fenced block's fence lines and content line are all code, as full line ranges")
+    func fencedBlock() {
+        let ns = "```\ncode\n```" as NSString
+        let ranges = MarkdownBlocks(ns).codeRanges(in: ns)
+        #expect(ranges.map { ns.substring(with: $0) } == ["```\n", "code\n", "```"])
+    }
+
+    @Test("Frontmatter lines are all code, as full line ranges, and prose after it is unaffected")
+    func frontmatter() {
+        let ns = "---\ntitle: x\n---\nbody" as NSString
+        let ranges = MarkdownBlocks(ns).codeRanges(in: ns)
+        #expect(ranges.map { ns.substring(with: $0) } == ["---\n", "title: x\n", "---\n"])
+    }
+
+    @Test("An indented code line is captured whole")
+    func indentedCode() {
+        let ns = "    code" as NSString
+        let ranges = MarkdownBlocks(ns).codeRanges(in: ns)
+        #expect(ranges.map { ns.substring(with: $0) } == ["    code"])
+    }
+
+    @Test("A span on a later line reports absolute offsets into the whole text, not line-local ones")
+    func spanOnLaterLine() {
+        let ns = "line one\ntext `code` more" as NSString
+        let ranges = MarkdownBlocks(ns).codeRanges(in: ns)
+        let secondLineStart = ("line one\n" as NSString).length
+        let expectedLocation = secondLineStart + ("text " as NSString).length
+        #expect(ranges == [NSRange(location: expectedLocation, length: 6)])
+        #expect(ns.substring(with: ranges[0]) == "`code`")
+    }
+}
+
 @Suite("MarkdownBlocks: loose lists")
 struct MarkdownBlocksLooseListTests {
     private func kind(_ text: String, at offset: Int) -> MarkdownBlocks.Kind? {
