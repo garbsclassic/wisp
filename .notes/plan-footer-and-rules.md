@@ -24,6 +24,6 @@ Six refinements batched on 2026-09-28. Full design in the session plan; this is 
 - [x] `rule: "line" | "seam"`, 1em blank lines around rules
 - [x] Spellcheck: config, toggle chord, menu, help row, footer button, code filtered
 - [x] Footer: `− 100% +`, status/modified toggle, new order
-- [ ] Tests via `tester`
-- [ ] Visual verification both themes; install; chezmoi template
-- [ ] Reviewer pass over the branch
+- [x] Tests via `tester`
+- [x] Visual verification both themes; install; chezmoi template
+- [x] Reviewer pass over the branch
