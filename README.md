@@ -51,7 +51,7 @@ Press ⌘/ or F1, or click `?` in the footer, for the full shortcut list inside 
 
 - Tap ⌃⌥. to pin the panel open. Tap it again to close it.
 - Hold ⌃⌥. to peek. The panel opens without taking focus and closes when you let go. `peekHold` sets how long a press must last to count as a hold.
-- Press Esc to close the panel. Esc works even after you click into another app, and that app doesn't receive Esc while the panel is open. If the find bar, the help page, or a folder picker is open, Esc closes that first.
+- Press Esc to close the panel. Esc only acts while the panel has focus, so a panel left open behind another app stays put. If the find bar, the help page, or a folder picker is open, Esc closes that first.
 - Drag the panel by any part that isn't text. It opens in the same place next time. **Reset Position** (⌥⌘0) moves it back to the default spot.
 - Left-click the menu bar icon for the menu. Right-click it to pin the panel.
 
