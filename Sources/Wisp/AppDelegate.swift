@@ -119,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The one place a keymap action turns into work. `KeyBindingMonitor`
     /// and the status menu both land here.
     private func perform(_ action: KeymapAction) {
+        let notes = panelController?.focusedNotesView
         switch action {
         case .summon: panelController?.togglePin()
         case .find:
@@ -130,19 +131,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .cycleTheme: model.cycleTheme()
         case .sourceView: model.toggleSourceView()
         case .spellcheck: model.toggleSpellcheck()
-        case .bold: model.toggleBold()
-        case .italic: model.toggleItalic()
-        case .highlight: model.toggleHighlight()
-        case .underline: model.toggleUnderline()
-        case .strikethrough: model.toggleStrikethrough()
-        case .code: model.toggleCode()
-        case .duplicateLine: model.duplicateSelection()
-        case .openLineBelow: model.openLine(below: true)
-        case .openLineAbove: model.openLine(below: false)
-        case .bulletedList: model.toggleBulletedList()
-        case .checklist: model.toggleChecklist()
-        case .moveLineUp: model.moveLine(by: -1)
-        case .moveLineDown: model.moveLine(by: 1)
+        case .bold: notes?.toggleWrap(.bold)
+        case .italic: notes?.toggleWrap(.italic)
+        case .highlight: notes?.toggleWrap(.highlight)
+        case .underline: notes?.toggleWrap(.underline)
+        case .strikethrough: notes?.toggleWrap(.strikethrough)
+        case .code: notes?.toggleWrap(.code)
+        case .duplicateLine: notes?.duplicateSelection()
+        case .openLineBelow: notes?.openLine(below: true)
+        case .openLineAbove: notes?.openLine(below: false)
+        case .bulletedList: notes?.toggleBulletedList()
+        case .checklist: notes?.toggleChecklist()
+        case .moveLineUp: notes?.moveLines(by: -1)
+        case .moveLineDown: notes?.moveLines(by: 1)
         case .previousHeading: model.jumpToHeading(.previous)
         case .nextHeading: model.jumpToHeading(.next)
         case .increaseFontScale: model.stepFontScale(by: 1)

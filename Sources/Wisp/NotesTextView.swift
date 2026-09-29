@@ -300,9 +300,17 @@ final class NotesTextView: NSTextView {
         pasteboard.setString("", forType: Self.wholeLineType)
     }
 
-    // MARK: Duplicate, indent, outdent
+    // MARK: Keymap edits
 
-    /// ⌘D, routed here from the Edit menu through the model's token.
+    // Called by `AppDelegate.perform` on the focused notes view, so each
+    // runs inside the key event that asked for it.
+
+    /// ⌘B, ⌘I, and the other inline formats.
+    func toggleWrap(_ markers: MarkdownWrap.Markers) {
+        performEdit { MarkdownWrap.toggle(in: self, markers: markers) }
+    }
+
+    /// ⌘D.
     func duplicateSelection() {
         apply(LineEdits.duplicate(in: string as NSString, selection: selectedRange()))
     }

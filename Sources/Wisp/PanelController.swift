@@ -129,6 +129,12 @@ final class PanelController {
     /// panel showing but not accepting input.
     var isPanelFocused: Bool { panel.isVisible && panel.isKeyWindow }
 
+    /// The note's text view while it holds the keyboard — not while the
+    /// help page, the find field, or anything else in the panel does.
+    var focusedNotesView: NotesTextView? {
+        isPanelFocused ? panel.firstResponder as? NotesTextView : nil
+    }
+
     /// Pins the panel unless it already is — for the menu items that need
     /// it on screen and focused before they can do anything.
     func openIfNeeded() {

@@ -16,6 +16,20 @@ enum MarkdownWrap {
             self.open = open
             self.close = close ?? open
         }
+
+        static let bold = Markers("**")
+        /// `_word_` rather than `*word*`. Both *render* as italic — this is
+        /// only what the key inserts.
+        static let italic = Markers("_")
+        static let highlight = Markers("==")
+        /// The one non-markdown marker Wisp writes. `<u>` is what Obsidian's
+        /// own underline command inserts, which matters, because these notes
+        /// are read there too.
+        static let underline = Markers("<u>", "</u>")
+        /// `~~` rather than `~`: both render, but the doubled form is what
+        /// Obsidian writes and what Notion exports.
+        static let strikethrough = Markers("~~")
+        static let code = Markers("`")
     }
 
     /// Toggle `markers` around the text view's current selection.

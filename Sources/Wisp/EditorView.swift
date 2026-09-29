@@ -15,20 +15,11 @@ final class EditorModel: ObservableObject {
     @Published var caretOffset = 0
     @Published var focusToken: Int = 0
     @Published var scrollToken: Int = 0
-    @Published var wrapToken: Int = 0
-    @Published var duplicateToken: Int = 0
-    @Published var openLineToken: Int = 0
-    @Published var openLineBelow: Bool = true
-    @Published var listItemToken: Int = 0
-    @Published var checklistToken: Int = 0
-    @Published var moveLineToken: Int = 0
-    private(set) var moveLineDelta: Int = 0
     /// Flashed for a moment each time a save lands on disk. Nil-cost when
     /// `saveIndicator` is off — nothing schedules the flash at all.
     @Published private(set) var isShowingSaveFlash = false
     private var saveFlashTask: Task<Void, Never>?
     private(set) var scrollTarget: Int = 0
-    private(set) var wrapMarkers = MarkdownWrap.Markers("**")
     @Published private(set) var placeholder: String = ""
     @Published var showHotKeyCapture: Bool = false
     /// ⌘↩. Drops every styling pass and sets the body in the code face, so
@@ -321,51 +312,6 @@ final class EditorModel: ObservableObject {
         if resolved != theme { theme = resolved }
     }
 
-    /// ⌘B / ⌘I from either menu. Routed through a token, like focus/scroll,
-    /// rather than AppDelegate reaching into the responder chain for the
-    /// notes NSTextView itself — MinimalTextEditor's Coordinator is the one
-    /// that actually owns it. Bold and italic share one token/marker pair
-    /// rather than each getting its own, since they're the same operation
-    /// parameterized by the marker string.
-    func toggleBold() { wrap(.init("**")) }
-    /// `_word_` rather than `*word*`. Both still *render* as italic — this
-    /// is only what the key inserts.
-    func toggleItalic() { wrap(.init("_")) }
-    func toggleHighlight() { wrap(.init("==")) }
-    /// The one non-markdown marker Wisp writes. Markdown has no underline,
-    /// `__` is already spoken for by bold, and `<u>` is what Obsidian's own
-    /// underline command inserts — which matters, because these notes are
-    /// read there too.
-    func toggleUnderline() { wrap(.init("<u>", "</u>")) }
-    /// `~~` rather than `~`: both render, but the doubled form is what
-    /// Obsidian writes and what Notion exports.
-    func toggleStrikethrough() { wrap(.init("~~")) }
-    func toggleCode() { wrap(.init("`")) }
-
-    private func wrap(_ markers: MarkdownWrap.Markers) {
-        wrapMarkers = markers
-        wrapToken &+= 1
-    }
-
-    /// ⌘D. Same token arrangement as ⌘B / ⌘I, for the same reason: the
-    /// edit needs the text view's live selection, which only
-    /// `MinimalTextEditor` has a handle on.
-    func duplicateSelection() { duplicateToken &+= 1 }
-    /// ⌘↩ / ⌘⇧↩. Direction rides alongside the token, as `moveLineDelta` does.
-    func openLine(below: Bool) {
-        openLineBelow = below
-        openLineToken &+= 1
-    }
-    func toggleBulletedList() { listItemToken &+= 1 }
-    func toggleChecklist() { checklistToken &+= 1 }
-
-    /// ⌥↑ / ⌥↓. The delta rides alongside the token, the same pairing
-    /// `scrollTarget` has with `scrollToken`.
-    func moveLine(by delta: Int) {
-        moveLineDelta = delta
-        moveLineToken &+= 1
-    }
-
     func jumpTo(_ heading: Heading) {
         scrollTarget = heading.lineStart
         scrollToken &+= 1
@@ -591,15 +537,6 @@ struct EditorView: View {
                         focusToken: model.focusToken,
                         scrollToken: model.scrollToken,
                         scrollTarget: model.scrollTarget,
-                        wrapToken: model.wrapToken,
-                        wrapMarkers: model.wrapMarkers,
-                        duplicateToken: model.duplicateToken,
-                        openLineToken: model.openLineToken,
-                        openLineBelow: model.openLineBelow,
-                        listItemToken: model.listItemToken,
-                        checklistToken: model.checklistToken,
-                        moveLineToken: model.moveLineToken,
-                        moveLineDelta: model.moveLineDelta,
                         findHighlightToken: model.findHighlightToken,
                         // Cleared while the help page is up: the query is
                         // searching the page, and a match left painted on

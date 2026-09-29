@@ -24,15 +24,6 @@ struct MinimalTextEditor: NSViewRepresentable {
     var focusToken: Int
     var scrollToken: Int
     var scrollTarget: Int
-    var wrapToken: Int
-    var wrapMarkers: MarkdownWrap.Markers
-    var duplicateToken: Int
-    var openLineToken: Int
-    var openLineBelow: Bool
-    var listItemToken: Int
-    var checklistToken: Int
-    var moveLineToken: Int
-    var moveLineDelta: Int
     var findHighlightToken: Int
     var findHighlightRange: NSRange
     /// The live text scale. Compared in `updateNSView` rather than assumed
@@ -173,42 +164,6 @@ struct MinimalTextEditor: NSViewRepresentable {
             context.coordinator.lastFindHighlightToken = findHighlightToken
             applyFindHighlight(to: textView, scroll: true)
         }
-        if context.coordinator.lastWrapToken != wrapToken {
-            context.coordinator.lastWrapToken = wrapToken
-            if textView.window?.firstResponder === textView {
-                textView.performEdit { MarkdownWrap.toggle(in: textView, markers: wrapMarkers) }
-            }
-        }
-        if context.coordinator.lastDuplicateToken != duplicateToken {
-            context.coordinator.lastDuplicateToken = duplicateToken
-            if textView.window?.firstResponder === textView {
-                textView.duplicateSelection()
-            }
-        }
-        if context.coordinator.lastOpenLineToken != openLineToken {
-            context.coordinator.lastOpenLineToken = openLineToken
-            if textView.window?.firstResponder === textView {
-                textView.openLine(below: openLineBelow)
-            }
-        }
-        if context.coordinator.lastListItemToken != listItemToken {
-            context.coordinator.lastListItemToken = listItemToken
-            if textView.window?.firstResponder === textView {
-                textView.toggleBulletedList()
-            }
-        }
-        if context.coordinator.lastChecklistToken != checklistToken {
-            context.coordinator.lastChecklistToken = checklistToken
-            if textView.window?.firstResponder === textView {
-                textView.toggleChecklist()
-            }
-        }
-        if context.coordinator.lastMoveLineToken != moveLineToken {
-            context.coordinator.lastMoveLineToken = moveLineToken
-            if textView.window?.firstResponder === textView {
-                textView.moveLines(by: moveLineDelta)
-            }
-        }
     }
 
     private func restyle(_ textView: NotesTextView) {
@@ -332,15 +287,11 @@ struct MinimalTextEditor: NSViewRepresentable {
     ///
     /// Always run over the whole storage against a freshly reset base, so a
     /// line that *stopped* being a rule or a list item loses the styling it
-    /// had. Cheap at scratchpad sizes.
+    /// had.
     ///
-    /// Headings are parsed from the storage here rather than taken from
-    /// `EditorModel.headings`. An edit made from inside `updateNSView` —
-    /// every token-driven one: ⌘D, ⌘L, ⌥↑/↓, the wrap toggles — reaches
-    /// `textDidChange` while SwiftUI is still mid-update, and a write to an
-    /// `@ObservedObject` binding there is deferred, so the model's headings
-    /// still describe the text from before the edit. Their offsets then
-    /// land on whichever line moved into that position.
+    /// Headings come from the storage's own `MarkdownBlocks` rather than
+    /// from `EditorModel.headings`, so the styling always describes the text
+    /// it is applied to.
     static func restyleContent(
         in storage: NSTextStorage, baseFont: NSFont, indent: Indent, palette: Palette
     ) {
@@ -703,12 +654,6 @@ struct MinimalTextEditor: NSViewRepresentable {
         var text: Binding<String>
         var lastFocusToken: Int = 0
         var lastScrollToken: Int = 0
-        var lastWrapToken: Int = 0
-        var lastDuplicateToken: Int = 0
-        var lastOpenLineToken: Int = 0
-        var lastListItemToken: Int = 0
-        var lastChecklistToken: Int = 0
-        var lastMoveLineToken: Int = 0
         var lastFindHighlightToken: Int = 0
         var lastFontScale: Double = 1
         var lastIndent: Indent = Indent()
@@ -733,9 +678,9 @@ struct MinimalTextEditor: NSViewRepresentable {
             self.caretOffset = caretOffset
         }
 
-        /// Deferred a turn: the token-driven edits set their selection from
-        /// inside `updateNSView`, and a write to an `@ObservedObject`
-        /// binding mid-update is the hazard `restyleContent` documents.
+        /// Deferred a turn: a reload assigns `.string` from inside
+        /// `updateNSView`, which moves the selection, and SwiftUI defers or
+        /// drops a binding written mid-update.
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             let selection = textView.selectedRange()
