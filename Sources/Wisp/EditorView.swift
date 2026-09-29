@@ -20,7 +20,7 @@ final class EditorModel: ObservableObject {
     @Published var openLineToken: Int = 0
     @Published var openLineBelow: Bool = true
     @Published var listItemToken: Int = 0
-    @Published var taskItemToken: Int = 0
+    @Published var checklistToken: Int = 0
     @Published var moveLineToken: Int = 0
     private(set) var moveLineDelta: Int = 0
     /// Flashed for a moment each time a save lands on disk. Nil-cost when
@@ -353,7 +353,7 @@ final class EditorModel: ObservableObject {
         openLineToken &+= 1
     }
     func toggleBulletedList() { listItemToken &+= 1 }
-    func toggleTaskItem() { taskItemToken &+= 1 }
+    func toggleChecklist() { checklistToken &+= 1 }
 
     /// ⌥↑ / ⌥↓. The delta rides alongside the token, the same pairing
     /// `scrollTarget` has with `scrollToken`.
@@ -593,7 +593,7 @@ struct EditorView: View {
                         openLineToken: model.openLineToken,
                         openLineBelow: model.openLineBelow,
                         listItemToken: model.listItemToken,
-                        taskItemToken: model.taskItemToken,
+                        checklistToken: model.checklistToken,
                         moveLineToken: model.moveLineToken,
                         moveLineDelta: model.moveLineDelta,
                         findHighlightToken: model.findHighlightToken,

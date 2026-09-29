@@ -326,8 +326,8 @@ final class NotesTextView: NSTextView {
     }
 
     /// ⌘⇧L.
-    func toggleTaskItems() {
-        apply(LineEdits.toggleTaskItems(in: string as NSString, selection: selectedRange()))
+    func toggleChecklist() {
+        apply(LineEdits.toggleChecklist(in: string as NSString, selection: selectedRange()))
     }
 
     /// True while a hand-rolled edit is between its replacement and the

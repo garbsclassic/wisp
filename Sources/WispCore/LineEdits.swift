@@ -362,7 +362,7 @@ public enum LineEdits {
     /// bullet, the way Apple Notes converts a numbered list to a
     /// checklist: GFM does spell `1. [ ] foo`, but a box drawn in place of
     /// the number would hide the one thing an ordered marker is for.
-    public static func toggleTaskItems(in text: NSString, selection: NSRange) -> Edit {
+    public static func toggleChecklist(in text: NSString, selection: NSRange) -> Edit {
         let block = lineBlock(in: text, covering: selection)
         let allTasks = everyLine(of: block, in: text) { line in
             SmartEditing.listItem(lineRange: line, in: text)?.marker.isTask == true

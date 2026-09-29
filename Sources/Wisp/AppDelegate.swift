@@ -143,7 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func openLineBelow(_ sender: Any?) { model.openLine(below: true) }
     @objc func openLineAbove(_ sender: Any?) { model.openLine(below: false) }
     @objc func toggleBulletedList(_ sender: Any?) { model.toggleBulletedList() }
-    @objc func toggleTaskItem(_ sender: Any?) { model.toggleTaskItem() }
+    @objc func toggleChecklist(_ sender: Any?) { model.toggleChecklist() }
     @objc func moveLineUp(_ sender: Any?) { model.moveLine(by: -1) }
     @objc func moveLineDown(_ sender: Any?) { model.moveLine(by: 1) }
     @objc func previousHeading(_ sender: Any?) { model.jumpToHeading(.previous) }
@@ -160,7 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .help: toggleHelp(nil)
         case .cycleTheme: cycleTheme(nil)
         case .sourceView: model.toggleSourceView()
-        case .toggleSpellcheck: model.toggleSpellcheck()
+        case .spellcheck: model.toggleSpellcheck()
         case .bold: model.toggleBold()
         case .italic: model.toggleItalic()
         case .highlight: model.toggleHighlight()
@@ -170,8 +170,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .duplicateLine: model.duplicateSelection()
         case .openLineBelow: model.openLine(below: true)
         case .openLineAbove: model.openLine(below: false)
-        case .toggleBulletedList: model.toggleBulletedList()
-        case .toggleTaskItem: model.toggleTaskItem()
+        case .bulletedList: model.toggleBulletedList()
+        case .checklist: model.toggleChecklist()
         case .moveLineUp: model.moveLine(by: -1)
         case .moveLineDown: model.moveLine(by: 1)
         case .previousHeading: model.jumpToHeading(.previous)

@@ -71,11 +71,11 @@ public struct HelpDocument: Equatable, Sendable {
                 Row("⌘← · ↖", "start of list text · then of line"),
                 Row("⌘→ · ↘", "end of line"),
                 Row(group(.previousHeading, .nextHeading), "previous · next heading"),
-                Row(chord(.toggleSpellcheck), "check spelling as you type"),
+                Row(chord(.spellcheck), "check spelling as you type"),
             ]),
             Section("Format", [
-                Row(chord(.toggleBulletedList), "toggle bulleted list"),
-                Row(chord(.toggleTaskItem), "toggle task · check it off"),
+                Row(chord(.bulletedList), "toggle bulleted list"),
+                Row(chord(.checklist), "toggle task · check it off"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
                 // Two rows, not one: six chords don't fit the key gutter, and a
                 // key wider than its right-aligned stop runs over the detail.

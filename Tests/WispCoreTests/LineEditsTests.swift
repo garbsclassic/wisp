@@ -728,12 +728,12 @@ struct ToggleBulletedListItemTests {
     }
 }
 
-@Suite("LineEdits — toggle task items")
-struct ToggleTaskItemsTests {
+@Suite("LineEdits — toggle checklist")
+struct ToggleChecklistTests {
     @Test("A plain line gains a whole task marker, and the caret rides past it")
     func plainLine() {
         let text = "foo"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 3, length: 0))
         #expect(apply(edit, to: text) == "- [ ] foo")
         #expect(edit.selection == NSRange(location: 9, length: 0))
@@ -742,7 +742,7 @@ struct ToggleTaskItemsTests {
     @Test("An indented plain line keeps its indent ahead of the marker")
     func indentedPlainLine() {
         let text = "  foo"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 5, length: 0))
         #expect(apply(edit, to: text) == "  - [ ] foo")
     }
@@ -750,7 +750,7 @@ struct ToggleTaskItemsTests {
     @Test("A bullet keeps its marker and only gains the box")
     func bullet() {
         let text = "- foo"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 2, length: 0))
         #expect(apply(edit, to: text) == "- [ ] foo")
     }
@@ -758,7 +758,7 @@ struct ToggleTaskItemsTests {
     @Test("An ordered item trades its number for a bullet — a box can't show a number")
     func ordered() {
         let text = "  1. foo"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 5, length: 0))
         #expect(apply(edit, to: text) == "  - [ ] foo")
     }
@@ -766,7 +766,7 @@ struct ToggleTaskItemsTests {
     @Test("An all-unchecked block gets checked")
     func allUncheckedBlockGetsChecked() {
         let text = "- [ ] a\n- [ ] b"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 0, length: text.count))
         #expect(apply(edit, to: text) == "- [x] a\n- [x] b")
     }
@@ -774,7 +774,7 @@ struct ToggleTaskItemsTests {
     @Test("A mixed-state block gets checked — checking wins over unchecking")
     func mixedStateBlockGetsChecked() {
         let text = "- [x] a\n- [ ] b"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 0, length: text.count))
         #expect(apply(edit, to: text) == "- [x] a\n- [x] b")
     }
@@ -782,7 +782,7 @@ struct ToggleTaskItemsTests {
     @Test("An all-checked block gets unchecked")
     func allCheckedBlockGetsUnchecked() {
         let text = "- [x] a\n- [x] b"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 0, length: text.count))
         #expect(apply(edit, to: text) == "- [ ] a\n- [ ] b")
     }
@@ -790,7 +790,7 @@ struct ToggleTaskItemsTests {
     @Test("A block mixing a task with a non-task line leaves the task untouched")
     func mixedTaskAndPlainLeavesTaskAlone() {
         let text = "- [x] a\nb"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 0, length: text.count))
         #expect(apply(edit, to: text) == "- [x] a\n- [ ] b")
     }
@@ -798,7 +798,7 @@ struct ToggleTaskItemsTests {
     @Test("An empty selection only touches its own line")
     func emptySelectionTouchesOneLine() {
         let text = "foo\nbar\n"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 5, length: 0))
         #expect(apply(edit, to: text) == "foo\n- [ ] bar\n")
     }
@@ -806,7 +806,7 @@ struct ToggleTaskItemsTests {
     @Test("A non-empty selection maps to a non-empty selection afterwards")
     func selectionSurvivesAsARange() {
         let text = "one\ntwo\n"
-        let edit = LineEdits.toggleTaskItems(
+        let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 0, length: 7))
         #expect(apply(edit, to: text) == "- [ ] one\n- [ ] two\n")
         #expect(edit.selection == NSRange(location: 6, length: 13))

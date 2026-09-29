@@ -20,7 +20,7 @@ enum MainMenuBuilder {
         .help: #selector(AppDelegate.toggleHelp(_:)),
         .cycleTheme: #selector(AppDelegate.cycleTheme(_:)),
         .sourceView: #selector(AppDelegate.toggleSourceView(_:)),
-        .toggleSpellcheck: #selector(AppDelegate.toggleSpellcheck(_:)),
+        .spellcheck: #selector(AppDelegate.toggleSpellcheck(_:)),
         .bold: #selector(AppDelegate.toggleBold(_:)),
         .italic: #selector(AppDelegate.toggleItalic(_:)),
         .highlight: #selector(AppDelegate.toggleHighlight(_:)),
@@ -30,8 +30,8 @@ enum MainMenuBuilder {
         .duplicateLine: #selector(AppDelegate.duplicateSelection(_:)),
         .openLineBelow: #selector(AppDelegate.openLineBelow(_:)),
         .openLineAbove: #selector(AppDelegate.openLineAbove(_:)),
-        .toggleBulletedList: #selector(AppDelegate.toggleBulletedList(_:)),
-        .toggleTaskItem: #selector(AppDelegate.toggleTaskItem(_:)),
+        .bulletedList: #selector(AppDelegate.toggleBulletedList(_:)),
+        .checklist: #selector(AppDelegate.toggleChecklist(_:)),
         .moveLineUp: #selector(AppDelegate.moveLineUp(_:)),
         .moveLineDown: #selector(AppDelegate.moveLineDown(_:)),
         .previousHeading: #selector(AppDelegate.previousHeading(_:)),
@@ -113,8 +113,8 @@ enum MainMenuBuilder {
                 item(.strikethrough, target: target, keymap: keymap),
                 item(.code, target: target, keymap: keymap),
                 .separator(),
-                item(.toggleBulletedList, target: target, keymap: keymap),
-                item(.toggleTaskItem, target: target, keymap: keymap),
+                item(.bulletedList, target: target, keymap: keymap),
+                item(.checklist, target: target, keymap: keymap),
             ])
 
         mainMenu.addItem(
@@ -126,7 +126,7 @@ enum MainMenuBuilder {
                 .separator(),
                 item(.cycleTheme, target: target, keymap: keymap),
                 item(.sourceView, target: target, keymap: keymap),
-                item(.toggleSpellcheck, target: target, keymap: keymap),
+                item(.spellcheck, target: target, keymap: keymap),
             ])
 
         mainMenu.addItem(

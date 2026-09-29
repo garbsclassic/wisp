@@ -33,8 +33,8 @@ struct KeymapTests {
 
     @Test("Toggling a task item and toggling a bulleted list keep their dedicated defaults")
     func taskAndBulletedListDefaults() {
-        #expect(KeymapAction.toggleTaskItem.defaultChords == "cmd+shift+l")
-        #expect(KeymapAction.toggleBulletedList.defaultChords == "cmd+l")
+        #expect(KeymapAction.checklist.defaultChords == "cmd+shift+l")
+        #expect(KeymapAction.bulletedList.defaultChords == "cmd+l")
     }
 
     @Test("A partial keymap object keeps the defaults for everything else")
@@ -155,13 +155,13 @@ struct KeymapTests {
     /// `KeymapAction.allCases`, including its collision check against every other default; this
     /// pins its two chords and title down individually.
     @Test("Toggle Spellcheck defaults to F6 and cmd+;, both of which parse")
-    func toggleSpellcheckDefaults() {
-        #expect(KeymapAction.toggleSpellcheck.defaultChords == ["f6", "cmd+;"])
-        #expect(KeymapAction.toggleSpellcheck.title == "Check Spelling")
+    func spellcheckDefaults() {
+        #expect(KeymapAction.spellcheck.defaultChords == ["f6", "cmd+;"])
+        #expect(KeymapAction.spellcheck.title == "Check Spelling")
         let keymap = Keymap()
-        let parsed = keymap.parsedChords(for: .toggleSpellcheck)
+        let parsed = keymap.parsedChords(for: .spellcheck)
         #expect(parsed.count == 2)
-        #expect(KeymapAction.toggleSpellcheck.isPanelScoped)
+        #expect(KeymapAction.spellcheck.isPanelScoped)
     }
 
     @Test("Only the actions that open the panel are unscoped")

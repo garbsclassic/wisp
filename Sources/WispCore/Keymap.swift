@@ -58,7 +58,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
 
     case cycleTheme
     case sourceView
-    case toggleSpellcheck
+    case spellcheck
 
     case bold
     case italic
@@ -70,8 +70,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     case duplicateLine
     case openLineBelow
     case openLineAbove
-    case toggleBulletedList
-    case toggleTaskItem
+    case bulletedList
+    case checklist
     case moveLineUp
     case moveLineDown
     case previousHeading
@@ -94,7 +94,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .help: return "Help"
         case .cycleTheme: return "Cycle Theme"
         case .sourceView: return "Source View"
-        case .toggleSpellcheck: return "Check Spelling"
+        case .spellcheck: return "Check Spelling"
         case .bold: return "Bold"
         case .italic: return "Italic"
         case .highlight: return "Highlight"
@@ -104,8 +104,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .duplicateLine: return "Duplicate Line"
         case .openLineBelow: return "New Line Below"
         case .openLineAbove: return "New Line Above"
-        case .toggleBulletedList: return "Toggle Bulleted List"
-        case .toggleTaskItem: return "Toggle Task Item"
+        case .bulletedList: return "Bulleted List"
+        case .checklist: return "Checklist"
         case .moveLineUp: return "Move Line Up"
         case .moveLineDown: return "Move Line Down"
         case .previousHeading: return "Previous Heading"
@@ -136,7 +136,7 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .sourceView: return "cmd+shift+v"
         // No macOS default toggles checking as you type. F6 is Sublime Text's
         // toggle; ⌘; is the system's own spelling chord, taken over here.
-        case .toggleSpellcheck: return ["f6", "cmd+;"]
+        case .spellcheck: return ["f6", "cmd+;"]
         case .highlight: return "opt+h"
         // `<u>` is HTML, not markdown — which is also what Obsidian's own
         // underline command inserts, and this note is read there too.
@@ -149,10 +149,10 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         // a fresh one below, ⇧ puts it above.
         case .openLineBelow: return "cmd+return"
         case .openLineAbove: return "cmd+shift+return"
-        case .toggleBulletedList: return "cmd+l"
+        case .bulletedList: return "cmd+l"
         // The shifted sibling of ⌘L: one says "is this a list", the other
         // "is this done".
-        case .toggleTaskItem: return "cmd+shift+l"
+        case .checklist: return "cmd+shift+l"
         case .moveLineUp: return "opt+up"
         case .moveLineDown: return "opt+down"
         // Beside ⌥↑/↓, which move a line: ⌃⇧ moves the caret a section.

@@ -57,7 +57,7 @@ struct FooterBar: View {
                 isSpellcheckOn ? "textformat.abc.dottedunderline" : "textformat.abc",
                 help: hint(
                     isSpellcheckOn ? "Stop checking spelling" : "Check spelling",
-                    .toggleSpellcheck),
+                    .spellcheck),
                 action: onToggleSpellcheck)
             // Filled when on, the way the theme button swaps its glyph:
             // a footer control that says which way it is currently set.

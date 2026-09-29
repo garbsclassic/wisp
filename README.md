@@ -174,7 +174,7 @@ Wisp drops a chord it can't parse. If that leaves an action with no working chor
 | `help`               | `["f1", "cmd+/"]`  |
 | `cycleTheme`         | `cmd+t`            |
 | `sourceView`         | `cmd+shift+v`      |
-| `toggleSpellcheck`   | `["f6", "cmd+;"]`  |
+| `spellcheck`         | `["f6", "cmd+;"]`  |
 | `bold`               | `cmd+b`            |
 | `italic`             | `cmd+i`            |
 | `highlight`          | `opt+h`            |
@@ -184,8 +184,8 @@ Wisp drops a chord it can't parse. If that leaves an action with no working chor
 | `duplicateLine`      | `cmd+d`            |
 | `openLineBelow`      | `cmd+return`       |
 | `openLineAbove`      | `cmd+shift+return` |
-| `toggleBulletedList` | `cmd+l`            |
-| `toggleTaskItem`     | `cmd+shift+l`      |
+| `bulletedList`       | `cmd+l`            |
+| `checklist`          | `cmd+shift+l`      |
 | `moveLineUp`         | `opt+up`           |
 | `moveLineDown`       | `opt+down`         |
 | `previousHeading`    | `ctrl+shift+up`    |

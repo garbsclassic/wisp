@@ -30,7 +30,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     var openLineToken: Int
     var openLineBelow: Bool
     var listItemToken: Int
-    var taskItemToken: Int
+    var checklistToken: Int
     var moveLineToken: Int
     var moveLineDelta: Int
     var findHighlightToken: Int
@@ -197,10 +197,10 @@ struct MinimalTextEditor: NSViewRepresentable {
                 textView.toggleBulletedList()
             }
         }
-        if context.coordinator.lastTaskItemToken != taskItemToken {
-            context.coordinator.lastTaskItemToken = taskItemToken
+        if context.coordinator.lastChecklistToken != checklistToken {
+            context.coordinator.lastChecklistToken = checklistToken
             if textView.window?.firstResponder === textView {
-                textView.toggleTaskItems()
+                textView.toggleChecklist()
             }
         }
         if context.coordinator.lastMoveLineToken != moveLineToken {
@@ -707,7 +707,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lastDuplicateToken: Int = 0
         var lastOpenLineToken: Int = 0
         var lastListItemToken: Int = 0
-        var lastTaskItemToken: Int = 0
+        var lastChecklistToken: Int = 0
         var lastMoveLineToken: Int = 0
         var lastFindHighlightToken: Int = 0
         var lastFontScale: Double = 1
