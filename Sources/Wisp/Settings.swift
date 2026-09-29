@@ -23,7 +23,6 @@ final class Settings: ObservableObject {
         let load = ConfigStore.loadOrSeed()
         config = load.config
         configWarning = load.error
-        if load.seeded { migrateLegacyDefaults() }
         applyTypography()
         installSchema()
     }
@@ -138,7 +137,6 @@ final class Settings: ObservableObject {
 
     /// Re-reads wisp.jsonc from disk — the Refresh menu item, for a file
     /// hand-edited or synced in from another Mac while Wisp was running.
-    /// Skips `migrateLegacyDefaults()`, which is a first-run-only step.
     func reload() {
         let load = ConfigStore.loadOrSeed()
         config = load.config
@@ -167,51 +165,6 @@ final class Settings: ObservableObject {
             try ConfigStore.update(path, to: value, in: config)
         } catch {
             configWarning = "Couldn't write wisp.jsonc: \(error.localizedDescription)"
-        }
-    }
-
-    // MARK: Migration
-
-    /// Carries the pre-config UserDefaults values into the freshly seeded
-    /// file, then clears them. Runs once, on the first launch after the
-    /// upgrade; afterwards `defaults read dev.garbs.wisp` is empty and there
-    /// is no shadow store beside the config.
-    private func migrateLegacyDefaults() {
-        let defaults = UserDefaults.standard
-        var migrated = config
-
-        if let raw = defaults.string(forKey: "Theme"), let pref = ThemeSetting(rawValue: raw) {
-            migrated.theme = pref
-        }
-        if defaults.object(forKey: "HotKeyCode") != nil {
-            let keyCode = UInt32(defaults.integer(forKey: "HotKeyCode"))
-            let modifiers = UInt32(defaults.integer(forKey: "HotKeyMods"))
-            if let chord = KeyChord.string(keyCode: keyCode, carbonModifiers: modifiers) {
-                migrated.keymap.setChord(chord, for: .summon)
-            }
-        }
-        if let path = defaults.string(forKey: StorageLocation.legacyFolderKey), !path.isEmpty {
-            migrated.scratchpadFolder = path
-        }
-        if let saved = defaults.string(forKey: "PanelFrame") {
-            let rect = NSRectFromString(saved)
-            if !rect.isEmpty {
-                migrated.panel = PanelFrame(
-                    width: Double(rect.width), height: Double(rect.height))
-            }
-        }
-
-        guard migrated != config else { return }
-        config = migrated
-        do {
-            try ConfigStore.write(migrated)
-        } catch {
-            configWarning = "Couldn't write wisp.jsonc: \(error.localizedDescription)"
-            return
-        }
-        for key in ["Theme", "FontSize", "HotKeyCode", "HotKeyMods", "PanelFrame",
-                    StorageLocation.legacyFolderKey, "HasSeenFirstRunTour"] {
-            defaults.removeObject(forKey: key)
         }
     }
 }

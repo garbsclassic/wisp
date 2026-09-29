@@ -1,10 +1,16 @@
 import AppKit
 import WispCore
 
-/// Draws the two things the notes body renders as marks rather than as
-/// characters: horizontal rules, and list bullets.
+extension NSAttributedString.Key {
+    /// Set by the styling pass on a line that is a thematic break, so drawing needn't work out
+    /// again which `---` lines are rules and which underline a heading.
+    static let horizontalRule = NSAttributedString.Key("WispHorizontalRule")
+}
+
+/// Draws the things the notes body renders as marks rather than as
+/// characters: horizontal rules, list bullets, and checklist boxes.
 ///
-/// Both use the same trick. The characters stay in storage — the file on
+/// All use the same trick. The characters stay in storage — the file on
 /// disk is plain markdown, `---` and `- ` — and the styling pass paints
 /// them with a `.clear` foreground; this class then draws the mark over
 /// the space they reserved. Layout is untouched, so wrapping, selection,
@@ -13,12 +19,6 @@ import WispCore
 ///
 /// The rule spans the line fragment's full width, so it tracks panel
 /// resizes for free.
-extension NSAttributedString.Key {
-    /// Set by the styling pass on a line that is a thematic break, so drawing needn't work out
-    /// again which `---` lines are rules and which underline a heading.
-    static let horizontalRule = NSAttributedString.Key("WispHorizontalRule")
-}
-
 final class NotesLayoutManager: NSLayoutManager {
     /// Stroke color for horizontal rules, refreshed on every theme flip
     /// via `applyPalette`.

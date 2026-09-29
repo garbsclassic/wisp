@@ -136,8 +136,9 @@ public struct KeyChord: Equatable, Sendable {
 
     /// Key code → the token `parse` prefers for it. Built by inverting
     /// `keyCodes`, keeping the *first* spelling of each code in a fixed
-    /// preference order so `.` never comes back as "period" and `esc` never
-    /// as "escape" — one code, one canonical spelling, round-tripping.
+    /// preference order so `.` comes back as `.` rather than "period" and
+    /// the escape key as "escape" rather than "esc" — one code, one
+    /// canonical spelling, round-tripping.
     private static let keyNames: [UInt32: String] = {
         var names: [UInt32: String] = [:]
         for token in preferredKeyTokens {

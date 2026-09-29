@@ -143,17 +143,15 @@ final class ConfigStoreTests {
         #expect(ConfigStore.fileURL.lastPathComponent == "wisp.jsonc")
     }
 
-    @Test("First run seeds the file and says so")
+    @Test("First run seeds the file")
     func seeding() throws {
         let load = ConfigStore.loadOrSeed()
-        #expect(load.seeded)
         #expect(load.error == nil)
         #expect(load.config == WispConfig())
         #expect(FileManager.default.fileExists(atPath: ConfigStore.fileURL.path))
 
-        // Second run reads what was written and is no longer a first run.
+        // Second run reads what was written.
         let second = ConfigStore.loadOrSeed()
-        #expect(!second.seeded)
         #expect(second.config == load.config)
     }
 
@@ -232,7 +230,6 @@ final class ConfigStoreTests {
         let load = ConfigStore.loadOrSeed()
         #expect(load.config == WispConfig())
         #expect(load.error?.contains("unreadable") == true)
-        #expect(!load.seeded)
     }
 
     @Test("The panel frame round-trips through the file")

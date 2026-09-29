@@ -1,5 +1,4 @@
 import AppKit
-import Carbon.HIToolbox
 import SwiftUI
 import WispCore
 
@@ -21,16 +20,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var noteWatcher: DirectoryWatcher?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.mainMenu = MainMenuBuilder.make(target: self, keymap: settings.config.keymap)
+        NSApp.mainMenu = MainMenuBuilder.make()
         let panel = PanelController(model: model, settings: settings)
         panelController = panel
         menuBarController = MenuBarController(
+            perform: { [weak self] action in self?.perform(action) },
             onSetHotKey: { [weak self, weak panel] in
                 panel?.openIfNeeded()
                 self?.model.showHotKeyCapture = true
             },
-            onOpenConfig: { [weak self] in self?.openSettings(nil) },
-            onRefresh: { [weak self] in self?.refresh(nil) },
             currentLaunchAtLogin: { LaunchAtLogin.isEnabled },
             onToggleLaunchAtLogin: {
                 LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
@@ -43,10 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onResetStorageLocation: { [weak self] in
                 self?.resetStorageLocation()
-            },
-            onReveal: { [weak self] in self?.revealInFinder() },
-            onResetPosition: { [weak panel] in panel?.resetPosition() },
-            onSummon: { [weak panel] in panel?.togglePin() }
+            }
         )
         menuBarController?.apply(settings.config.keymap)
 
@@ -88,12 +83,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return "\(hk.displayString) is already used by another app or macOS. Try another combo."
         }
 
-        // Nothing is shown at launch. AppKit's
-        // NSApplicationLaunchIsDefaultLaunchKey was meant to tell a user
-        // launch from a login-item one, but it isn't reliably false for an
-        // SMAppService login item, so the panel popped out on login
-        // anyway. The hotkey, the menu bar item, and a re-launch all still
-        // open it — see applicationShouldHandleReopen.
+        // Nothing is shown at launch: NSApplicationLaunchIsDefaultLaunchKey
+        // isn't reliably false for an SMAppService login item, so there is
+        // no telling a login launch from a user one. The hotkey, the menu bar
+        // item, and a re-launch all open the panel — see
+        // applicationShouldHandleReopen.
     }
 
     /// Re-launching the app while it's already running (Spotlight,
@@ -104,8 +98,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Bring Wisp to the front and show the panel — the re-launch path,
-    /// which is the only launch-adjacent one that opens anything now. The
-    /// hotkey summon stays separate so it doesn't steal focus from
+    /// the only launch-adjacent one that opens anything. The hotkey summon
+    /// stays separate so it doesn't steal focus from
     /// whatever app the user was in when they pressed the chord.
     private func presentForUserAction() {
         NSApp.activate(ignoringOtherApps: true)
@@ -122,43 +116,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onRelease: { [weak self] in self?.panelController?.handleChordUp() })
     }
 
-    @objc func showFind(_ sender: Any?) {
-        panelController?.openIfNeeded()
-        model.openFind()
-    }
-
-    @objc func increaseFontScale(_ sender: Any?) { model.stepFontScale(by: 1) }
-    @objc func decreaseFontScale(_ sender: Any?) { model.stepFontScale(by: -1) }
-    @objc func resetFontScale(_ sender: Any?) { model.resetFontScale() }
-
-    @objc func toggleBold(_ sender: Any?) { model.toggleBold() }
-    @objc func toggleItalic(_ sender: Any?) { model.toggleItalic() }
-    @objc func toggleHighlight(_ sender: Any?) { model.toggleHighlight() }
-    @objc func toggleUnderline(_ sender: Any?) { model.toggleUnderline() }
-    @objc func toggleStrikethrough(_ sender: Any?) { model.toggleStrikethrough() }
-    @objc func toggleCode(_ sender: Any?) { model.toggleCode() }
-    @objc func reveal(_ sender: Any?) { revealInFinder() }
-    @objc func resetPosition(_ sender: Any?) { panelController?.resetPosition() }
-    @objc func duplicateSelection(_ sender: Any?) { model.duplicateSelection() }
-    @objc func openLineBelow(_ sender: Any?) { model.openLine(below: true) }
-    @objc func openLineAbove(_ sender: Any?) { model.openLine(below: false) }
-    @objc func toggleBulletedList(_ sender: Any?) { model.toggleBulletedList() }
-    @objc func toggleChecklist(_ sender: Any?) { model.toggleChecklist() }
-    @objc func moveLineUp(_ sender: Any?) { model.moveLine(by: -1) }
-    @objc func moveLineDown(_ sender: Any?) { model.moveLine(by: 1) }
-    @objc func previousHeading(_ sender: Any?) { model.jumpToHeading(.previous) }
-    @objc func nextHeading(_ sender: Any?) { model.jumpToHeading(.next) }
-
-    /// The one place a keymap action turns into work. Both the monitor and
-    /// the menu items land here, so a chord and its menu item can't drift.
+    /// The one place a keymap action turns into work. `KeyBindingMonitor`
+    /// and the status menu both land here.
     private func perform(_ action: KeymapAction) {
         switch action {
         case .summon: panelController?.togglePin()
-        case .find: showFind(nil)
-        case .settings: openSettings(nil)
-        case .refresh: refresh(nil)
-        case .help: toggleHelp(nil)
-        case .cycleTheme: cycleTheme(nil)
+        case .find:
+            panelController?.openIfNeeded()
+            model.openFind()
+        case .settings: openSettings()
+        case .refresh: refresh()
+        case .help: model.toggleHelp()
+        case .cycleTheme: model.cycleTheme()
         case .sourceView: model.toggleSourceView()
         case .spellcheck: model.toggleSpellcheck()
         case .bold: model.toggleBold()
@@ -179,38 +148,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .increaseFontScale: model.stepFontScale(by: 1)
         case .decreaseFontScale: model.stepFontScale(by: -1)
         case .resetFontScale: model.resetFontScale()
-        case .reveal: revealInFinder()
-        case .resetPosition: resetPosition(nil)
+        case .reveal: NSWorkspace.shared.activateFileViewerSelecting([model.scratchpadURL])
+        case .resetPosition: panelController?.resetPosition()
         }
-    }
-
-    @objc func cycleTheme(_ sender: Any?) { model.cycleTheme() }
-
-    @objc func toggleSourceView(_ sender: Any?) { model.toggleSourceView() }
-
-    @objc func toggleSpellcheck(_ sender: Any?) { model.toggleSpellcheck() }
-
-    @objc func toggleHelp(_ sender: Any?) {
-        withAnimation(.easeInOut(duration: 0.18)) { model.showHelp.toggle() }
-    }
-
-    /// Gates every chord that only means something with the panel in
-    /// front of the user.
-    ///
-    /// Without this a main-menu key equivalent fires whenever Wisp is
-    /// merely *active* — which it can be with no panel on screen at all,
-    /// or while a storage picker is up. ⌘D would then quietly bump a token
-    /// nothing is listening to, and ⌘= would rewrite the config from
-    /// under a modal.
-    ///
-    /// Which actions are scoped is read off `KeymapAction`, the same table
-    /// the bindings come from, so the gate can't drift away from the menu.
-    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        guard let selector = menuItem.action,
-            let action = MainMenuBuilder.action(for: selector),
-            action.isPanelScoped
-        else { return true }
-        return panelController?.isPanelFocused ?? false
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -232,10 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // somewhere visible; otherwise it can sit behind the desktop.
         panelController?.openIfNeeded()
         NSApp.activate(ignoringOtherApps: true)
-        runStorageLocationFlow()
-    }
 
-    private func runStorageLocationFlow() {
         let openPanel = NSOpenPanel()
         openPanel.title = "Choose Wisp's Scratchpad Folder"
         openPanel.canChooseFiles = false
@@ -262,15 +199,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let result = try StorageLocation.setFolder(
                 folder, currentText: model.text,
                 currentFolder: settings.config.scratchpadFolderPath)
-            settings.setScratchpadFolder(result.folderPath)
+            settings.setScratchpadFolder(folder.path)
             startNoteWatcher()
-            if result.loadedExisting {
-                model.adoptLoadedText(result.newText)
-            } else {
-                // Refresh mtime baseline so the next reloadFromDiskIfChanged
-                // doesn't trip on the file we just wrote.
-                model.adoptLoadedText(model.text)
-            }
+            // Also when the text is unchanged: it re-baselines the mtime, so
+            // the next reloadFromDiskIfChanged doesn't trip on our own write.
+            model.adoptLoadedText(result.text)
             if let backupURL = result.backupURL {
                 let alert = NSAlert()
                 alert.messageText = "Local text saved as backup"
@@ -286,10 +219,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func resetStorageLocation() {
-        runStorageLocationReset()
-    }
-
-    private func runStorageLocationReset() {
         guard StorageLocation.isCustom(settings.config.scratchpadFolder) else { return }
         do {
             try StorageLocation.resetToDefault(currentText: model.text)
@@ -302,18 +231,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// ⌘, from either menu — the main menu's item fires while the Wisp
-    /// panel is focused, the menu-bar menu's own while that is open.
+    /// ⌘, and the status menu's Settings….
     ///
     /// The panel goes away first: settings open in whatever app owns
     /// .jsonc, and leaving Wisp floating over the editor you are about to
     /// type in is the wrong half of the screen.
-    @objc func openSettings(_ sender: Any?) {
+    private func openSettings() {
         panelController?.dismiss()
         settings.openConfigFile()
     }
 
-    /// ⌘R from either menu — re-reads wisp.jsonc and re-checks
+    /// ⌘R and the status menu's Refresh — re-reads wisp.jsonc and re-checks
     /// scratchpad.md's mtime, for either changing on disk without Wisp's
     /// own writes (iCloud Drive, Dropbox, or a chezmoi apply on another
     /// Mac).
@@ -321,7 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Shows the panel, since a refresh you can't see the result of isn't
     /// worth a keystroke; one already open stays open and keeps its
     /// selection.
-    @objc func refresh(_ sender: Any?) {
+    private func refresh() {
         panelController?.openIfNeeded()
         reloadConfig()
         model.reloadFromDiskIfChanged()
@@ -340,11 +268,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard settings.config != previous else { return }
 
         model.adoptSettings()
-        // Both the menu and the binding table are pure functions of the
-        // keymap, so a changed one means rebuilding both. Microseconds
-        // either way, and far less delicate than patching in place.
+        // The binding table and the status menu's equivalents are pure
+        // functions of the keymap, so a changed one means rebuilding both.
         if settings.config.keymap != previous.keymap {
-            NSApp.mainMenu = MainMenuBuilder.make(target: self, keymap: settings.config.keymap)
             keyBindings?.apply(settings.config.keymap)
             menuBarController?.apply(settings.config.keymap)
         }
@@ -364,9 +290,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             [weak self] in
             self?.model.reloadFromDiskIfChanged()
         }
-    }
-
-    private func revealInFinder() {
-        NSWorkspace.shared.activateFileViewerSelecting([model.scratchpadURL])
     }
 }

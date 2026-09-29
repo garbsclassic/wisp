@@ -5,8 +5,8 @@ import ServiceManagement
 ///
 /// Note: SMAppService needs a properly bundled .app to register. Running
 /// via `swift run` will fail because the executable isn't in a bundle the
-/// system recognizes — that's expected. The shipped .app from
-/// scripts/build-app.sh works.
+/// system recognizes — that's expected. The .app from scripts/build.sh
+/// works.
 public enum LaunchAtLogin {
     public static var isEnabled: Bool {
         SMAppService.mainApp.status == .enabled

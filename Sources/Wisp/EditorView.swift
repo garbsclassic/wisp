@@ -311,6 +311,10 @@ final class EditorModel: ObservableObject {
         requestFocus()
     }
 
+    func toggleHelp() {
+        withAnimation(.easeInOut(duration: 0.18)) { showHelp.toggle() }
+    }
+
     private func systemAppearanceMaybeChanged() {
         guard themeSetting == .system else { return }
         let resolved = themeSetting.resolve()
@@ -622,7 +626,7 @@ struct EditorView: View {
                             .font(Font(MinimalTextEditor.baseFont(isSourceView: model.isSourceView)))
                             .foregroundStyle(Color(palette.muted))
                             .allowsHitTesting(false)
-                            .padding(.horizontal, 24)
+                            .padding(.horizontal, Metrics.chromeInsetX)
                             .padding(.top, barHeadings.isEmpty ? 26 : 2)
                     }
                 }
@@ -647,11 +651,7 @@ struct EditorView: View {
                     onCycleTheme: { model.cycleTheme() },
                     onToggleSourceView: { model.toggleSourceView() },
                     onToggleSpellcheck: { model.toggleSpellcheck() },
-                    onHelpClick: {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            model.showHelp.toggle()
-                        }
-                    },
+                    onHelpClick: { model.toggleHelp() },
                     warning: model.settings.warning,
                     onDismiss: { model.onDismissRequest?() }
                 )
@@ -711,7 +711,7 @@ struct EditorView: View {
             }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: panelCornerRadius)
                 .strokeBorder(Color(palette.border), lineWidth: 1)
                 .allowsHitTesting(false)
         }

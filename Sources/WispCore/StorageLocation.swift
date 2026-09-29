@@ -13,13 +13,11 @@ import Foundation
 /// at the same instant can produce a `scratchpad (Mac-X's conflicted
 /// copy).md` file that Wisp doesn't merge automatically. The single-
 /// person-many-Macs case rarely hits this.
+///
 /// The folder is passed in rather than read here: `wisp.jsonc` is the single
 /// source of truth for it, and a helper that reached for UserDefaults behind
 /// the caller's back would quietly reintroduce the shadow store.
 public enum StorageLocation {
-    /// The pre-config UserDefaults key. Read once on first run to seed
-    /// `scratchpadFolder`, then never again.
-    public static let legacyFolderKey = "ScratchpadFolder"
     public static let scratchpadFilename = "scratchpad.md"
     public static let backupPrefix = "scratchpad-local-backup-"
 
@@ -55,16 +53,11 @@ public enum StorageLocation {
         return "\(backupPrefix)\(stamp).md"
     }
 
-    /// Outcome of switching folders. Drives the UI (whether to swap
-    /// the in-memory text for the loaded existing file, and whether to
-    /// surface a backup-was-saved message).
+    /// Outcome of switching folders: the text the scratchpad now holds, and
+    /// where the local text was backed up when an existing file replaced it.
     public struct SwitchResult {
-        public let newText: String
+        public let text: String
         public let backupURL: URL?
-        public let loadedExisting: Bool
-        /// The path to persist into `scratchpadFolder`. Empty for the default
-        /// folder, so a reset clears the key rather than pinning it.
-        public let folderPath: String
     }
 
     /// Switch to a new folder. Two paths:
@@ -82,9 +75,7 @@ public enum StorageLocation {
 
         // Same folder — nothing to do.
         if (newURL.standardizedFileURL.path) == (oldURL.standardizedFileURL.path) {
-            return SwitchResult(
-                newText: currentText, backupURL: nil, loadedExisting: false,
-                folderPath: folder.path)
+            return SwitchResult(text: currentText, backupURL: nil)
         }
 
         if fm.fileExists(atPath: newURL.path) {
@@ -95,15 +86,11 @@ public enum StorageLocation {
             // Stop pointing at the old file; remove it so the old
             // location doesn't keep getting stale writes.
             try? fm.removeItem(at: oldURL)
-            return SwitchResult(
-                newText: loaded, backupURL: backupURL, loadedExisting: true,
-                folderPath: folder.path)
+            return SwitchResult(text: loaded, backupURL: backupURL)
         } else {
             try currentText.write(to: newURL, atomically: true, encoding: .utf8)
             try? fm.removeItem(at: oldURL)
-            return SwitchResult(
-                newText: currentText, backupURL: nil, loadedExisting: false,
-                folderPath: folder.path)
+            return SwitchResult(text: currentText, backupURL: nil)
         }
     }
 

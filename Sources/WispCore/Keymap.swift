@@ -210,8 +210,7 @@ public struct Keymap: Codable, Equatable, Sendable {
         for action in KeymapAction.allCases {
             let key = DynamicKey(stringValue: action.rawValue)!
             table[action.rawValue] = container.lenientValue(
-                forKey: key, default: action.defaultChords, diagnostics: diagnostics,
-                pathPrefix: "keymap.")
+                forKey: key, default: action.defaultChords, diagnostics: diagnostics)
         }
         bindings = table
     }

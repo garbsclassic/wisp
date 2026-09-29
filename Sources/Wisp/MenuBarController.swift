@@ -5,22 +5,19 @@ import WispCore
 /// click pins the panel, or dismisses the pin that's up. The menu
 /// refreshes its dynamic state — Launch at Login checkmark, Reset
 /// Scratchpad Folder visibility — in menuNeedsUpdate rather than being
-/// rebuilt each time. Wording and icons follow Clef's menu where an item
-/// exists in both.
+/// rebuilt each time.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
+    /// The items that stand for a keymap action run it here, the same
+    /// dispatch its chord goes through.
+    private let perform: (KeymapAction) -> Void
     private let onSetHotKey: () -> Void
-    private let onOpenConfig: () -> Void
-    private let onRefresh: () -> Void
     private let currentLaunchAtLogin: () -> Bool
     private let onToggleLaunchAtLogin: () -> Void
     private let isStorageCustom: () -> Bool
     private let onPickStorageLocation: () -> Void
     private let onResetStorageLocation: () -> Void
-    private let onReveal: () -> Void
-    private let onResetPosition: () -> Void
-    private let onSummon: () -> Void
     private let menu = NSMenu()
 
     // Strong: NSMenuItem.target is weak, so holding items here can't
@@ -33,29 +30,21 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var boundItems: [(action: KeymapAction, item: NSMenuItem)] = []
 
     init(
+        perform: @escaping (KeymapAction) -> Void,
         onSetHotKey: @escaping () -> Void,
-        onOpenConfig: @escaping () -> Void,
-        onRefresh: @escaping () -> Void,
         currentLaunchAtLogin: @escaping () -> Bool,
         onToggleLaunchAtLogin: @escaping () -> Void,
         isStorageCustom: @escaping () -> Bool,
         onPickStorageLocation: @escaping () -> Void,
-        onResetStorageLocation: @escaping () -> Void,
-        onReveal: @escaping () -> Void,
-        onResetPosition: @escaping () -> Void,
-        onSummon: @escaping () -> Void
+        onResetStorageLocation: @escaping () -> Void
     ) {
+        self.perform = perform
         self.onSetHotKey = onSetHotKey
-        self.onOpenConfig = onOpenConfig
-        self.onRefresh = onRefresh
         self.currentLaunchAtLogin = currentLaunchAtLogin
         self.onToggleLaunchAtLogin = onToggleLaunchAtLogin
         self.isStorageCustom = isStorageCustom
         self.onPickStorageLocation = onPickStorageLocation
         self.onResetStorageLocation = onResetStorageLocation
-        self.onReveal = onReveal
-        self.onResetPosition = onResetPosition
-        self.onSummon = onSummon
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -75,27 +64,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // Menu-bar-extra order: the app's own actions first, then its
         // settings, Quit last. Wording and icons follow Clef's menu where an
         // item exists in both.
-        let resetPosition = makeItem(
-            "Reset Position", symbol: "arrow.up.and.down.and.arrow.left.and.right",
-            action: #selector(handleResetPosition)
-        )
-        boundItems.append((.resetPosition, resetPosition))
-        menu.addItem(resetPosition)
-
-        // Re-reads wisp.jsonc and re-checks scratchpad.md's mtime — for
-        // either changing underfoot via iCloud/Dropbox/chezmoi sync.
-        let refresh = makeItem(
-            "Refresh", symbol: "arrow.clockwise", action: #selector(handleRefresh)
-        )
-        boundItems.append((.refresh, refresh))
-        menu.addItem(refresh)
-
-        let reveal = makeItem(
-            "Reveal in Finder", symbol: "doc.text.magnifyingglass",
-            action: #selector(handleReveal)
-        )
-        boundItems.append((.reveal, reveal))
-        menu.addItem(reveal)
+        menu.addItem(
+            boundItem(.resetPosition, symbol: "arrow.up.and.down.and.arrow.left.and.right"))
+        menu.addItem(boundItem(.refresh, symbol: "arrow.clockwise"))
+        menu.addItem(boundItem(.reveal, symbol: "doc.text.magnifyingglass"))
 
         menu.addItem(.separator())
 
@@ -120,13 +92,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         launchItem = launch
         menu.addItem(launch)
 
-        // Opens wisp.jsonc in whatever app owns .jsonc — the same move as
-        // Clef's Settings…, and the only way most settings are changed.
-        let settings = makeItem(
-            "Settings…", symbol: "gearshape", action: #selector(handleOpenConfig)
-        )
-        boundItems.append((.settings, settings))
-        menu.addItem(settings)
+        // Opens wisp.jsonc, the only way most settings are changed.
+        menu.addItem(boundItem(.settings, symbol: "gearshape"))
 
         menu.addItem(.separator())
 
@@ -148,7 +115,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// AppKit open it on *every* click, and takes the right button away.
     @objc private func handleClick() {
         if NSApp.currentEvent?.type == .rightMouseUp {
-            onSummon()
+            perform(.summon)
             return
         }
         statusItem.menu = menu
@@ -277,6 +244,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         return image
     }
 
+    /// An item for a keymap action: titled from the action, stamped with
+    /// its chord by `apply(_:)`, and run through `perform`.
+    private func boundItem(_ action: KeymapAction, symbol: String) -> NSMenuItem {
+        let item = makeItem(action.title, symbol: symbol, action: #selector(handleBoundItem))
+        item.representedObject = action
+        boundItems.append((action, item))
+        return item
+    }
+
     private func makeItem(_ title: String, symbol: String, action: Selector) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = self
@@ -296,14 +272,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         onSetHotKey()
     }
 
-    @objc private func handleOpenConfig() {
-        onOpenConfig()
-    }
-
-    @objc private func handleRefresh() {
-        onRefresh()
-    }
-
     @objc private func handleToggleLaunchAtLogin() {
         onToggleLaunchAtLogin()
     }
@@ -316,11 +284,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         onResetStorageLocation()
     }
 
-    @objc private func handleReveal() {
-        onReveal()
-    }
-
-    @objc private func handleResetPosition() {
-        onResetPosition()
+    @objc private func handleBoundItem(_ sender: NSMenuItem) {
+        guard let action = sender.representedObject as? KeymapAction else { return }
+        perform(action)
     }
 }

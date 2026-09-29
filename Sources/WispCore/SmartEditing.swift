@@ -568,46 +568,6 @@ public enum SmartEditing {
         return (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)
     }
 
-    /// Is the given line drawn as a rule? Classifies the whole note to answer, so it suits a
-    /// test about one line, not a loop over lines: a pass over every line reads `MarkdownBlocks`
-    /// once. The wrappers below make the same trade, and are internal for the same reason.
-    static func isHorizontalRuleLine(lineRange: NSRange, in text: NSString) -> Bool {
-        MarkdownBlocks(text).line(at: lineRange.location)?.kind == .rule
-    }
-
-    /// Convenience overload — treats the whole String as the note, one line long.
-    static func isHorizontalRuleLine(_ line: String) -> Bool {
-        isHorizontalRuleLine(lineRange: NSRange(location: 0, length: 0), in: line as NSString)
-    }
-
-    /// True when the line underlines the paragraph above it, making it a setext heading.
-    static func isSetextUnderline(lineRange: NSRange, in text: NSString) -> Bool {
-        setextLevel(lineRange: lineRange, in: text) != nil
-    }
-
-    /// The level a setext underline gives the paragraph above it: 1 for `===`, 2 for `---`, or
-    /// nil when the line isn't one.
-    static func setextLevel(lineRange: NSRange, in text: NSString) -> Int? {
-        guard case .setextUnderline(let level, _) = MarkdownBlocks(text).line(
-            at: lineRange.location)?.kind
-        else { return nil }
-        return level
-    }
-
-    /// Where the paragraph that ends on the line just above `lineStart` begins, or nil when that
-    /// line isn't paragraph text a setext underline could turn into a heading.
-    static func paragraphStart(above lineStart: Int, in text: NSString) -> Int? {
-        guard lineStart > 0,
-            case .text(let start) = MarkdownBlocks(text).line(at: lineStart - 1)?.kind
-        else { return nil }
-        return start
-    }
-
-    /// True when `lineStart` falls inside a fenced code block, between its fences.
-    static func isInsideFence(lineStart: Int, in text: NSString) -> Bool {
-        MarkdownBlocks(text).line(at: lineStart)?.kind == .fencedCode
-    }
-
     static func isRuleShaped(_ content: String) -> Bool {
         let ns = content as NSString
         return MarkdownBlocks.isRuleShaped(

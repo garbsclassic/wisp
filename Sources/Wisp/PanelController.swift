@@ -11,9 +11,8 @@ private let minimumSide: CGFloat = 200
 ///
 /// A constant rather than a lookup: AppKit exposes no API for the system
 /// value, and a `.borderless` panel gets no system-drawn corners at all —
-/// every rounded edge here is ours to draw. 18pt read as noticeably rounder
-/// than the windows either side of it.
-private let cornerRadius: CGFloat = 10
+/// every rounded edge here is ours to draw, including `EditorView`'s border.
+let panelCornerRadius: CGFloat = 10
 
 @MainActor
 final class PanelController {
@@ -22,8 +21,6 @@ final class PanelController {
     private let settings: Settings
     private let visualEffect: NSVisualEffectView
     private let tint: NSView
-    private let inner: NSView
-    private let outer: NSView
     private let positioner: PanelPositioner
 
     /// Tap to pin, hold to peek — see `SummonState`. Assigned only through
@@ -56,28 +53,23 @@ final class PanelController {
         panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = NSColor(deviceRed: 0, green: 0, blue: 0, alpha: 0)
-        // System shadow follows the rendered alpha mask, so it shapes itself
-        // around our rounded inner view automatically. Earlier we drew a
-        // custom shadow on outer.layer with shadowPath — that one leaked
-        // into the corner gap (between rectangular window bounds and
-        // rounded content) and was the source of all the corner-bleed
-        // through v0.1.23. Removing it entirely and using the system
-        // shadow gave us back a clean rounded shadow with no corner leak.
+        // The system shadow follows the rendered alpha mask, so it shapes
+        // itself around the rounded inner view. A custom shadow path on a
+        // layer would leak into the gap between the rectangular window bounds
+        // and the rounded content.
         panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
 
         // Outer container: just hosts inner. No own shadow, no own bg.
-        outer = NSView(frame: NSRect(origin: .zero, size: panelSize))
+        let outer = NSView(frame: NSRect(origin: .zero, size: panelSize))
         outer.wantsLayer = true
 
-        // Inner container: rounded clip via cornerRadius + masksToBounds.
-        // No CAShapeLayer mask here — its fixed path didn't grow with
-        // window resize, which hid the footer bar when the user dragged
-        // the panel larger. cornerRadius adapts automatically.
-        inner = NSView()
+        // Inner container: rounded clip via cornerRadius + masksToBounds,
+        // which follows a resize where a fixed CAShapeLayer mask would not.
+        let inner = NSView()
         inner.wantsLayer = true
-        inner.layer?.cornerRadius = cornerRadius
+        inner.layer?.cornerRadius = panelCornerRadius
         inner.layer?.masksToBounds = true
         inner.translatesAutoresizingMaskIntoConstraints = false
 
@@ -85,13 +77,13 @@ final class PanelController {
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
         visualEffect.wantsLayer = true
-        visualEffect.layer?.cornerRadius = cornerRadius
+        visualEffect.layer?.cornerRadius = panelCornerRadius
         visualEffect.layer?.masksToBounds = true
         visualEffect.translatesAutoresizingMaskIntoConstraints = false
 
         tint = NSView()
         tint.wantsLayer = true
-        tint.layer?.cornerRadius = cornerRadius
+        tint.layer?.cornerRadius = panelCornerRadius
         tint.layer?.masksToBounds = true
         tint.translatesAutoresizingMaskIntoConstraints = false
 
@@ -103,27 +95,9 @@ final class PanelController {
         inner.addSubview(host)
         outer.addSubview(inner)
 
-        NSLayoutConstraint.activate([
-            inner.topAnchor.constraint(equalTo: outer.topAnchor),
-            inner.bottomAnchor.constraint(equalTo: outer.bottomAnchor),
-            inner.leadingAnchor.constraint(equalTo: outer.leadingAnchor),
-            inner.trailingAnchor.constraint(equalTo: outer.trailingAnchor),
-
-            visualEffect.topAnchor.constraint(equalTo: inner.topAnchor),
-            visualEffect.bottomAnchor.constraint(equalTo: inner.bottomAnchor),
-            visualEffect.leadingAnchor.constraint(equalTo: inner.leadingAnchor),
-            visualEffect.trailingAnchor.constraint(equalTo: inner.trailingAnchor),
-
-            tint.topAnchor.constraint(equalTo: inner.topAnchor),
-            tint.bottomAnchor.constraint(equalTo: inner.bottomAnchor),
-            tint.leadingAnchor.constraint(equalTo: inner.leadingAnchor),
-            tint.trailingAnchor.constraint(equalTo: inner.trailingAnchor),
-
-            host.topAnchor.constraint(equalTo: inner.topAnchor),
-            host.bottomAnchor.constraint(equalTo: inner.bottomAnchor),
-            host.leadingAnchor.constraint(equalTo: inner.leadingAnchor),
-            host.trailingAnchor.constraint(equalTo: inner.trailingAnchor),
-        ])
+        NSLayoutConstraint.activate(
+            Self.edges(of: inner, pinnedTo: outer)
+                + [visualEffect, tint, host].flatMap { Self.edges(of: $0, pinnedTo: inner) })
 
         panel.contentView = outer
 
@@ -333,6 +307,15 @@ final class PanelController {
         let color = background.clampedOpacity.map { base.withAlphaComponent($0) } ?? base
         tint.layer?.backgroundColor = color.cgColor
         // Border is rendered by SwiftUI in EditorView via .overlay.
+    }
+
+    private static func edges(of view: NSView, pinnedTo container: NSView) -> [NSLayoutConstraint] {
+        [
+            view.topAnchor.constraint(equalTo: container.topAnchor),
+            view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+        ]
     }
 
     // MARK: Placement

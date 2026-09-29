@@ -94,13 +94,6 @@ public enum Typography {
 
     // MARK: SwiftUI
 
-    /// Bridges the AppKit resolver rather than re-resolving, so the
-    /// empty-state placeholder can't land in a different face than the
-    /// text view it sits on top of.
-    public static func notes(_ size: CGFloat) -> Font {
-        Font(notesFont(size))
-    }
-
     /// UI face at a SwiftUI size/weight. `tabularDigits` keeps numeric
     /// labels from reflowing as their digits change — the system face has
     /// its own tabular figures, and a custom family is asked for `tnum`.

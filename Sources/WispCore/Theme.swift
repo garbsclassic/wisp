@@ -6,11 +6,8 @@ public enum Theme: String, CaseIterable, Sendable {
     case light
 }
 
-/// User-facing appearance preference. Persisted in UserDefaults under
-/// the "Theme" key. Raw values "light"/"dark" are deliberately the same
-/// as Theme's so a stored value from the pre-system-mode era still
-/// loads correctly. `.system` resolves at runtime against
-/// NSApp.effectiveAppearance.
+/// User-facing appearance preference, the config's `theme`. `.system`
+/// resolves at runtime against NSApp.effectiveAppearance.
 public enum ThemeSetting: String, Codable, CaseIterable, Sendable {
     case light
     case dark
@@ -47,8 +44,7 @@ public func rgb(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
 
 /// Text-surface tokens. Dark is Flexoki Dark, light is Modernist Light
 /// (colors only — Wisp keeps its own rounded, blurred posture). Views
-/// draw their colors from here; the exception left on AppKit semantic
-/// colors is the first-run dot.
+/// draw their colors from here.
 public struct Palette {
     /// Body text. Flexoki `tx` / Modernist `ink`.
     public let text: NSColor
@@ -64,7 +60,7 @@ public struct Palette {
     /// The paper the live panel composites to, so modal backdrops paint
     /// the same tone rather than stepping over it. See Chrome.for(.light).
     public let panel: NSColor
-    /// Raised chips: find bar, update card. Always lighter than `panel`
+    /// Raised chips: the find bar. Always lighter than `panel`
     /// in both themes, or a chip reads as a recess.
     public let surface: NSColor
     /// The header and footer bars. Flexoki `bg-2`, whose whole job in that
@@ -209,9 +205,7 @@ extension EnvironmentValues {
 public enum Metrics {
     // MARK: Notes body
 
-    /// The notes body at scale 1.0. Was `FontSize.medium` before the
-    /// three-step enum and the continuous scale were merged into one
-    /// control, so a default config renders exactly as it used to.
+    /// The notes body at scale 1.0.
     public static let bodySize: CGFloat = 15
     /// Heading size off the body, `#` first, two points of scale per level.
     /// `#####` sits at body size and `######` just under it: with six
@@ -235,11 +229,8 @@ public enum Metrics {
     /// The single large string in the hotkey-capture overlay.
     public static let titleSize: CGFloat = 21
 
-    /// Footer buttons are pinned to a fixed box rather than sized by
-    /// their glyph, so the row's spacing doesn't rag as icons change.
     /// The save dot. Small enough to read as a status light rather than a
-    /// control — the fork's original dot at this spot was clickable, and
-    /// anything larger invites the same reading.
+    /// control.
     public static let saveIndicatorSize: CGFloat = 6
 
     /// The header and footer bars' own insets, and the save dot's, so the
@@ -272,10 +263,23 @@ public enum Metrics {
         chromeInsetX + saveIndicatorSize + chromeSize + 2
     }
 
+    /// Footer buttons are pinned to a fixed box rather than sized by
+    /// their glyph, so the row's spacing doesn't rag as icons change.
     public static let footerButtonWidth: CGFloat = 24
     public static let footerButtonHeight: CGFloat = 20
 
     // MARK: Help page
+
+    // The page has no insets of its own: its content column and the space
+    // around a section label both come from `chromeInsetX` / `chromeInsetY`,
+    // the same values the header bar and the note's own column use, since
+    // the page crossfades onto the editor and a column that lands somewhere
+    // else is the first thing you see when it does.
+    //
+    // The first label's gap goes in the container inset rather than in
+    // `paragraphSpacingBefore`, which AppKit does not reliably honour on a
+    // container's first paragraph. `NSTextView` applies the inset to both
+    // ends, so it is also the gap below the last row.
 
     /// Rows are set at `bodySize`, so the design's `172px` gutter and `22px`
     /// column gap are carried as multiples of the row size rather than as
@@ -291,19 +295,6 @@ public enum Metrics {
     /// Half the gap between two rows: it is paid twice, once below a row and
     /// once above the next, so the pair collapses to the design's 10.
     public static let helpRowSpacing: CGFloat = 5
-
-    /// The page has no insets of its own: its content column and the space
-    /// around a section label both come from `chromeInsetX` / `chromeInsetY`,
-    /// the same values the header bar and the note's own column use. The
-    /// handoff drew it at 34 / 22 / 7, but the page crossfades onto the
-    /// editor and a column that lands somewhere else is the first thing you
-    /// see when it does.
-    ///
-    /// The first label's gap is *not* left to `paragraphSpacingBefore` —
-    /// AppKit's honoring of that on the very first paragraph in a container
-    /// is not something to bet the top of the page on. It goes in the
-    /// container inset instead, which `NSTextView` applies to both ends, so
-    /// it is also the gap below the last row.
 
     // MARK: Font scale
 
@@ -327,9 +318,8 @@ public enum Metrics {
     /// `scale` moved by `steps` increments.
     ///
     /// Counts in whole steps and *divides* at the end. Adding 0.1 repeatedly
-    /// drifts (1.0999999999999999); so does snapping to the grid and then
-    /// multiplying back, which is what this did first — `12 * 0.1` is
-    /// 1.2000000000000002, a different double from `12 / 10`. Only the
+    /// drifts (1.0999999999999999), and so does multiplying back — `12 * 0.1`
+    /// is 1.2000000000000002, a different double from `12 / 10`. Only the
     /// division lands on the double that prints as "1.2", and this value is
     /// written into a config a person has to read.
     public static func steppedFontScale(_ scale: Double, by steps: Int) -> Double {

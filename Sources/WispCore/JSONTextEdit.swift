@@ -2,8 +2,8 @@ import Foundation
 
 /// A surgical editor for the config file's *text*.
 ///
-/// The app mutates settings from its own UI — the theme cycle, the type-size
-/// cycle, the shortcut capture, the storage picker, the panel frame — so
+/// The app mutates settings from its own UI — the theme cycle, the text size,
+/// the shortcut capture, the storage picker, the panel frame — so
 /// `wisp.jsonc` has to round-trip. Re-encoding the whole document on every one
 /// of those would rewrite key order, re-indent, and drop any comment the user
 /// added, which turns `chezmoi diff` into noise and makes hand-editing feel

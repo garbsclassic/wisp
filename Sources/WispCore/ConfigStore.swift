@@ -34,9 +34,6 @@ public enum ConfigStore {
         /// Unreadable file, or keys that were present but malformed. Shown
         /// in the footer rather than swallowed.
         public let error: String?
-        /// True when this call created the file, which is the app's cue to
-        /// migrate the old UserDefaults values into it.
-        public let seeded: Bool
     }
 
     /// Reads the config, seeding it with `defaults` on first run. A malformed
@@ -48,10 +45,9 @@ public enum ConfigStore {
             } catch {
                 return Load(
                     config: defaults,
-                    error: "Couldn't write \(fileURL.path): \(error.localizedDescription)",
-                    seeded: false)
+                    error: "Couldn't write \(fileURL.path): \(error.localizedDescription)")
             }
-            return Load(config: defaults, error: nil, seeded: true)
+            return Load(config: defaults, error: nil)
         }
 
         do {
@@ -65,12 +61,11 @@ public enum ConfigStore {
             decoder.allowsJSON5 = true
             return Load(
                 config: try decoder.decode(WispConfig.self, from: data),
-                error: diagnostics.summary, seeded: false)
+                error: diagnostics.summary)
         } catch {
             return Load(
                 config: defaults,
-                error: "wisp.jsonc is unreadable, using defaults: \(error.localizedDescription)",
-                seeded: false)
+                error: "wisp.jsonc is unreadable, using defaults: \(error.localizedDescription)")
         }
     }
 

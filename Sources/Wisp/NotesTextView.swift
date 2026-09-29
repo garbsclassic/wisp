@@ -410,7 +410,7 @@ final class NotesTextView: NSTextView {
     override func mouseDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .function, .numericPad])
-        guard modifiers.isEmpty, let index = ChecklistBoxIndex(under: event)
+        guard modifiers.isEmpty, let index = checklistBoxIndex(under: event)
         else { return super.mouseDown(with: event) }
         if event.clickCount == 1,
             let edit = SmartEditing.toggledChecklist(
@@ -425,12 +425,12 @@ final class NotesTextView: NSTextView {
     /// override has to win there; `cursorUpdate` covers the first entry
     /// into the view.
     override func mouseMoved(with event: NSEvent) {
-        guard ChecklistBoxIndex(under: event) != nil else { return super.mouseMoved(with: event) }
+        guard checklistBoxIndex(under: event) != nil else { return super.mouseMoved(with: event) }
         NSCursor.arrow.set()
     }
 
     override func cursorUpdate(with event: NSEvent) {
-        guard ChecklistBoxIndex(under: event) != nil else { return super.cursorUpdate(with: event) }
+        guard checklistBoxIndex(under: event) != nil else { return super.cursorUpdate(with: event) }
         NSCursor.arrow.set()
     }
 
@@ -443,7 +443,7 @@ final class NotesTextView: NSTextView {
     /// event's mouse position, or nil when the pointer is anywhere else.
     /// The box's rectangle is the marker's reserved width by the line's
     /// full height, which is what `NotesLayoutManager` paints into.
-    private func ChecklistBoxIndex(under event: NSEvent) -> Int? {
+    private func checklistBoxIndex(under event: NSEvent) -> Int? {
         guard !isSourceView, let layoutManager, let container = textContainer else { return nil }
         let point = convert(event.locationInWindow, from: nil)
         let origin = textContainerOrigin

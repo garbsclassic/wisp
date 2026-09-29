@@ -8,8 +8,7 @@ import WispCore
 /// an ellipsis appears at the trailing edge. The scroll view is doing the
 /// clipping, which is load-bearing rather than incidental — laying the row
 /// out at its natural width and clipping it by hand propagates that width
-/// up through `NSHostingView` and the panel grows to fit it. Measured at
-/// 3952pt across on the first attempt.
+/// up through `NSHostingView` and the panel grows to fit it.
 struct HeaderBar: View {
     let labels: [String]
     /// Takes the clicked label's index into `labels`.
@@ -28,8 +27,6 @@ struct HeaderBar: View {
 
     var body: some View {
         if labels.isEmpty {
-            // Nothing to show — keep the slot empty so the panel just looks
-            // like before the headings feature existed.
             EmptyView()
         } else {
             ScrollView(.horizontal, showsIndicators: false) {

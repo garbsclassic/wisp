@@ -4,7 +4,7 @@ import WispCore
 
 /// The keyboard reference, as a full-bleed page over the note.
 ///
-/// Three regions, per the handoff in `notes/designs/help/`: a pinned header,
+/// Three regions, per the handoff in `.notes/designs/help/`: a pinned header,
 /// a scrolling body, and a pinned footer. The body is an `NSTextView` rather
 /// than a stack of `Text` views — see `HelpBody` for why.
 struct HelpOverlay: View {

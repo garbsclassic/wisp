@@ -52,19 +52,18 @@ extension Decoder {
 /// returns nil for both quiet cases, so only a genuine type mismatch reaches
 /// `catch`.
 ///
-/// `pathPrefix` qualifies nested keys ("keymap.summon") so a warning says
+/// The warning names the key by its full path ("keymap.summon"), so it says
 /// where to look rather than naming a bare "summon".
 extension KeyedDecodingContainer {
     func lenientValue<T: Decodable>(
         forKey key: Key,
         default fallback: T,
-        diagnostics: ConfigDiagnostics?,
-        pathPrefix: String? = nil
+        diagnostics: ConfigDiagnostics?
     ) -> T {
         do {
             return try decodeIfPresent(T.self, forKey: key) ?? fallback
         } catch {
-            diagnostics?.note(pathPrefix.map { "\($0)\(key.stringValue)" } ?? key.stringValue)
+            diagnostics?.note((codingPath + [key]).map(\.stringValue).joined(separator: "."))
             return fallback
         }
     }
@@ -106,11 +105,11 @@ public struct FontSet: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let diagnostics = decoder.configDiagnostics
         notes = container.lenientValue(
-            forKey: .notes, default: nil, diagnostics: diagnostics, pathPrefix: "fonts.")
+            forKey: .notes, default: nil, diagnostics: diagnostics)
         ui = container.lenientValue(
-            forKey: .ui, default: nil, diagnostics: diagnostics, pathPrefix: "fonts.")
+            forKey: .ui, default: nil, diagnostics: diagnostics)
         code = container.lenientValue(
-            forKey: .code, default: nil, diagnostics: diagnostics, pathPrefix: "fonts.")
+            forKey: .code, default: nil, diagnostics: diagnostics)
     }
 }
 
@@ -138,11 +137,9 @@ public struct Indent: Codable, Equatable, Sendable {
         let diagnostics = decoder.configDiagnostics
         let defaults = Indent()
         style = container.lenientValue(
-            forKey: .style, default: defaults.style, diagnostics: diagnostics,
-            pathPrefix: "indent.")
+            forKey: .style, default: defaults.style, diagnostics: diagnostics)
         size = container.lenientValue(
-            forKey: .size, default: defaults.size, diagnostics: diagnostics,
-            pathPrefix: "indent.")
+            forKey: .size, default: defaults.size, diagnostics: diagnostics)
     }
 
     /// The text one level of indentation inserts. `size` is bounded here
@@ -211,11 +208,9 @@ public struct Caret: Codable, Equatable, Sendable {
         let diagnostics = decoder.configDiagnostics
         let defaults = Caret()
         motion = container.lenientValue(
-            forKey: .motion, default: defaults.motion, diagnostics: diagnostics,
-            pathPrefix: "caret.")
+            forKey: .motion, default: defaults.motion, diagnostics: diagnostics)
         blink = container.lenientValue(
-            forKey: .blink, default: defaults.blink, diagnostics: diagnostics,
-            pathPrefix: "caret.")
+            forKey: .blink, default: defaults.blink, diagnostics: diagnostics)
     }
 }
 
@@ -238,11 +233,9 @@ public struct Background: Codable, Equatable, Sendable {
         let diagnostics = decoder.configDiagnostics
         let defaults = Background()
         blur = container.lenientValue(
-            forKey: .blur, default: defaults.blur, diagnostics: diagnostics,
-            pathPrefix: "background.")
+            forKey: .blur, default: defaults.blur, diagnostics: diagnostics)
         opacity = container.lenientValue(
-            forKey: .opacity, default: defaults.opacity, diagnostics: diagnostics,
-            pathPrefix: "background.")
+            forKey: .opacity, default: defaults.opacity, diagnostics: diagnostics)
     }
 
     /// Bounded at use so a typo stays visible in the file, like `fontScale`.
