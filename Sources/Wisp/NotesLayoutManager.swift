@@ -95,8 +95,8 @@ final class NotesLayoutManager: NSLayoutManager {
             } else {
                 drawGuides(for: lineRange, in: nsString, at: origin)
                 if let item = SmartEditing.listItem(lineRange: lineRange, in: nsString) {
-                    if case .task(let checked) = item.marker {
-                        drawTaskBox(checked: checked, for: item, at: origin)
+                    if case .checklist(let checked) = item.marker {
+                        drawChecklistBox(checked: checked, for: item, at: origin)
                     } else if let glyph = item.glyph(indentWidth: indentWidth) {
                         drawMarker(glyph, for: item, at: origin)
                     }
@@ -270,9 +270,9 @@ final class NotesLayoutManager: NSLayoutManager {
         return whitespace * 2 + bullet / 2
     }
 
-    // MARK: Task boxes
+    // MARK: Checklist boxes
 
-    /// The side of a task's box, in points, for text set in `font`. The
+    /// The side of a checklist's box, in points, for text set in `font`. The
     /// ascender rather than the cap height: the box is chrome standing in
     /// for text, and at cap height it reads as a small square beside the
     /// words rather than a control in front of them. Any bigger and it
@@ -281,14 +281,14 @@ final class NotesLayoutManager: NSLayoutManager {
     /// Drawn rather than typeset: `☐` and `☑` fall back to two different
     /// fonts on macOS — Apple Symbols and the system face — and come out
     /// at two different sizes, the empty box barely above the x-height.
-    static func taskBoxSide(for font: NSFont) -> CGFloat {
+    static func checklistBoxSide(for font: NSFont) -> CGFloat {
         font.ascender.rounded()
     }
 
     /// The box, centred on the midpoint of the cap height so it sits with
     /// the letters rather than hanging off the baseline; the stroke sits
     /// inside the reserved width, so a box never touches the text after it.
-    private func drawTaskBox(checked: Bool, for item: SmartEditing.ListItem, at origin: NSPoint) {
+    private func drawChecklistBox(checked: Bool, for item: SmartEditing.ListItem, at origin: NSPoint) {
         let glyphRange = self.glyphRange(
             forCharacterRange: item.markerRange, actualCharacterRange: nil)
         guard glyphRange.length > 0 else { return }
@@ -298,7 +298,7 @@ final class NotesLayoutManager: NSLayoutManager {
         let baseline = origin.y + fragmentRect.minY
             + location(forGlyphAt: glyphRange.location).y
 
-        let side = Self.taskBoxSide(for: bulletFont)
+        let side = Self.checklistBoxSide(for: bulletFont)
         // 1.5pt at the default size, stepping in halves with the scale.
         let stroke = max(1, (bulletFont.pointSize / 5).rounded() / 2)
         let inset = stroke / 2

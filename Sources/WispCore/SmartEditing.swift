@@ -22,7 +22,7 @@ public enum SmartEditing {
         if isRuleShaped(line) { return nil }
         // Before the plain bullet, which this would otherwise match as a
         // bullet whose content is `[ ]`. The next box is always empty —
-        // a new task starts undone whatever the one above it says.
+        // a new checklist starts undone whatever the one above it says.
         if let match = line.firstMatch(of: /^([ \t]*)([-*+])[ \t]+\[[ xX]\]\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
             return "\(match.1)\(match.2) [ ] "
@@ -87,10 +87,10 @@ public enum SmartEditing {
             /// `- [ ]` or `- [x]`, any bullet character. The box is part
             /// of the marker, not the content: it is drawn as one glyph
             /// and the caret's stops treat it as chrome.
-            case task(checked: Bool)
+            case checklist(checked: Bool)
 
-            public var isTask: Bool {
-                if case .task = self { return true }
+            public var isChecklist: Bool {
+                if case .checklist = self { return true }
                 return false
             }
         }
@@ -122,7 +122,7 @@ public enum SmartEditing {
             return true
         }
 
-        /// The character typeset in place of a bullet. Nil for a task,
+        /// The character typeset in place of a bullet. Nil for a checklist,
         /// whose box is drawn rather than typeset, and for an ordered
         /// marker, which is its own content.
         public func glyph(indentWidth unit: Int) -> String? {
@@ -130,10 +130,10 @@ public enum SmartEditing {
             return bulletGlyph(depth: depth(indentWidth: unit))
         }
 
-        /// The character inside a task's box — the ` ` or `x` — which is
+        /// The character inside a checklist's box — the ` ` or `x` — which is
         /// the one character a check toggles.
-        public var taskStateIndex: Int? {
-            marker.isTask ? NSMaxRange(markerRange) - 2 : nil
+        public var checklistStateIndex: Int? {
+            marker.isChecklist ? NSMaxRange(markerRange) - 2 : nil
         }
     }
 
@@ -166,8 +166,8 @@ public enum SmartEditing {
             // `- [ ] ` and `- [x] `. The box needs whitespace after it
             // like any marker does; `- [ ]` alone at the end of a line is
             // a bullet whose content is the box, until the space arrives.
-            if let box = taskBox(at: index, before: contentEnd, in: text) {
-                marker = .task(checked: box.checked)
+            if let box = checklistBox(at: index, before: contentEnd, in: text) {
+                marker = .checklist(checked: box.checked)
                 index = box.end
             }
         } else {
@@ -505,15 +505,15 @@ public enum SmartEditing {
         return edits
     }
 
-    /// Flips the box on the task line at `index`: `[ ]` to `[x]` or back.
+    /// Flips the box on the checklist line at `index`: `[ ]` to `[x]` or back.
     /// A one-character swap, so `selection` survives it untouched. Nil
-    /// off a task line.
-    public static func toggledTask(
+    /// off a checklist line.
+    public static func toggledChecklist(
         in text: NSString, lineAt index: Int, selection: NSRange
     ) -> LineEdits.Edit? {
         let line = LineEdits.lineRange(in: text, at: index)
-        guard let item = listItem(lineRange: line, in: text), let state = item.taskStateIndex,
-              case .task(let checked) = item.marker
+        guard let item = listItem(lineRange: line, in: text), let state = item.checklistStateIndex,
+              case .checklist(let checked) = item.marker
         else { return nil }
         return LineEdits.Edit(
             range: NSRange(location: state, length: 1), replacement: checked ? " " : "x",
@@ -535,10 +535,10 @@ public enum SmartEditing {
 
     /// Whitespace, then `[ ]` or `[x]`, then more whitespace, starting at
     /// `index`. Any run of whitespace before the box, not one space: a
-    /// tab-separated `-\t[ ] foo` is a task too, and ⌘⇧L puts the box
+    /// tab-separated `-\t[ ] foo` is a checklist too, and ⌘⇧L puts the box
     /// after whatever whitespace the marker already had. `end` is the
     /// index one past the closing bracket.
-    private static func taskBox(
+    private static func checklistBox(
         at index: Int, before end: Int, in text: NSString
     ) -> (checked: Bool, end: Int)? {
         var i = index

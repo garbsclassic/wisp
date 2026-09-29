@@ -330,7 +330,7 @@ public enum LineEdits {
             guard let marker = SmartEditing.listItem(lineRange: line, in: text)?.marker else {
                 return false
             }
-            return marker == .bullet || marker.isTask
+            return marker == .bullet || marker.isChecklist
         }
 
         return rewriteLines(in: text, selection: selection) { body in
@@ -350,8 +350,8 @@ public enum LineEdits {
     }
 
     /// ⌘⇧L. Two intents behind one key, told apart by what the block
-    /// already is: lines that aren't all tasks *become* tasks, unchecked;
-    /// a block that is all tasks gets checked, or unchecked when every
+    /// already is: lines that aren't all checklists *become* checklists, unchecked;
+    /// a block that is all checklists gets checked, or unchecked when every
     /// box was already ticked. Checking wins the mixed case for the same
     /// reason a mixed ⌘L block becomes a list — "mark these done" is what
     /// the key is reaching for, and unticking the done half would lose
@@ -364,13 +364,13 @@ public enum LineEdits {
     /// the number would hide the one thing an ordered marker is for.
     public static func toggleChecklist(in text: NSString, selection: NSRange) -> Edit {
         let block = lineBlock(in: text, covering: selection)
-        let allTasks = everyLine(of: block, in: text) { line in
-            SmartEditing.listItem(lineRange: line, in: text)?.marker.isTask == true
+        let allChecklists = everyLine(of: block, in: text) { line in
+            SmartEditing.listItem(lineRange: line, in: text)?.marker.isChecklist == true
         }
         let allChecked =
-            allTasks
+            allChecklists
             && everyLine(of: block, in: text) { line in
-                SmartEditing.listItem(lineRange: line, in: text)?.marker == .task(checked: true)
+                SmartEditing.listItem(lineRange: line, in: text)?.marker == .checklist(checked: true)
             }
 
         return rewriteLines(in: text, selection: selection) { body in
@@ -378,7 +378,7 @@ public enum LineEdits {
             let lineRange = NSRange(location: 0, length: ns.length)
             let item = SmartEditing.listItem(lineRange: lineRange, in: ns)
 
-            if allTasks, let item, let state = item.taskStateIndex {
+            if allChecklists, let item, let state = item.checklistStateIndex {
                 let head = NSMutableString(string: ns.substring(to: item.contentStart))
                 head.replaceCharacters(
                     in: NSRange(location: state, length: 1), with: allChecked ? " " : "x")
@@ -386,7 +386,7 @@ public enum LineEdits {
             }
             if let item {
                 switch item.marker {
-                case .task:
+                case .checklist:
                     return (inserted: "", removed: 0)
                 case .bullet:
                     return (inserted: ns.substring(to: item.contentStart) + "[ ] ",

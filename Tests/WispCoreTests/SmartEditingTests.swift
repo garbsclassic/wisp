@@ -109,7 +109,7 @@ struct HorizontalRuleTests {
         "A rule under a list item, quote, table row, or indented code stays a rule",
         arguments: [
             "- item\n---",
-            "- [ ] task\n---",
+            "- [ ] checklist\n---",
             "1. one\n---",
             "> quote\n---",
             "| a | b |\n---",
@@ -601,15 +601,15 @@ struct NewlineBeforeItemTests {
 
 @Suite("SmartEditing: next list marker")
 struct NextListMarkerTests {
-    @Test("A task's next box is always unchecked, whichever way this one goes")
-    func taskAlwaysUnchecked() {
+    @Test("A checklist's next box is always unchecked, whichever way this one goes")
+    func checklistAlwaysUnchecked() {
         #expect(SmartEditing.nextListMarker(for: "- [ ] foo") == "- [ ] ")
         #expect(SmartEditing.nextListMarker(for: "- [x] foo") == "- [ ] ")
         #expect(SmartEditing.nextListMarker(for: "  * [X] foo") == "  * [ ] ")
     }
 
-    @Test("An empty task line signals exit rather than continuing")
-    func emptyTaskExits() {
+    @Test("An empty checklist line signals exit rather than continuing")
+    func emptyChecklistExits() {
         #expect(SmartEditing.nextListMarker(for: "- [ ] ") == "")
     }
 
@@ -619,27 +619,27 @@ struct NextListMarkerTests {
     }
 }
 
-@Suite("SmartEditing: task items")
-struct TaskListItemTests {
+@Suite("SmartEditing: checklists")
+struct ChecklistListItemTests {
     private func parse(_ line: String) -> SmartEditing.ListItem? {
         let ns = line as NSString
         return SmartEditing.listItem(
             lineRange: NSRange(location: 0, length: ns.length), in: ns)
     }
 
-    @Test("An unchecked task")
+    @Test("An unchecked checklist")
     func unchecked() {
         let item = parse("- [ ] foo")
-        #expect(item?.marker == .task(checked: false))
+        #expect(item?.marker == .checklist(checked: false))
         #expect(item?.markerRange == NSRange(location: 0, length: 5))
         #expect(item?.contentStart == 6)
         #expect(item?.indentWidth == 0)
     }
 
-    @Test("An indented, checked task")
+    @Test("An indented, checked checklist")
     func indentedChecked() {
         let item = parse("  - [x] foo")
-        #expect(item?.marker == .task(checked: true))
+        #expect(item?.marker == .checklist(checked: true))
         #expect(item?.markerRange == NSRange(location: 2, length: 5))
         #expect(item?.contentStart == 8)
         #expect(item?.indentWidth == 2)
@@ -649,7 +649,7 @@ struct TaskListItemTests {
     func tabBeforeBox() {
         let text = "-\t[ ] foo" as NSString
         let item = SmartEditing.listItem(lineRange: NSRange(location: 0, length: text.length), in: text)
-        #expect(item?.marker == .task(checked: false))
+        #expect(item?.marker == .checklist(checked: false))
         #expect(item?.markerRange == NSRange(location: 0, length: 5))
         #expect(item?.contentStart == 6)
         #expect(SmartEditing.nextListMarker(for: "-\t[ ] foo") == "- [ ] ")
@@ -657,7 +657,7 @@ struct TaskListItemTests {
 
     @Test("An uppercase X checks the box too")
     func uppercaseChecked() {
-        #expect(parse("- [X] foo")?.marker == .task(checked: true))
+        #expect(parse("- [X] foo")?.marker == .checklist(checked: true))
     }
 
     @Test("A box with no space after it is a plain bullet, box included in content")
@@ -674,7 +674,7 @@ struct TaskListItemTests {
         #expect(item?.contentStart == 2)
     }
 
-    @Test("An invalid box character is not a task")
+    @Test("An invalid box character is not a checklist")
     func invalidBoxCharacter() {
         #expect(parse("- [y] foo")?.marker == .bullet)
     }
@@ -684,20 +684,20 @@ struct TaskListItemTests {
         #expect(parse("1. [ ] foo")?.marker == .ordered)
     }
 
-    @Test("The task state index is the character inside the box")
-    func taskStateIndex() {
-        #expect(parse("- [x] foo")?.taskStateIndex == 3)
-        #expect(parse("- foo")?.taskStateIndex == nil)
+    @Test("The checklist state index is the character inside the box")
+    func checklistStateIndex() {
+        #expect(parse("- [x] foo")?.checklistStateIndex == 3)
+        #expect(parse("- foo")?.checklistStateIndex == nil)
     }
 
-    @Test("isTask is true only for the task case")
-    func isTask() {
-        #expect(parse("- [ ] foo")?.marker.isTask == true)
-        #expect(parse("- foo")?.marker.isTask == false)
-        #expect(parse("1. foo")?.marker.isTask == false)
+    @Test("isChecklist is true only for the checklist case")
+    func isChecklist() {
+        #expect(parse("- [ ] foo")?.marker.isChecklist == true)
+        #expect(parse("- foo")?.marker.isChecklist == false)
+        #expect(parse("1. foo")?.marker.isChecklist == false)
     }
 
-    @Test("Only a bullet typesets a glyph; a task's box is drawn, an ordered marker is content")
+    @Test("Only a bullet typesets a glyph; a checklist's box is drawn, an ordered marker is content")
     func glyph() {
         #expect(parse("- [ ] foo")?.glyph(indentWidth: 2) == nil)
         #expect(parse("- [x] foo")?.glyph(indentWidth: 2) == nil)
@@ -740,8 +740,8 @@ struct BackspaceAtItemStartTests {
         #expect(result?.1 == NSRange(location: 2, length: 0))
     }
 
-    @Test("A task's whole marker, box included, is removed")
-    func task() {
+    @Test("A checklist's whole marker, box included, is removed")
+    func checklist() {
         let result = applied("- [ ] item", cursor: 6)
         #expect(result?.0 == "item")
         #expect(result?.1 == NSRange(location: 0, length: 0))
@@ -844,7 +844,7 @@ struct ContinuationLineTests {
     @Test("On a continuation line, the same padding as the item it belongs to")
     func fromContinuationLine() {
         #expect(line("  - item\n    more", cursor: 17) == "\n    ")
-        #expect(line("- [ ] task\n      more", cursor: 21) == "\n      ")
+        #expect(line("- [ ] checklist\n      more", cursor: 26) == "\n      ")
     }
 
     @Test("On a fresh, whitespace-only continuation line the caret is already past the whitespace")
@@ -867,8 +867,8 @@ struct ContinuationLineTests {
         #expect(line("12. item", cursor: 8) == "\n    ")
     }
 
-    @Test("A task's box counts toward the padding width")
-    func taskMarker() {
+    @Test("A checklist's box counts toward the padding width")
+    func checklistMarker() {
         #expect(line("- [ ] item", cursor: 10) == "\n      ")
     }
 
@@ -924,22 +924,22 @@ struct IsContinuationTests {
     }
 }
 
-@Suite("SmartEditing: toggled task")
-struct ToggledTaskTests {
+@Suite("SmartEditing: toggled checklist")
+struct ToggledChecklistTests {
     private func toggled(_ text: String, at index: Int, selection: NSRange = NSRange(location: 0, length: 0)) -> (String, NSRange)? {
-        guard let e = SmartEditing.toggledTask(in: text as NSString, lineAt: index, selection: selection)
+        guard let e = SmartEditing.toggledChecklist(in: text as NSString, lineAt: index, selection: selection)
         else { return nil }
         let ns = NSMutableString(string: text)
         ns.replaceCharacters(in: e.range, with: e.replacement)
         return (ns as String, e.selection)
     }
 
-    @Test("Checking an unchecked task")
+    @Test("Checking an unchecked checklist")
     func check() {
         #expect(toggled("- [ ] a", at: 0)?.0 == "- [x] a")
     }
 
-    @Test("Unchecking a checked task")
+    @Test("Unchecking a checked checklist")
     func uncheck() {
         #expect(toggled("- [x] a", at: 0)?.0 == "- [ ] a")
     }
@@ -1051,14 +1051,14 @@ struct ContinuedItemTests {
         #expect(found?.line == NSRange(location: 4, length: 6))
     }
 
-    @Test("A task item is found like any other")
-    func taskItem() {
-        let text = "- [ ] task\n      more\n"
+    @Test("A checklist is found like any other")
+    func checklist() {
+        let text = "- [ ] checklist\n      more\n"
         let ns = text as NSString
-        let secondLine = LineEdits.lineRange(in: ns, at: 11)
+        let secondLine = LineEdits.lineRange(in: ns, at: 16)
         let found = SmartEditing.continuedItem(lineRange: secondLine, in: ns)
-        #expect(found?.line == NSRange(location: 0, length: 11))
-        #expect(found?.item.marker.isTask == true)
+        #expect(found?.line == NSRange(location: 0, length: 16))
+        #expect(found?.item.marker.isChecklist == true)
     }
 }
 

@@ -399,7 +399,7 @@ final class NotesTextView: NSTextView {
         super.deleteBackward(sender)
     }
 
-    /// A click on a task's box toggles it. The hit test is against the
+    /// A click on a checklist's box toggles it. The hit test is against the
     /// glyph's own rectangle rather than the character index under the
     /// mouse, so a click in the whitespace beside the box, or on the
     /// item's first word, still places the caret as it always did.
@@ -410,10 +410,10 @@ final class NotesTextView: NSTextView {
     override func mouseDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .function, .numericPad])
-        guard modifiers.isEmpty, let index = taskBoxIndex(under: event)
+        guard modifiers.isEmpty, let index = ChecklistBoxIndex(under: event)
         else { return super.mouseDown(with: event) }
         if event.clickCount == 1,
-            let edit = SmartEditing.toggledTask(
+            let edit = SmartEditing.toggledChecklist(
                 in: string as NSString, lineAt: index, selection: selectedRange())
         {
             apply(edit)
@@ -425,12 +425,12 @@ final class NotesTextView: NSTextView {
     /// override has to win there; `cursorUpdate` covers the first entry
     /// into the view.
     override func mouseMoved(with event: NSEvent) {
-        guard taskBoxIndex(under: event) != nil else { return super.mouseMoved(with: event) }
+        guard ChecklistBoxIndex(under: event) != nil else { return super.mouseMoved(with: event) }
         NSCursor.arrow.set()
     }
 
     override func cursorUpdate(with event: NSEvent) {
-        guard taskBoxIndex(under: event) != nil else { return super.cursorUpdate(with: event) }
+        guard ChecklistBoxIndex(under: event) != nil else { return super.cursorUpdate(with: event) }
         NSCursor.arrow.set()
     }
 
@@ -439,11 +439,11 @@ final class NotesTextView: NSTextView {
         (layoutManager as? NotesLayoutManager)?.isSourceView ?? false
     }
 
-    /// The character index of the task line whose drawn box is under the
+    /// The character index of the checkbox line whose drawn box is under the
     /// event's mouse position, or nil when the pointer is anywhere else.
     /// The box's rectangle is the marker's reserved width by the line's
     /// full height, which is what `NotesLayoutManager` paints into.
-    private func taskBoxIndex(under event: NSEvent) -> Int? {
+    private func ChecklistBoxIndex(under event: NSEvent) -> Int? {
         guard !isSourceView, let layoutManager, let container = textContainer else { return nil }
         let point = convert(event.locationInWindow, from: nil)
         let origin = textContainerOrigin
@@ -453,7 +453,7 @@ final class NotesTextView: NSTextView {
         let index = layoutManager.characterIndex(
             for: inContainer, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
         let line = LineEdits.lineRange(in: text, at: index)
-        guard let item = SmartEditing.listItem(lineRange: line, in: text), item.marker.isTask
+        guard let item = SmartEditing.listItem(lineRange: line, in: text), item.marker.isChecklist
         else { return nil }
         let glyphs = layoutManager.glyphRange(
             forCharacterRange: item.markerRange, actualCharacterRange: nil)

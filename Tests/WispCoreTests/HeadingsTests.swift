@@ -99,7 +99,7 @@ struct SetextHeadingsTests {
         "A rule under a list item, quote, table row, fence, or indented code yields no heading",
         arguments: [
             "- item\n---",
-            "- [ ] task\n---",
+            "- [ ] checklist\n---",
             "1. one\n---",
             "> quote\n---",
             "| a | b |\n---",

@@ -711,16 +711,16 @@ struct ToggleBulletedListItemTests {
         #expect(apply(edit, to: text) == "- 1. alpha\n")
     }
 
-    @Test("A task item counts as a list item — it unsets too")
-    func taskItemUnsets() {
+    @Test("A checklist counts as a list item — it unsets too")
+    func checklistItemUnsets() {
         let text = "- [ ] foo\n"
         let edit = LineEdits.toggleBulletedList(
             in: text as NSString, selection: NSRange(location: 4, length: 0))
         #expect(apply(edit, to: text) == "foo\n")
     }
 
-    @Test("A block of a bullet and a task is all-items, and unsets both")
-    func mixedBulletAndTaskUnsets() {
+    @Test("A block of a bullet and a checklist is all-items, and unsets both")
+    func mixedBulletAndChecklistUnsets() {
         let text = "- a\n- [ ] b\n"
         let edit = LineEdits.toggleBulletedList(
             in: text as NSString, selection: NSRange(location: 0, length: 11))
@@ -730,7 +730,7 @@ struct ToggleBulletedListItemTests {
 
 @Suite("LineEdits — toggle checklist")
 struct ToggleChecklistTests {
-    @Test("A plain line gains a whole task marker, and the caret rides past it")
+    @Test("A plain line gains a whole checklist marker, and the caret rides past it")
     func plainLine() {
         let text = "foo"
         let edit = LineEdits.toggleChecklist(
@@ -787,8 +787,8 @@ struct ToggleChecklistTests {
         #expect(apply(edit, to: text) == "- [ ] a\n- [ ] b")
     }
 
-    @Test("A block mixing a task with a non-task line leaves the task untouched")
-    func mixedTaskAndPlainLeavesTaskAlone() {
+    @Test("A block mixing a checklist with a non-checklist line leaves the checklist untouched")
+    func mixedChecklistAndPlainLeavesChecklistAlone() {
         let text = "- [x] a\nb"
         let edit = LineEdits.toggleChecklist(
             in: text as NSString, selection: NSRange(location: 0, length: text.count))

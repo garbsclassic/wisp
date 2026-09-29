@@ -75,7 +75,7 @@ public struct HelpDocument: Equatable, Sendable {
             ]),
             Section("Format", [
                 Row(chord(.bulletedList), "toggle bulleted list"),
-                Row(chord(.checklist), "toggle task · check it off"),
+                Row(chord(.checklist), "toggle checklist · check it off"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
                 // Two rows, not one: six chords don't fit the key gutter, and a
                 // key wider than its right-aligned stop runs over the detail.
@@ -91,7 +91,7 @@ public struct HelpDocument: Equatable, Sendable {
             Section("Insert", [
                 Row("- · * · +", "bulleted list"),
                 Row("1. · 1) · A. · a.", "numbered list"),
-                Row("- [ ]", "task — click the box to check it"),
+                Row("- [ ]", "checklist — click the box to check it"),
                 Row("# · ## · ###", "headings — or === · --- under a line"),
                 Row("--- · *** · ___", "horizontal rule"),
                 Row("↵ ↵ ↵", "rule after a paragraph — ↵ again removes it"),

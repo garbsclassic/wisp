@@ -31,8 +31,8 @@ struct KeymapTests {
         #expect(Set(all).count == all.count)
     }
 
-    @Test("Toggling a task item and toggling a bulleted list keep their dedicated defaults")
-    func taskAndBulletedListDefaults() {
+    @Test("Toggling a checklist item and toggling a bulleted list keep their dedicated defaults")
+    func checklistAndBulletedListDefaults() {
         #expect(KeymapAction.checklist.defaultChords == "cmd+shift+l")
         #expect(KeymapAction.bulletedList.defaultChords == "cmd+l")
     }

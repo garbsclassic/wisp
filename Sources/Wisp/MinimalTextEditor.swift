@@ -410,7 +410,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                     styleContinuation(
                         lineRange: lineRange, in: storage, baseFont: baseFont,
                         contentOffset: previous.contentOffset,
-                        color: previous.item.marker == .task(checked: true) ? palette.muted : nil)
+                        color: previous.item.marker == .checklist(checked: true) ? palette.muted : nil)
                 } else {
                     previous = nil
                 }
@@ -443,11 +443,11 @@ struct MinimalTextEditor: NSViewRepresentable {
                 // replaces it makes every bullet line start at the same x.
                 // Kern is per character, so a five-character `- [ ]` takes
                 // a fifth of the difference on each.
-                // A task reserves the drawn box's side, the same whether
+                // A checklist reserves the drawn box's side, the same whether
                 // ticked or not, so checking one doesn't shift its text.
                 let glyphWidth =
                     item.glyph(indentWidth: indent.width).map { width(of: $0, font: baseFont) }
-                    ?? NotesLayoutManager.taskBoxSide(for: baseFont)
+                    ?? NotesLayoutManager.checklistBoxSide(for: baseFont)
                 let markerWidth = width(
                     of: ns.substring(with: item.markerRange), font: baseFont)
                 let kern = glyphWidth - markerWidth
@@ -455,7 +455,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                     .kern, value: kern / CGFloat(item.markerRange.length), range: item.markerRange)
                 contentOffset += kern
             }
-            if item.marker == .task(checked: true) {
+            if item.marker == .checklist(checked: true) {
                 let content = NSRange(
                     location: item.contentStart,
                     length: NSMaxRange(lineRange) - item.contentStart)
@@ -475,7 +475,7 @@ struct MinimalTextEditor: NSViewRepresentable {
 
     /// The line's leading whitespace is kerned down to nothing and the
     /// paragraph indented to the content column instead. Subtracting its
-    /// width from the indent would do for a bullet, but a task's column
+    /// width from the indent would do for a bullet, but a checklist's column
     /// sits *left* of where six spaces end — the hidden `- [ ]` is kerned
     /// to a glyph narrower than itself — and an indent can't go negative.
     private static func styleContinuation(
