@@ -3,14 +3,10 @@ import SwiftUI
 import WispCore
 
 private let panelSize = CGSize(width: 800, height: 640)
-/// A remembered size smaller than this on either side is a corrupted value,
-/// not a choice, and the default size is used instead.
+/// Smaller than this on either side is a corrupted value, not a choice.
 private let minimumSide: CGFloat = 200
-/// The radius a standard macOS window has had since Big Sur.
-///
-/// A constant rather than a lookup: AppKit exposes no API for the system
-/// value, and a `.borderless` panel gets no system-drawn corners at all —
-/// every rounded edge here is ours to draw, including `EditorView`'s border.
+/// A standard window's radius since Big Sur. AppKit exposes none, and a borderless panel draws no
+/// corners of its own.
 let panelCornerRadius: CGFloat = 10
 
 @MainActor
@@ -22,15 +18,11 @@ final class PanelController {
     private let tint: NSView
     private let positioner: PanelPositioner
 
-    /// Tap to pin, hold to peek — see `SummonState`. Assigned only through
-    /// `send`, which does what the change calls for, and by `handleHide`,
-    /// which is told after the fact.
+    /// Changed only through `send`, and by `handleHide` after the fact.
     private(set) var state: SummonState = .hidden
-    /// Fires once the chord has been held for `peekHold`, turning the summon
-    /// into a peek. A release before then cancels it and leaves a pin.
+    /// Turns a summon into a peek after `peekHold`; a release before then leaves a pin.
     private var holdTimer: Timer?
-    /// The summon chord's modifiers as `CGEventFlags`, so a peek can outlast
-    /// the release of its key for as long as they're still down.
+    /// So a peek outlasts its key's release while the modifiers stay down.
     private var summonModifierFlags: CGEventFlags = []
     /// Polls for a peek's modifiers lifting, once its key has come up.
     private var modifierWatchTimer: Timer?
@@ -52,20 +44,15 @@ final class PanelController {
         panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = NSColor(deviceRed: 0, green: 0, blue: 0, alpha: 0)
-        // The system shadow follows the rendered alpha mask, so it shapes
-        // itself around the rounded inner view. A custom shadow path on a
-        // layer would leak into the gap between the rectangular window bounds
-        // and the rounded content.
+        // The system shadow follows the alpha mask, so it hugs the rounded content.
         panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
 
-        // Outer container: just hosts inner. No own shadow, no own bg.
         let outer = NSView(frame: NSRect(origin: .zero, size: panelSize))
         outer.wantsLayer = true
 
-        // Inner container: rounded clip via cornerRadius + masksToBounds,
-        // which follows a resize where a fixed CAShapeLayer mask would not.
+        // cornerRadius and masksToBounds follow a resize, where a fixed mask layer wouldn't.
         let inner = NSView()
         inner.wantsLayer = true
         inner.layer?.cornerRadius = panelCornerRadius
@@ -110,8 +97,7 @@ final class PanelController {
             self?.dismiss()
         }
 
-        // Esc dismisses any modal overlay first; falls through to the
-        // panel's normal dismiss behavior only when nothing is open.
+        // Esc closes the top overlay first, and hides the panel only when none is open.
         panel.onCancel = { [weak self] in
             self?.model.dismissTopOverlay() ?? false
         }
@@ -122,20 +108,15 @@ final class PanelController {
         }
     }
 
-    /// On screen *and* holding keyboard focus. The gate for every chord
-    /// that only means something with the panel in front of the user —
-    /// visibility alone isn't enough, since an app-modal picker leaves the
-    /// panel showing but not accepting input.
+    /// On screen and key: an app-modal picker leaves the panel showing but not taking input.
     var isPanelFocused: Bool { panel.isVisible && panel.isKeyWindow }
 
-    /// The note's text view while it holds the keyboard — not while the
-    /// help page, the find field, or anything else in the panel does.
+    /// The note's text view while it has the keyboard, not the help page or find field.
     var focusedNotesView: NotesTextView? {
         isPanelFocused ? panel.firstResponder as? NotesTextView : nil
     }
 
-    /// Pins the panel unless it already is — for the menu items that need
-    /// it on screen and focused before they can do anything.
+    /// Pins the panel unless it already is.
     func openIfNeeded() {
         if state != .pinned { send(.togglePin) }
     }
@@ -148,23 +129,19 @@ final class PanelController {
         if panel.isVisible {
             send(.dismiss)
         } else {
-            // Already off screen — still tear down, in case something
-            // hid the panel without going through orderOut.
+            // Tear down anyway, in case something hid it without orderOut.
             handleHide()
         }
     }
 
-    /// The one place hide-time teardown lives. Idempotent: `dismiss()`
-    /// and the panel's own orderOut can both reach it for a single hide.
+    /// Hide-time teardown. Idempotent, since `dismiss()` and orderOut can both reach it.
     private func handleHide() {
-        // Esc and the like order the panel out directly; the summon state
-        // hears about it here rather than at each of those call sites.
+        // Esc and the like order out directly, so the summon state learns of it here.
         cancelHoldTimer()
         cancelModifierWatch()
         state = .hidden
         saveFrame()
-        // orderOut leaves the SwiftUI hierarchy mounted, so overlays and
-        // their app-wide key monitors survive the hide unless we say so.
+        // orderOut leaves SwiftUI mounted, and overlays' key monitors with it.
         model.dismissAllOverlays()
     }
 
@@ -175,29 +152,21 @@ final class PanelController {
 
     // MARK: Summon
 
-    /// The summon chord went down. The panel comes up at once; which mode it
-    /// settles into is decided by what happens next. Pressing it while
-    /// pinned dismisses.
+    /// Shows the panel at once; what happens next decides the mode. Dismisses a pin.
     func handleChordDown(modifiers: NSEvent.ModifierFlags) {
         summonModifierFlags = CGEventFlags(rawValue: UInt64(modifiers.rawValue))
         send(.chordDown)
     }
 
-    /// Before the hold elapses the release makes a pin. For a peek, letting
-    /// go of the key alone doesn't end it while the chord's modifiers are
-    /// still down; it ends when they lift.
+    /// A release before the hold makes a pin. A peek ends when the modifiers lift, not the key.
     func handleChordUp() {
         let held = !summonModifierFlags.isEmpty && modifiersStillHeld()
         send(.chordUp(modifiersHeld: held))
         if state == .peeking { watchForModifierRelease() }
     }
 
-    /// The one place `state` changes on purpose, and the showing, hiding,
-    /// and timing that follow from it.
-    ///
-    /// A summon shows the panel without making it key, so a peek never
-    /// takes the keyboard from the app underneath. Only a pin takes focus —
-    /// it's the mode for typing into.
+    /// Where `state` changes, and the showing and hiding that follow. Only a pin takes focus, so a
+    /// peek never takes the keyboard from the app underneath.
     private func send(_ event: SummonState.Event) {
         let previous = state
         state = state.next(on: event, peeksImmediately: settings.config.peekHoldSeconds == 0)
@@ -221,24 +190,17 @@ final class PanelController {
         }
     }
 
-    /// Brings the panel up without taking focus. A no-op when it's already
-    /// up, so re-summoning a peek doesn't jump it back into place.
+    /// Without taking focus. A no-op when up, so re-summoning a peek doesn't move it.
     private func show() {
         guard !panel.isVisible else { return }
-        // Every summon, not just the first: `monitor: pointer` places against
-        // the screen the user is looking at *now*.
+        // Every summon, since `monitor: pointer` follows the screen in use now.
         positioner.place(panel, size: { [rememberedSize] _ in rememberedSize })
         applyTheme(model.theme)
-        // Pick up changes another Mac wrote to scratchpad.md while
-        // we were dismissed — covers the iCloud/Dropbox sync case.
-        // Cheap (one stat + maybe one read), so safe to do every
-        // open.
+        // Picks up a synced change: one stat, and a read only if it changed.
         model.reloadFromDiskIfChanged()
         model.refreshPlaceholder()
         panel.orderFrontRegardless()
-        // Recompute shadow against current content alpha and force a
-        // visual-effect re-render so the blur picks up the right
-        // appearance on first show.
+        // Re-render the blur and shadow, or the first show can have the wrong appearance.
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.visualEffect.state = .inactive
@@ -259,17 +221,13 @@ final class PanelController {
         holdTimer = nil
     }
 
-    /// `true` while every modifier in the summon chord is still physically
-    /// down. A state *query*, so unlike a `.flagsChanged` monitor it needs no
-    /// Accessibility or Input Monitoring grant — the same reason the chord
-    /// itself is a Carbon hotkey.
+    /// A state query, which needs no Accessibility or Input Monitoring grant.
     private func modifiersStillHeld() -> Bool {
         CGEventSource.flagsState(.combinedSessionState).intersection(summonModifierFlags)
             == summonModifierFlags
     }
 
-    /// Polls fast enough that letting go reads as immediate, without
-    /// installing anything that needs a permission grant.
+    /// Polls fast enough to feel immediate, with nothing that needs a grant.
     private func watchForModifierRelease() {
         modifierWatchTimer?.invalidate()
         modifierWatchTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) {
@@ -291,16 +249,14 @@ final class PanelController {
         panel.appearance = NSAppearance(named: chrome.appearance)
         visualEffect.material = chrome.material
         visualEffect.appearance = NSAppearance(named: chrome.appearance)
-        // With blur off the tint is composited over nothing, so it starts
-        // from the palette's `panel` — what the translucent version
-        // composites to — rather than the chrome tint. A configured
-        // opacity replaces either base's own alpha.
+        // Without blur the tint composites over nothing, so it starts from `panel`. A configured
+        // opacity replaces the base's alpha.
         let background = settings.config.background
         visualEffect.isHidden = !background.blur
         let base = background.blur ? chrome.tintColor : Palette.for(theme).panel
         let color = background.clampedOpacity.map { base.withAlphaComponent($0) } ?? base
         tint.layer?.backgroundColor = color.cgColor
-        // Border is rendered by SwiftUI in EditorView via .overlay.
+        // EditorView draws the border.
     }
 
     private static func edges(of view: NSView, pinnedTo container: NSView) -> [NSLayoutConstraint] {
@@ -322,14 +278,13 @@ final class PanelController {
         return CGSize(width: saved.width, height: saved.height)
     }
 
-    /// Called from `applicationWillTerminate` — see `saveFrame`.
+    /// For quitting, which skips the hide.
     func savePanelFrameIfVisible() {
         guard panel.isVisible else { return }
         saveFrame()
     }
 
-    /// Written when the panel hides, never while it moves or resizes: the
-    /// only reader is the next summon, so one write per showing is enough.
+    /// On hide rather than on every move or resize: the next summon is the only reader.
     private func saveFrame() {
         positioner.saveIfMoved(panel)
         let size = panel.frame.size

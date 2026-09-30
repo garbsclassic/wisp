@@ -1,10 +1,8 @@
 import AppKit
 import ServiceManagement
 
-// `SMAppService.mainApp` identifies the login item by the *running* bundle, so
-// only the app itself can withdraw its own registration. This flag gives
-// uninstall.sh a way to do that before the bundle is deleted — removing the app
-// first would leave a dangling login item behind.
+// Only the running bundle can withdraw its own login item, so uninstall.sh calls this before
+// deleting the app.
 if CommandLine.arguments.contains("--unregister-login-item") {
     let service = SMAppService.mainApp
     if service.status == .enabled {

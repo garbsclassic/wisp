@@ -1,38 +1,24 @@
 import AppKit
 
-// Kept identical in Wisp and Clef: both panels are dragged by this one type.
+// Kept identical in Wisp and Clef; a change here belongs in both.
 
-/// A borderless panel moved by dragging anywhere that isn't text, or only
-/// inside `dragArea` when one is set.
-///
-/// `isMovableByWindowBackground` can't do it: AppKit only starts that drag
-/// when the view under the pointer answers `mouseDownCanMoveWindow`, and a
-/// SwiftUI hosting view never does. So the drag is run here, in `sendEvent`,
-/// ahead of the content: the mouse-down still reaches the content, and only
-/// once the pointer has travelled `dragThreshold` does it become a move.
-///
-/// At that point the content is sent a mouse-up far outside itself, which
-/// ends whatever it was tracking — a button or a tap gesture — without
-/// firing it, and the rest of the drag is kept from it.
+/// A borderless panel dragged from anywhere that isn't text, or only inside `dragArea`. Run from
+/// `sendEvent`, since a SwiftUI hosting view never allows `isMovableByWindowBackground`: a press
+/// becomes a drag past `dragThreshold`, and the content gets a far-off mouse-up to end tracking.
 class MovablePanel: NSPanel {
-    /// How far the pointer travels before a press becomes a drag, so a
-    /// slightly unsteady click still clicks.
+    /// So a slightly unsteady click still clicks.
     private static let dragThreshold: CGFloat = 3
     /// Near a resizable panel's edge a press belongs to AppKit's resize.
     private static let resizeMargin: CGFloat = 6
 
-    /// Where a drag may start, in window coordinates. Nil allows anywhere that
-    /// isn't text; a panel whose body is all clickable rows narrows it to its
-    /// chrome.
+    /// Where a drag may start, in window coordinates. Nil allows anywhere that isn't text.
     var dragArea: ((NSPoint) -> Bool)?
 
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
     private var isDragging = false
 
-    /// AppKit constrains a window's frame to keep it on the screen it opens
-    /// on, which would nudge a panel saved partly off screen back to somewhere
-    /// it wasn't left. `PanelPlacement` already refuses a position that isn't
-    /// reachable, so the panel takes the frame it's given.
+    /// Takes the frame it's given: `PanelPlacement` already refuses an unreachable position, and
+    /// AppKit would nudge a panel left partly off screen.
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
         frameRect
     }
@@ -45,8 +31,7 @@ class MovablePanel: NSPanel {
 
         case .leftMouseDragged:
             guard let start = dragStart else { break }
-            // Screen coordinates, not the event's window ones: the window moves
-            // under the pointer, so a window-relative location would chase it.
+            // Screen coordinates, since the window moves under the pointer.
             let mouse = NSEvent.mouseLocation
             let offset = NSPoint(x: mouse.x - start.mouse.x, y: mouse.y - start.mouse.y)
             if !isDragging {
@@ -69,8 +54,7 @@ class MovablePanel: NSPanel {
         super.sendEvent(event)
     }
 
-    /// Text keeps its own drags — they select — as do scroll bars and, on a
-    /// resizable panel, the edges.
+    /// Not on text, which selects, nor on scroll bars or a resizable panel's edges.
     private func canStartDrag(at event: NSEvent) -> Bool {
         let point = event.locationInWindow
         if let dragArea, !dragArea(point) { return false }

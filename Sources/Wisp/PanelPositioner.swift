@@ -1,29 +1,20 @@
 import AppKit
 import WispCore
 
-// Kept identical in Wisp and Clef, bar the import: both panels are placed,
-// remembered, and reset through this one type.
+// Kept identical in Wisp and Clef, bar the import; a change here belongs in both.
 
-/// Places the panel, notices when it has been dragged, and remembers where.
-///
-/// Rules live in `PanelPlacement`; this is the AppKit half — which screens
-/// exist, where the pointer is, and what the window's frame actually is.
-///
-/// The position is written on hide, never mid-drag: the only reader is the
-/// next summon, so one write per showing is enough, and a slow drag can't
-/// emit a burst of rewrites over someone's hand edits.
+/// The AppKit half of `PanelPlacement`: screens, pointer, and the real frame. The position is
+/// written on hide, never mid-drag, so a slow drag can't rewrite the file over hand edits.
 @MainActor
 final class PanelPositioner {
     private let monitor: () -> MonitorTarget
     private let saved: () -> PanelPosition?
     private let save: (PanelPosition?) -> Void
 
-    /// Where the panel was last put by us rather than by the user. Compared
-    /// against on hide to tell a drag from a panel left where it opened.
+    /// Where we last put the panel, to tell a drag from a panel left where it opened.
     private var placedTopLeft: CGPoint?
 
-    /// Closures rather than values because the config is live: a reload can
-    /// change `monitor` or clear the saved position between two summons.
+    /// Closures, since a config reload can change these between summons.
     init(
         monitor: @escaping () -> MonitorTarget,
         saved: @escaping () -> PanelPosition?,
@@ -34,10 +25,8 @@ final class PanelPositioner {
         self.save = save
     }
 
-    /// The visible frame to place against: the pointer's screen under
-    /// `monitor: pointer`, otherwise the one holding the menu bar. That's
-    /// `screens.first`, not `NSScreen.main` — `main` follows the key window,
-    /// which for an accessory app tracks whatever app was frontmost.
+    /// The pointer's screen under `monitor: pointer`, else the menu bar's: `screens.first`, since
+    /// `NSScreen.main` follows the key window, which for an accessory app is another app's.
     var targetScreen: CGRect {
         let screens = NSScreen.screens
         let pointer =
@@ -46,11 +35,8 @@ final class PanelPositioner {
         return (pointer ?? screens.first)?.visibleFrame ?? .zero
     }
 
-    /// Puts the panel where it was last left, or at the default spot.
-    ///
-    /// `size` is asked per screen, since a panel sized as a share of the
-    /// screen has to be sized for the one it lands on — which, for a saved
-    /// position under `monitor: primary`, needn't be the target.
+    /// Where the panel was last left, or the default spot. `size` is asked per screen, since a
+    /// saved position's screen needn't be the target.
     func place(_ panel: NSWindow, size: (CGRect) -> CGSize) {
         let target = targetScreen
         let screens = NSScreen.screens.map(\.visibleFrame)
@@ -66,9 +52,7 @@ final class PanelPositioner {
         placedTopLeft = panel.frame.topLeft
     }
 
-    /// Changes the size without moving the top edge — wherever the panel is
-    /// now, including somewhere it was dragged to since it was placed — sized
-    /// for the screen it's on.
+    /// Resizes for its current screen without moving the top edge.
     func resize(_ panel: NSWindow, to size: (CGRect) -> CGSize) {
         let screen =
             PanelPlacement.screen(under: panel.frame, in: NSScreen.screens.map(\.visibleFrame))
@@ -87,8 +71,7 @@ final class PanelPositioner {
         placedTopLeft = current
     }
 
-    /// Forgets the saved spot, and moves a panel that's on screen back to the
-    /// default one straight away.
+    /// Forgets the saved spot, moving a visible panel back at once.
     func reset(_ panel: NSWindow, size: (CGRect) -> CGSize) {
         save(nil)
         placedTopLeft = nil

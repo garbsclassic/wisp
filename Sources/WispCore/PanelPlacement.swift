@@ -1,14 +1,9 @@
 import CoreGraphics
 
-// Kept identical in Wisp and Clef: both panels place, remember, and reset
-// themselves by these rules, so a change here belongs in both.
+// Kept identical in Wisp and Clef; a change here belongs in both.
 
-/// Where the panel was last left, as its top-left corner in AppKit's global
-/// coordinates (points, y growing upward).
-///
-/// The top edge rather than AppKit's bottom-left origin, because the top is
-/// what stays put: a panel whose height changes — Clef's, per tab — hangs
-/// from it, and a resized one grows downward from it.
+/// The panel's top-left in AppKit's global coordinates: the top edge, since a resized panel
+/// hangs from it.
 public struct PanelPosition: Codable, Equatable, Sendable {
     public var x: Double
     public var y: Double
@@ -25,26 +20,18 @@ public struct PanelPosition: Codable, Equatable, Sendable {
     public var point: CGPoint { CGPoint(x: x, y: y) }
 }
 
-/// Pure placement rules for a floating panel, written against the screens'
-/// visible frames so they test without a running `NSApplication`.
+/// Placement rules over the screens' visible frames, testable without `NSApplication`.
 public enum PanelPlacement {
-    /// How far below the top of the screen a default-placed panel's top edge
-    /// sits, as a share of the visible height. Near the top, where something
-    /// you glance at belongs, while still clearing the menu bar.
+    /// The default top edge's distance below the screen top, as a share of the visible height.
     public static let topInset: CGFloat = 0.05
 
-    /// How much of a remembered frame has to overlap a screen, in both
-    /// dimensions, for it to count as reachable. Enough to grab and drag back;
-    /// less means it was left on a display that has since been unplugged.
+    /// Overlap in both dimensions a saved frame needs to count as reachable: enough to grab.
     public static let minVisible: CGFloat = 120
 
-    /// A drag shorter than this, in points, isn't one. AppKit pixel-aligns the
-    /// frames it's handed, and nobody moves a window a single point on purpose.
+    /// AppKit pixel-aligns frames, so a smaller difference isn't a drag.
     public static let moveTolerance: CGFloat = 1
 
-    /// Centred horizontally, top edge `topInset` of the way down, rounded to
-    /// whole points so the frame AppKit reports back matches the one it was
-    /// given.
+    /// Centred, `topInset` down, on whole points so AppKit reports back the same frame.
     public static func defaultTopLeft(for size: CGSize, on screen: CGRect) -> CGPoint {
         let size = fitted(size, to: screen)
         let top = screen.maxY - screen.height * topInset
@@ -53,13 +40,8 @@ public enum PanelPlacement {
             y: min(max(top, screen.minY + size.height), screen.maxY).rounded())
     }
 
-    /// Where a panel of `size` goes on summon.
-    ///
-    /// No saved position, or one that's no longer reachable on `screens`, gets
-    /// the default spot on `target`. With `followsTarget` — `monitor:
-    /// pointer` — a saved position is carried to `target`, keeping its place
-    /// relative to the screen it was saved on; otherwise it's used as is,
-    /// whichever screen that puts it on.
+    /// The default spot on `target` unless a saved position is still reachable. `followsTarget`
+    /// (`monitor: pointer`) carries it to `target`, keeping its place relative to its screen.
     public static func topLeft(
         for size: CGSize, saved: CGPoint?, target: CGRect, screens: [CGRect],
         followsTarget: Bool
@@ -73,11 +55,8 @@ public enum PanelPlacement {
         return carried(saved, size: size, from: source, to: target)
     }
 
-    /// The screen a panel at `topLeft` would sit on: the one `topLeft(…)` puts
-    /// it on when it doesn't follow the target, or `target` itself. Asked
-    /// before the size is known — a panel sized as a share of its screen needs
-    /// the screen first — so reachability is judged at `size`, the size it
-    /// would have on `target`.
+    /// The screen `topLeft(…)` would put the panel on, judged at its size on `target`: a panel
+    /// sized per screen needs the screen first.
     public static func home(
         of saved: CGPoint?, size: CGSize, target: CGRect, screens: [CGRect],
         followsTarget: Bool
@@ -88,10 +67,7 @@ public enum PanelPlacement {
         return screen(under: frame, in: screens) ?? target
     }
 
-    /// The screen `frame` overlaps most, or nil when it's on none. By overlap
-    /// rather than by containing a corner: a panel pushed flush to a screen's
-    /// top edge has its top-left on that edge, which `CGRect.contains` counts
-    /// as outside.
+    /// The screen `frame` overlaps most. `contains` would miss a corner flush on the top edge.
     public static func screen(under frame: CGRect, in screens: [CGRect]) -> CGRect? {
         func area(_ screen: CGRect) -> CGFloat {
             let overlap = frame.intersection(screen)
@@ -107,14 +83,11 @@ public enum PanelPlacement {
             width: size.width, height: size.height)
     }
 
-    /// Caps `size` at the screen's own, so a panel sized on a larger display
-    /// still opens whole on a smaller one.
+    /// Caps `size` at the screen's, so a panel sized on a larger display opens whole.
     public static func fitted(_ size: CGSize, to screen: CGRect) -> CGSize {
         CGSize(width: min(size.width, screen.width), height: min(size.height, screen.height))
     }
 
-    /// True when `frame` overlaps some screen by at least `minVisible` in both
-    /// dimensions.
     public static func isReachable(_ frame: CGRect, on screens: [CGRect]) -> Bool {
         screens.contains { screen in
             let overlap = frame.intersection(screen)
@@ -123,17 +96,13 @@ public enum PanelPlacement {
         }
     }
 
-    /// Moves a top-left corner from one screen to another, keeping its
-    /// position *relative to* the screen it came from: two thirds of the way
-    /// across the free space on one display is two thirds across on the next,
-    /// rather than the same absolute point, which on a smaller display can be
-    /// off the edge entirely.
+    /// Keeps the corner's place relative to its screen's free space; the same absolute point
+    /// could be off a smaller display.
     public static func carried(
         _ topLeft: CGPoint, size: CGSize, from source: CGRect, to destination: CGRect
     ) -> CGPoint {
         let size = fitted(size, to: destination)
-        // A panel as wide as its screen has no free space to be relative
-        // within; the centre is as good an answer as any.
+        // A panel as wide as its screen has no slack; centre it.
         func ratio(_ offset: CGFloat, _ slack: CGFloat) -> CGFloat {
             slack > 0 ? offset / slack : 0.5
         }

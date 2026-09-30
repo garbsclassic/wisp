@@ -2,28 +2,18 @@ import AppKit
 import Carbon.HIToolbox
 import WispCore
 
-/// The notes body. A subclass rather than what
-/// `NSTextView.scrollableTextView()` hands back, because ⌘C, ⌘X, and ⌘V
-/// have to be intercepted: the Edit menu's items target the first
-/// responder, so falling back to the current line when nothing is selected
-/// can only happen here.
-///
-/// Building the view by hand also lets `NotesLayoutManager` be installed
-/// as part of the text stack instead of swapped in afterwards with
-/// `replaceLayoutManager`.
+/// The notes body: a subclass so ⌘C, ⌘X, and ⌘V can take the whole line when nothing is
+/// selected, built by hand so `NotesLayoutManager` is part of the stack.
 final class NotesTextView: NSTextView {
-    /// The live indent unit, read from the config on every change so Tab
-    /// writes what `indent.style` and `indent.size` currently say.
+    /// Read from the config on every change.
     var indentUnit: String = Indent().unit
     /// Mirrors `smartPaste` in the config; read on every ⌘V.
     var smartPaste: Bool = true
-    /// Where the right-click menu's Check Spelling While Typing goes, so it
-    /// flips the setting rather than just this view.
+    /// So the context menu's spelling toggle flips the setting, not just this view.
     var onToggleSpellcheck: (() -> Void)?
 
-    /// What `setSpellingState` keeps marks off, worked out once per edit:
-    /// AppKit calls it once per misspelled word, and classifying the note
-    /// each time made enabling spellcheck on a long note take seconds.
+    /// Cached per edit: AppKit asks once per misspelled word, and classifying the note each time
+    /// took seconds on a long note.
     private var codeRanges: [NSRange]?
     private var storageObserver: (any NSObjectProtocol)?
 
@@ -38,26 +28,18 @@ final class NotesTextView: NSTextView {
 
     private let caret = CaretLayer()
 
-    /// Set while `draw` runs, for `setFrameSize` to tell a resize that
-    /// lands mid-draw from any other.
+    /// Set while `draw` runs, so `setFrameSize` can tell a resize mid-draw.
     private var isDrawing = false
     private var resizedWhileDrawing = false
 
-    /// Text length at the last caret update. A move that arrives with a
-    /// change here is an edit — typing, ⌫, paste, undo — and places the
-    /// caret without animating, so nothing ever lags a keystroke.
+    /// A move with a length change is an edit and isn't animated, so the caret never lags a key.
     private var lengthAtLastCaretUpdate = 0
 
-    /// Tracked by hand: `resignFirstResponder` runs while `window.firstResponder`
-    /// still points here, and AppKit's own `shouldDrawInsertionPoint` was
-    /// seen answering true through a focus loss.
+    /// Tracked by hand: `shouldDrawInsertionPoint` was seen answering true through a focus loss.
     private var hasFocus = false
     private var keyWindowObservers: [any NSObjectProtocol] = []
 
-    /// Builds the whole scroll view / storage / layout manager / container
-    /// stack. The pieces have to be assembled in this order — a container
-    /// added to a layout manager that isn't yet attached to storage lays
-    /// nothing out.
+    /// In this order: a container on a layout manager not yet attached to storage lays out nothing.
     static func makeScrollView() -> (scrollView: NSScrollView, textView: NotesTextView) {
         let storage = NSTextStorage()
         let layoutManager = NotesLayoutManager()
@@ -91,35 +73,26 @@ final class NotesTextView: NSTextView {
 
     // MARK: Caret
 
-    /// AppKit's own caret is switched off in favour of `CaretLayer`.
-    /// Returning false here is what stops the blink timer; the empty
-    /// `drawInsertionPoint` covers the draw call in case it is made anyway.
+    /// Off in favour of `CaretLayer`; returning false stops AppKit's blink timer.
     override var shouldDrawInsertionPoint: Bool { false }
 
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {}
 
-    /// AppKit calls this wherever its caret would move or repaint —
-    /// selection, focus, key window, and text changes — which makes it the
-    /// one hook the overlay needs.
+    /// Called wherever AppKit's caret would move or repaint, so it's the one hook the layer needs.
     override func updateInsertionPointStateAndRestartTimer(_ restartFlag: Bool) {
         super.updateInsertionPointStateAndRestartTimer(restartFlag)
         refreshCaret(animated: true)
     }
 
-    /// AppKit reaches the hook above on a resize too; this is insurance
-    /// for a reflow that somehow doesn't, and a no-op when the rect holds.
+    /// Insurance for a reflow that misses the hook above; a no-op when the rect holds.
     override func setFrameSize(_ newSize: NSSize) {
         if isDrawing, newSize != frame.size { resizedWhileDrawing = true }
         super.setFrameSize(newSize)
         refreshCaret(animated: false)
     }
 
-    /// TextKit 1 lays out lazily, inside `draw`, and a layout that reaches
-    /// the end of the text there resizes the view from inside its own
-    /// draw. The redisplay AppKit asks for on that resize is lost — this
-    /// is a layer-backed view mid-display — so ⌘X on the last screen left
-    /// the old last line painted below the new one. Asked for again once
-    /// the draw is over, from the next turn of the run loop.
+    /// TextKit 1 can resize the view inside its own draw, and the redisplay that resize asks for is
+    /// lost, leaving stale lines after ⌘X. Asked for again on the next run-loop turn.
     override func draw(_ dirtyRect: NSRect) {
         isDrawing = true
         super.draw(dirtyRect)
@@ -144,8 +117,7 @@ final class NotesTextView: NSTextView {
         return true
     }
 
-    /// The panel losing key — another app clicked — takes the caret with
-    /// it.
+    /// The panel losing key takes the caret with it.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         keyWindowObservers.forEach(NotificationCenter.default.removeObserver)
@@ -181,10 +153,8 @@ final class NotesTextView: NSTextView {
             wantsLayer = true
             layer?.addSublayer(caret.layer)
         }
-        // An empty range yields the insertion point: a zero-width rect the
-        // height of its line fragment. Not `firstRect(forCharacterRange:)`,
-        // which clips to the visible rect — a line half past the bottom
-        // edge came back half height and the baseline below rode up with it.
+        // An empty range gives the insertion point. Not `firstRect`, which clips to the visible
+        // rect and shortened a caret half past the bottom edge.
         var count = 0
         guard
             let rects = layoutManager.rectArray(
@@ -197,16 +167,12 @@ final class NotesTextView: NSTextView {
             return
         }
         var frame = rects[0].offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y)
-        // Centred on the boundary as AppKit's indicator is, then snapped to
-        // device pixels so a 1x display doesn't smear it over three columns.
+        // Centred on the boundary, then snapped to pixels so a 1x display doesn't smear it.
         frame.origin.x -= CaretLayer.width / 2
         frame.size.width = CaretLayer.width
         if let font {
-            // The rect is the whole line fragment, and the line-height
-            // multiple's extra room sits above the glyphs — so a full-height
-            // caret towers over the caps. A tight caret would run from just
-            // above cap height to halfway into the descenders; this one sits
-            // midway between that and the full fragment, keyed off the baseline.
+            // The fragment's leading sits above the glyphs, so a full-height caret towers over the
+            // caps. This one sits midway between the fragment and a tight caret.
             let baseline = frame.maxY + font.descender
             let tightTop = baseline - font.capHeight - (font.ascender - font.capHeight) / 2
             let tightBottom = baseline - font.descender / 2
@@ -221,13 +187,7 @@ final class NotesTextView: NSTextView {
 
     // MARK: Whole-line copy, cut, and paste
 
-    /// Keeps Cut and Copy enabled with an empty selection.
-    ///
-    /// `NSTextView` validates both against having a selection, and a
-    /// disabled menu item's key equivalent never fires — so without this
-    /// the overrides below are simply never called, and ⌘C silently does
-    /// nothing rather than taking the line. Everything else is left to
-    /// `super`.
+    /// Keeps Cut and Copy enabled with no selection, or their key equivalents never fire.
     override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
         if item.action == #selector(copy(_:)) || item.action == #selector(cut(_:)) {
             return true
@@ -235,8 +195,7 @@ final class NotesTextView: NSTextView {
         return super.validateUserInterfaceItem(item)
     }
 
-    /// ⌘C with nothing selected copies the whole line, newline included,
-    /// so the paste lands as a line rather than in the middle of one.
+    /// With nothing selected, copies the whole line, newline included.
     override func copy(_ sender: Any?) {
         guard selectedRange().length == 0 else {
             super.copy(sender)
@@ -246,8 +205,7 @@ final class NotesTextView: NSTextView {
         writeToPasteboard(line.string)
     }
 
-    /// ⌘X with nothing selected cuts the whole line and leaves the cursor
-    /// at the same column on the line that moves up into its place.
+    /// With nothing selected, cuts the line, keeping the column on the line that moves up.
     override func cut(_ sender: Any?) {
         guard selectedRange().length == 0 else {
             super.cut(sender)
@@ -259,11 +217,8 @@ final class NotesTextView: NSTextView {
         apply(LineEdits.cutLine(in: text, selection: selectedRange()))
     }
 
-    /// ⌘V of a line that ⌘C or ⌘X took whole, with nothing selected, puts
-    /// it in above the current line rather than at the caret. Text from
-    /// another app landing on a blank line gets `SmartPaste`'s look — a
-    /// grid or a list goes in as markdown. Anything else — a selection to
-    /// replace, a paste mid-line — is an ordinary paste.
+    /// A whole-line copy pastes above the current line. Other text onto a blank line goes through
+    /// `SmartPaste`; anything else is an ordinary paste.
     override func paste(_ sender: Any?) {
         let pasteboard = NSPasteboard.general
         let selection = selectedRange()
@@ -286,11 +241,8 @@ final class NotesTextView: NSTextView {
         super.paste(sender)
     }
 
-    /// Marks a pasteboard entry as a whole line, the way VS Code's
-    /// `isFromEmptySelection` and JetBrains' custom flavor do. The marker is
-    /// a second type on the same entry, so it cannot outlive the text:
-    /// every writer clears the pasteboard before setting its own types, and
-    /// the marker goes with it.
+    /// Marks a whole-line copy, as VS Code and JetBrains do; a second type on the same entry, so it
+    /// is cleared with the text.
     private static let wholeLineType = NSPasteboard.PasteboardType("quest.uponre.wisp.whole-line")
 
     private func writeToPasteboard(_ text: String) {
@@ -302,8 +254,7 @@ final class NotesTextView: NSTextView {
 
     // MARK: Keymap edits
 
-    // Called by `AppDelegate.perform` on the focused notes view, so each
-    // runs inside the key event that asked for it.
+    // Called by `AppDelegate.perform`, inside the key event that asked.
 
     /// ⌘B, ⌘I, and the other inline formats.
     func toggleWrap(_ markers: MarkdownWrap.Markers) {
@@ -338,18 +289,11 @@ final class NotesTextView: NSTextView {
         apply(LineEdits.toggleChecklist(in: string as NSString, selection: selectedRange()))
     }
 
-    /// True while a hand-rolled edit is between its replacement and the
-    /// selection it sets. `textDidChange` fires in the middle of that,
-    /// when the selection is still the pre-edit one — the wrong thing to
-    /// shift by a renumber — so the delegate holds off and the edit
-    /// renumbers itself once its selection is in place. AppKit's own
-    /// edits (typing, ⌫, paste) have already moved the selection by the
-    /// time the delegate hears, and renumber straight from there.
+    /// Set between a hand-rolled edit's replacement and its selection, when `textDidChange` would
+    /// renumber against the old selection; the edit renumbers itself afterwards.
     private(set) var isApplyingEdit = false
 
-    /// Runs `body` as one hand-rolled edit: renumbering waits for the
-    /// selection it sets. The first call's ⌘Z takes back the whole thing
-    /// — the renumber lands in the same event, so the same undo group.
+    /// One hand-rolled edit, renumbered once its selection is set, in the same undo group.
     func performEdit(_ body: () -> Void) {
         let wasApplying = isApplyingEdit
         isApplyingEdit = true
@@ -358,19 +302,11 @@ final class NotesTextView: NSTextView {
         if !wasApplying { renumberLists() }
     }
 
-    /// Puts every ordered run back in sequence, as one change: a change per
-    /// marker would restyle the whole note once each. Applied back to front
-    /// so earlier ranges stay valid. The caret shifts by whatever changed
-    /// width ahead of it. Re-entered through `didChangeText` while applying;
-    /// the flag makes that a no-op. Returns whether anything changed.
-    ///
-    /// `blocks`, when the caller already classified the text, saves doing
-    /// it again.
+    /// Every ordered run back in sequence as one change, back to front, shifting the caret by what
+    /// changed ahead of it. `blocks` saves reclassifying the text.
     @discardableResult
     func renumberLists(blocks: MarkdownBlocks? = nil) -> Bool {
-        // Undo restores old markers through `didChangeText` too; putting
-        // them back in sequence mid-undo would register onto the redo
-        // stack and leave the step a visible no-op.
+        // Renumbering mid-undo would land on the redo stack and make the step a no-op.
         guard !isApplyingEdit,
             undoManager?.isUndoing != true, undoManager?.isRedoing != true,
             let textStorage
@@ -400,11 +336,7 @@ final class NotesTextView: NSTextView {
         return true
     }
 
-    /// ⌫ at the start of an item's text takes the marker off instead of
-    /// the space after it, and ⌫ inside a line's leading indent takes a
-    /// level off instead of a character. The two can't both match — one
-    /// needs a marker before the caret, the other only whitespace.
-    /// Everything else is `super`'s.
+    /// ⌫ at an item's text start removes the marker; ⌫ in the leading indent removes a level.
     override func deleteBackward(_ sender: Any?) {
         let selection = selectedRange()
         let text = string as NSString
@@ -421,14 +353,8 @@ final class NotesTextView: NSTextView {
         super.deleteBackward(sender)
     }
 
-    /// A click on a checklist's box toggles it. The hit test is against the
-    /// glyph's own rectangle rather than the character index under the
-    /// mouse, so a click in the whitespace beside the box, or on the
-    /// item's first word, still places the caret as it always did.
-    ///
-    /// The later clicks of a double- or triple-click on the box are
-    /// swallowed: the first already toggled it, and `super` would select
-    /// the hidden marker text under the glyph.
+    /// A click on a drawn box toggles it; a click beside it places the caret. A multi-click's later
+    /// clicks are swallowed, or `super` would select the hidden marker.
     override func mouseDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .function, .numericPad])
@@ -442,10 +368,7 @@ final class NotesTextView: NSTextView {
         }
     }
 
-    /// The arrow over a box, as over any control, rather than the I-beam
-    /// text gets. AppKit sets the I-beam from `mouseMoved`, so the
-    /// override has to win there; `cursorUpdate` covers the first entry
-    /// into the view.
+    /// The arrow over a box. AppKit sets the I-beam in `mouseMoved`; `cursorUpdate` covers entry.
     override func mouseMoved(with event: NSEvent) {
         guard checklistBoxIndex(under: event) != nil else { return super.mouseMoved(with: event) }
         NSCursor.arrow.set()
@@ -461,10 +384,7 @@ final class NotesTextView: NSTextView {
         (layoutManager as? NotesLayoutManager)?.isSourceView ?? false
     }
 
-    /// The character index of the checkbox line whose drawn box is under the
-    /// event's mouse position, or nil when the pointer is anywhere else.
-    /// The box's rectangle is the marker's reserved width by the line's
-    /// full height, which is what `NotesLayoutManager` paints into.
+    /// The index of the checklist line whose drawn box is under the pointer.
     private func checklistBoxIndex(under event: NSEvent) -> Int? {
         guard !isSourceView, let layoutManager, let container = textContainer else { return nil }
         let point = convert(event.locationInWindow, from: nil)
@@ -483,9 +403,7 @@ final class NotesTextView: NSTextView {
         return box.contains(inContainer) ? index : nil
     }
 
-    /// Tab. On a list item — or anywhere a selection spans — this shifts
-    /// whole lines; with a bare cursor in ordinary prose it inserts one
-    /// indent unit where the cursor is, which is what a Tab key is for.
+    /// ⇥ shifts whole lines on a list item or a selection, and otherwise inserts at the caret.
     func handleTab() {
         let selection = selectedRange()
         let text = string as NSString
@@ -496,11 +414,7 @@ final class NotesTextView: NSTextView {
         apply(LineEdits.indent(in: text, selection: selection, unit: indentUnit))
     }
 
-    /// ⇧Tab always outdents — there is nothing else it could usefully
-    /// mean in a plain-text editor with no tab stops. What it outdents is
-    /// whichever of the two things `handleTab` might have indented: the
-    /// whitespace just before a bare cursor mid-line, or failing that the
-    /// whole block.
+    /// ⇧⇥ takes back mid-line whitespace before a bare caret, or else outdents the block.
     func handleBacktab() {
         let text = string as NSString
         let selection = selectedRange()
@@ -510,19 +424,15 @@ final class NotesTextView: NSTextView {
             return
         }
         let edit = LineEdits.outdent(in: text, selection: selection, unit: indentUnit)
-        // An already-flush block rewrites itself to itself; skipping it
-        // keeps a no-op ⇧Tab out of the undo stack.
+        // A flush block rewrites to itself; skipping it keeps the no-op off the undo stack.
         guard edit.replacement != text.substring(with: edit.range) else { return }
         apply(edit)
     }
 
     // MARK: Home and End
 
-    /// AppKit gives Home and End to the document — a scroll with no caret
-    /// move bare, select-to-the-end with ⇧ — where every other editor
-    /// gives them to the line. Caught here as key events rather than by
-    /// overriding the document selectors, which ⇧⌘↑ and ⇧⌘↓ share and
-    /// should keep. ⌥ and ⌘ variants fall through untouched.
+    /// Home and End go to the line, as in other editors, not the document. Caught as key events,
+    /// since ⇧⌘↑ and ⇧⌘↓ share the document selectors.
     override func keyDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.function, .numericPad])
@@ -538,12 +448,8 @@ final class NotesTextView: NSTextView {
         }
     }
 
-    /// ⌘← and Home. On a list line the first stop is the item's text, past
-    /// the marker; from there a second press goes to column 0. `super`
-    /// runs first because it knows about wrapping: on a continuation
-    /// fragment it stops at that fragment's start, which is already past
-    /// the marker, and the smart stop only applies when it came back with
-    /// the paragraph's own first column.
+    /// On a list line the first stop is the item's text, then column 0. `super` runs first, since
+    /// it knows about wrapped fragments.
     override func moveToBeginningOfLine(_ sender: Any?) {
         let cursor = selectedRange().location
         super.moveToBeginningOfLine(sender)
@@ -551,9 +457,7 @@ final class NotesTextView: NSTextView {
         setSelectedRange(NSRange(location: target, length: 0))
     }
 
-    /// ⇧⌘←. Adjusted only from a bare cursor: with a selection already
-    /// standing, which end is the anchor depends on how it was made, and
-    /// `super` is the one that knows.
+    /// Adjusted only from a bare cursor; with a selection, `super` knows which end anchors it.
     override func moveToBeginningOfLineAndModifySelection(_ sender: Any?) {
         let before = selectedRange()
         super.moveToBeginningOfLineAndModifySelection(sender)
@@ -574,10 +478,7 @@ final class NotesTextView: NSTextView {
         return SmartEditing.listItem(lineRange: line, in: text) != nil
     }
 
-    /// Keeps the spellchecker's marks off code: an identifier in backticks
-    /// or a fenced block isn't a misspelled word. Source view too, so no
-    /// mark made there outlives it. Clearing marks passes straight through,
-    /// so switching checking off still wipes them all.
+    /// Keeps spelling marks off code. Clearing passes straight through.
     override func setSpellingState(_ value: Int, range charRange: NSRange) {
         guard value != 0 else {
             super.setSpellingState(value, range: charRange)
@@ -599,9 +500,8 @@ final class NotesTextView: NSTextView {
         for piece in remaining { super.setSpellingState(value, range: piece) }
     }
 
-    /// Continuous checking looks only at text as it is edited, so a note
-    /// already on screen when checking comes on shows no marks until each
-    /// paragraph is touched. Spelling only: the other types rewrite.
+    /// Checking only sees edited text, so this marks the whole note when it comes on. Spelling
+    /// only, since the other types rewrite.
     func checkSpellingEverywhere() {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
@@ -616,9 +516,7 @@ final class NotesTextView: NSTextView {
         onToggleSpellcheck()
     }
 
-    // Wisp never rewrites a word behind you. These stay off even when the
-    // right-click menu's Spelling and Substitutions items ask for them, so
-    // the items can't switch on something nothing would switch back off.
+    // Never rewrite a word behind you: these stay off whatever the context menu asks.
     override var isGrammarCheckingEnabled: Bool {
         get { false }
         set {}
@@ -640,14 +538,12 @@ final class NotesTextView: NSTextView {
         set {}
     }
 
-    /// Runs one `LineEdits.Edit` through the delegate/undo bookkeeping and
-    /// restores the selection it names.
+    /// Runs an edit through the delegate and undo bookkeeping, and restores its selection.
     func apply(_ edit: LineEdits.Edit) {
         performEdit {
             guard replaceText(in: edit.range, with: edit.replacement) else { return }
             setSelectedRange(edit.selection)
-            // Hand-rolled edits bypass the keyDown path, so NSTextView's own
-            // "scroll the caret into view" never fires.
+            // Hand-rolled edits skip keyDown, which is what scrolls the caret into view.
             scrollRangeToVisible(edit.selection)
         }
     }

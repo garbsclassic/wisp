@@ -2,24 +2,17 @@ import AppKit
 import SwiftUI
 import WispCore
 
-/// The keyboard reference, as a full-bleed page over the note.
-///
-/// Three regions, per the handoff in `.notes/designs/help/`: a pinned header,
-/// a scrolling body, and a pinned footer. The body is an `NSTextView` rather
-/// than a stack of `Text` views — see `HelpBody` for why.
+/// The keyboard reference, as a page over the note: pinned header and footer around an
+/// `NSTextView` body (see `HelpBody`).
 struct HelpOverlay: View {
     @Environment(\.palette) private var palette
-    /// The live keymap, not hardcoded glyphs — every chord on this page is
-    /// configurable, so a constant would be wrong for anyone who changed
-    /// one. `HelpDocument.make` reads them on the model's behalf.
     let document: HelpDocument
     let findHighlightToken: Int
     let findHighlightRange: NSRange
     let focusToken: Int
     let onClose: () -> Void
 
-    /// The header link last clicked, and a token so clicking the same one
-    /// twice still scrolls back to it.
+    /// The header link last clicked; the token lets a second click on it scroll again.
     @State private var jumpSection = 0
     @State private var jumpToken = 0
 
@@ -56,15 +49,11 @@ struct HelpOverlay: View {
             }
             .overlay(alignment: .top) { hairline }
         }
-        // Near-opaque rather than opaque: the note stays faintly visible
-        // behind, which signals "modal mode" without competing for
-        // attention.
+        // Near-opaque, so the note shows faintly behind a modal page.
         .background(Color(palette.panel).opacity(0.97))
     }
 
-    /// The footer bar, on the same insets as the app's own — the page
-    /// crossfades onto them, and a bar that shifts by 8pt on the way in is
-    /// more noticeable than one drawn 8pt off the mockup.
+    /// On the app's own insets, so the bar doesn't shift as the page crossfades in.
     @ViewBuilder
     private func chrome<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         HStack(spacing: 12) {

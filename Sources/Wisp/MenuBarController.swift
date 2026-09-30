@@ -1,16 +1,12 @@
 import AppKit
 import WispCore
 
-/// Owns the single status-bar item. A left click pins the panel, or
-/// dismisses the pin that's up; a right click opens the menu. The menu
-/// refreshes its dynamic state — Launch at Login checkmark, Reset
-/// Scratchpad Folder visibility — in menuNeedsUpdate rather than being
-/// rebuilt each time.
+/// The status item: left click pins or dismisses, right click opens the menu, whose dynamic items
+/// refresh in `menuNeedsUpdate`.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
-    /// The items that stand for a keymap action run it here, the same
-    /// dispatch its chord goes through.
+    /// Runs keymap items through the same dispatch as their chords.
     private let perform: (KeymapAction) -> Void
     private let onSetHotKey: () -> Void
     private let currentLaunchAtLogin: () -> Bool
@@ -20,13 +16,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let onResetStorageLocation: () -> Void
     private let menu = NSMenu()
 
-    // Strong: NSMenuItem.target is weak, so holding items here can't
-    // cycle, and it drops the assign-after-addItem ordering rule that
-    // weak refs made load-bearing.
+    // Strong is safe: NSMenuItem.target is weak.
     private var launchItem: NSMenuItem?
     private var resetItem: NSMenuItem?
-    /// The items whose chord is configurable, so `apply(_:)` can re-stamp
-    /// them from the live keymap.
+    /// Configurable items, re-stamped by `apply(_:)`.
     private var boundItems: [(action: KeymapAction, item: NSMenuItem)] = []
 
     init(
@@ -54,16 +47,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             button.image = image
             button.target = self
             button.action = #selector(handleClick)
-            // Left on the up, as a toggle; right on the down, as a native
-            // context menu opens. The same split as Clef's.
+            // Left on the up, as a toggle; right on the down, as a context menu opens. As in Clef.
             button.sendAction(on: [.leftMouseUp, .rightMouseDown])
         }
 
         menu.delegate = self
 
-        // Menu-bar-extra order: the app's own actions first, then its
-        // settings, Quit last. Wording and icons follow Clef's menu where an
-        // item exists in both.
+        // Actions, then settings, then Quit; wording follows Clef's where they overlap.
         menu.addItem(
             boundItem(.resetPosition, symbol: "arrow.up.and.down.and.arrow.left.and.right"))
         menu.addItem(boundItem(.refresh, symbol: "arrow.clockwise"))
@@ -97,23 +87,18 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        // ⌘Q here fires only while this menu is open — a status item's
-        // menu isn't the app's main menu, so it can't collide with
-        // anything else.
+        // ⌘Q fires only while this menu is open, so it collides with nothing.
         let quit = makeItem(
             "Quit Wisp", symbol: "xmark.circle", action: #selector(NSApplication.terminate(_:))
         )
-        // nil target sends terminate: up the responder chain to NSApp;
-        // makeItem's default of `self` would just make it a dead item.
+        // A nil target sends terminate: up the responder chain.
         quit.target = nil
         quit.keyEquivalent = "q"
         menu.addItem(quit)
     }
 
-    /// Splits the click by button, control-click counting as a right click
-    /// for a trackpad. The menu is assigned only for as long as it takes to
-    /// open: a permanently assigned one is what makes AppKit open it on
-    /// *every* click, and takes the left button away.
+    /// Control-click counts as right. The menu is assigned only while opening, or AppKit opens it
+    /// on every click.
     @objc private func handleClick() {
         let event = NSApp.currentEvent
         let isSecondary =
@@ -130,21 +115,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         statusItem.menu = nil
     }
 
-    /// Stamps each configurable item with the chord actually bound to it.
-    ///
-    /// The chords are not hardcoded here because they are not this menu's to
-    /// decide: the same actions are dispatched by `KeyBindingMonitor` while
-    /// the menu is *closed*, and an item printing `⌘R` next to an action the
-    /// config has moved to `⌘G` is telling the user something untrue.
-    ///
-    /// A key equivalent on a status-item menu only fires while that menu is
-    /// open — it is not the app's main menu — so this can't collide with the
-    /// monitor, which never sees events during a menu tracking loop.
+    /// Stamps each item with its live chord. These equivalents fire only while the menu is open,
+    /// so they can't collide with `KeyBindingMonitor`.
     func apply(_ keymap: Keymap) {
         for (action, item) in boundItems {
             guard let equivalent = keymap.parsed(action)?.menuEquivalent else {
-                // A chord that doesn't parse, or one AppKit has no menu
-                // spelling for. Better a bare item than a wrong one.
+                // Unparseable or unspellable: better a bare item than a wrong one.
                 item.keyEquivalent = ""
                 item.keyEquivalentModifierMask = []
                 continue
@@ -154,25 +130,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    // "Veil": the aperture reduced to a ring and a core, with the vapor trail
-    // above it — direction 9a from the icon canvas, matched to the app tile.
-    // At 18px the bands can't survive, so only the outer ring and core remain.
-    //
-    // The trail departs from the canvas geometry, whose stacked ellipses read
-    // at this size as a widening pile with ears flaring past the ring. It is
-    // one tapered plume instead: its base *is* the ring's outer arc, so the
-    // two are continuous, and it narrows to a point. A clipped linear
-    // gradient carries the alpha ramp — no blur, so the template image stays
-    // crisp. Drawn rather than bundled since the app ships no asset catalog;
-    // isTemplate lets AppKit tint it for the bar.
+    // "Veil", direction 9a from the icon canvas: at 18px only the ring and core survive, with the
+    // trail as one tapered plume rising from the ring and a clipped gradient for its alpha. Drawn
+    // rather than bundled, since there is no asset catalog.
     private static func makeStatusIcon() -> NSImage {
         let size = CGSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
 
-            // Authored on the canvas's 30-unit grid, y running downwards. The
-            // artwork only spans y 0.2...29.7 of that grid, so the span — not
-            // the grid — is what's fitted to the image, filling the full 18pt.
+            // The canvas's 30-unit grid, y down; the artwork's span, not the grid, fills the 18pt.
             let artworkTop: CGFloat = 0.2
             let k = rect.width / 29.5
             func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
@@ -186,8 +152,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             let ringOuter = 9 * k
             let tip = point(15, 0.6)
 
-            // Shoulders 58° off vertical: wide enough to look like a plume,
-            // never wider than the ring it rises from.
+            // 58° off vertical: a plume, never wider than its ring.
             let shoulder = 58 * CGFloat.pi / 180
             let flank = CGPoint(
                 x: center.x + ringOuter * sin(shoulder), y: center.y + ringOuter * cos(shoulder)
@@ -248,8 +213,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         return image
     }
 
-    /// An item for a keymap action: titled from the action, stamped with
-    /// its chord by `apply(_:)`, and run through `perform`.
+    /// Titled from the action, stamped by `apply(_:)`, and run through `perform`.
     private func boundItem(_ action: KeymapAction, symbol: String) -> NSMenuItem {
         let item = makeItem(action.title, symbol: symbol, action: #selector(handleBoundItem))
         item.representedObject = action

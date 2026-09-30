@@ -18,37 +18,26 @@ final class EditorModel: ObservableObject {
     @Published var caretOffset = 0
     @Published var focusToken: Int = 0
     @Published var scrollToken: Int = 0
-    /// Flashed for a moment each time a save lands on disk. Nil-cost when
-    /// `saveIndicator` is off — nothing schedules the flash at all.
+    /// Flashed briefly on each save; nothing schedules it when `saveIndicator` is off.
     @Published private(set) var isShowingSaveFlash = false
     private var saveFlashTask: Task<Void, Never>?
     private(set) var scrollTarget: Int = 0
     @Published private(set) var placeholder: String = ""
     @Published var showHotKeyCapture: Bool = false
-    /// ⌘↩. Drops every styling pass and sets the body in the code face, so
-    /// what is on screen is what is on disk.
-    ///
-    /// Deliberately not persisted: it is a way to glance at the file, not a
-    /// preference. The panel only orders out, so it survives a dismiss and
-    /// resets on quit — which is the lifetime it wants.
+    /// The raw text in the code face. Not persisted: it's a glance at the file, not a preference.
     @Published var isSourceView: Bool = false
 
     // MARK: Help
 
-    /// The help page, rebuilt only when the keymap behind it can have moved.
-    /// Held rather than computed: it is the find source while the page is
-    /// up, and re-deriving it per SwiftUI body pass would re-parse every
-    /// chord in the config.
+    /// Held rather than computed, since it's find's source while the page is up.
     @Published private(set) var helpDocument: HelpDocument
-    /// Bumped to hand first responder to the help page — which is what stops
-    /// ⌘A and ⌘C landing on the note underneath it.
+    /// Bumped to give the help page first responder, so ⌘A and ⌘C don't reach the note.
     @Published private(set) var helpFocusToken: Int = 0
     @Published var showHelp: Bool = false {
         didSet {
             guard didLoad, showHelp != oldValue else { return }
             requestFocus()
-            // Find follows whatever is in front of the user, so opening or
-            // dismissing the page re-searches against the other document.
+            // Find follows the page in front, so re-search the other document.
             if showFind { recomputeMatches(resetIndex: true) }
         }
     }
@@ -57,31 +46,21 @@ final class EditorModel: ObservableObject {
     @Published var showFind: Bool = false
     @Published var findQuery: String = "" {
         didSet {
-            // Only react while find is open. When the bar is torn down,
-            // the text field resigns focus and writes its value back
-            // through the binding; Swift's didSet fires even on an equal
-            // write, which would otherwise re-highlight the just-cleared
-            // match after dismissFind().
+            // Tearing the bar down writes the field's value back, which would re-highlight a
+            // cleared match.
             guard didLoad, showFind else { return }
             recomputeMatches(resetIndex: true)
         }
     }
-    /// Number of matches for the current query (0 when none / empty).
     @Published private(set) var findMatchCount: Int = 0
-    /// 1-based index of the current match for display ("3 / 12").
-    /// 0 when there are no matches.
+    /// 1-based, or 0 with no matches.
     @Published private(set) var findCurrentDisplayIndex: Int = 0
-    /// Token + range driving the highlight in MinimalTextEditor — same
-    /// pattern as scrollToken/scrollTarget. A zero-length range clears.
+    /// A zero-length range clears the highlight.
     @Published var findHighlightToken: Int = 0
     private(set) var findHighlightRange = NSRange(location: 0, length: 0)
     private var findMatches: [NSRange] = []
     private var findIndex = 0
-    /// AppDelegate replaces this with the real Carbon-registration
-    /// attempt. Returns nil on success or a user-facing error message
-    /// if registration was rejected (typically because the combo is
-    /// already in use system-wide). Default is a no-op so this is
-    /// always callable.
+    /// Set by the app delegate: nil on success, or a message when the chord is taken.
     var tryUpdateHotKey: @MainActor (KeyChord) -> String? = { _ in nil }
 
     private static let placeholders = [
@@ -91,58 +70,40 @@ final class EditorModel: ObservableObject {
         "Capture it before you forget.",
         "Anything to remember?",
     ]
-    // Read straight from the config, which `Settings` owns and persists;
-    // its changes are forwarded as this model's, so views observing the
-    // model re-render on them too.
+    // Read from the config; `Settings`' changes are forwarded as this model's.
     var fontScale: Double { settings.config.clampedFontScale }
     var spellcheck: Bool { settings.config.spellcheck }
     var footerStatus: FooterStatus { settings.config.footerStatus }
     var themeSetting: ThemeSetting { settings.config.theme }
 
-    /// Resolved theme actually used for rendering. Driven by
-    /// themeSetting, or — when preference is .system — by the OS
-    /// appearance via the KVO observer below.
+    /// The resolved theme: `themeSetting`, or the system appearance under `.system`.
     @Published private(set) var theme: Theme = .dark {
         didSet {
             onThemeChange?(theme)
         }
     }
 
-    /// PanelController subscribes to this so it can apply chrome changes
-    /// (visualEffect material, tint color, panel appearance) when the
-    /// theme flips. SwiftUI handles its own re-render via @Published.
+    /// Lets the panel controller apply chrome changes; SwiftUI re-renders on its own.
     var onThemeChange: (@MainActor (Theme) -> Void)?
 
-    /// The footer's close button. The panel owns its own visibility, so the
-    /// model asks rather than hides — same shape as `onThemeChange`.
+    /// The footer's close button; the panel owns its visibility.
     var onDismissRequest: (@MainActor () -> Void)?
 
-    /// KVO observer that re-resolves the theme when the OS switches
-    /// between Light and Dark while the user is on .system. Held strong
-    /// so the observation stays alive for the model's lifetime.
+    /// Re-resolves the theme when the system appearance changes under `.system`.
     private var appearanceObservation: NSKeyValueObservation?
     private var settingsObservation: AnyCancellable?
 
     private var didLoad = false
     private var saveTask: Task<Void, Never>?
-    /// Set true while we're rewriting `text` from a disk reload — the
-    /// `text.didSet` save trigger checks this so we don't immediately
-    /// re-save the content we just loaded.
+    /// Set while a disk reload rewrites `text`, so it isn't saved straight back.
     private var isReloading = false
-    /// mtime of the file the last time we successfully loaded from
-    /// disk — or wrote it ourselves, which counts the same way. Drives
-    /// reloadFromDiskIfChanged so we only re-read when the file has
-    /// actually moved on (e.g., another Mac wrote to it via iCloud sync),
-    /// and the footer's last-modified readout. Nil until there is a file.
+    /// The mtime at our last load or write, so only someone else's write reloads. Also the
+    /// footer's last-modified readout; nil until there is a file.
     @Published private(set) var lastLoadedMTime: Date?
-    /// True between a keystroke and the debounced save that follows it.
-    /// The directory watcher can otherwise fire on a save of ours while
-    /// the buffer has already moved past what landed on disk, and the
-    /// reload would read our own stale write back over the newer text.
+    /// Between a keystroke and its save, when a watcher event for our earlier write would read
+    /// stale text back over newer.
     private var hasPendingSave = false
 
-    /// `wisp.jsonc`, which is where every value below is read from and
-    /// written back to.
     let settings: Settings
 
     /// Where `scratchpad.md` lives right now, per the config.
@@ -172,13 +133,9 @@ final class EditorModel: ObservableObject {
         didLoad = true
     }
 
-    /// Re-read scratchpad.md from disk if its modification time has
-    /// advanced since we last loaded it. Called on every panel-open, on
-    /// Refresh, and by the note folder's watcher, so changes from another
-    /// Mac (via iCloud Drive / Dropbox / etc.) show up.
+    /// Re-reads the note if its mtime moved: on every show, on Refresh, and from the watcher.
     func reloadFromDiskIfChanged() {
-        // Our own write is still in flight and the buffer is ahead of the
-        // file; whatever is on disk right now is by definition older.
+        // Our own write is pending, so the file on disk is older than the buffer.
         guard !hasPendingSave else { return }
         let url = scratchpadURL
         guard let mtime = Self.fileMTime(at: url) else { return }
@@ -192,11 +149,8 @@ final class EditorModel: ObservableObject {
         lastLoadedMTime = mtime
     }
 
-    /// Adopts whatever file is at the current scratchpad path, for a
-    /// `scratchpadFolder` that changed in the config: the mtime baseline
-    /// describes a file in the old folder, so `reloadFromDiskIfChanged`
-    /// can't be trusted to notice the new one. A folder with no scratchpad
-    /// in it yet keeps the current text, which the next save writes there.
+    /// For a changed `scratchpadFolder`, whose mtime baseline is the old file's. A folder with no
+    /// scratchpad yet keeps the current text for the next save.
     func adoptScratchpadAtCurrentPath() {
         guard let loaded = try? String(contentsOf: scratchpadURL, encoding: .utf8) else {
             lastLoadedMTime = nil
@@ -205,10 +159,7 @@ final class EditorModel: ObservableObject {
         adoptLoadedText(loaded)
     }
 
-    /// Replace the in-memory text with a freshly chosen content (e.g.,
-    /// after switching to a folder that already contained a synced
-    /// scratchpad). Suppresses the auto-save that would otherwise fire
-    /// from `text.didSet`, so we don't bounce-write what we just read.
+    /// Replaces the text without saving it straight back.
     func adoptLoadedText(_ newText: String) {
         isReloading = true
         text = newText
@@ -221,23 +172,19 @@ final class EditorModel: ObservableObject {
         return attrs?[.modificationDate] as? Date
     }
 
-    /// Puts the keyboard back where the user was. Every caller means that,
-    /// and while the help page is up that is the page, not the note — or
-    /// ⌘= / ⌘0 / ⌘T would hand first responder to the note behind the page,
-    /// taking ⌘A, ⌘F and the scroll keys with it.
+    /// Returns the keyboard to the help page while it's up, else the note, so ⌘A, ⌘F, and the
+    /// scroll keys stay with what's in front.
     func requestFocus() {
         if showHelp { helpFocusToken &+= 1 } else { focusToken &+= 1 }
     }
 
-    /// ⌘= / ⌘- and the footer's two glyph buttons. One step each way,
-    /// clamped at both ends by `Metrics`.
+    /// ⌘= / ⌘- and the footer buttons.
     func stepFontScale(by steps: Int) {
         settings.setFontScale(Metrics.steppedFontScale(fontScale, by: steps))
         requestFocus()
     }
 
-    /// ⌘0. Returns to `defaultFontScale` rather than to a constant 1.0,
-    /// so "reset" means the size this user considers normal.
+    /// ⌘0 returns to `defaultFontScale`, the user's normal size.
     func resetFontScale() {
         settings.setFontScale(settings.config.clampedDefaultFontScale)
         requestFocus()
@@ -281,9 +228,7 @@ final class EditorModel: ObservableObject {
 
     enum HeadingDirection { case previous, next }
 
-    /// ⌃⇧↑ / ⌃⇧↓. Every level counts, not just the two the header strip
-    /// shows — the strip is an index, this is a walk. Off either end it
-    /// does nothing.
+    /// ⌃⇧↑ / ⌃⇧↓ walk every level, not just the two the header shows.
     func jumpToHeading(_ direction: HeadingDirection) {
         let lineStart = LineEdits.lineRange(in: text as NSString, at: caretOffset).location
         let target: Heading? =
@@ -319,9 +264,7 @@ final class EditorModel: ObservableObject {
         navigateToCurrentMatch()
     }
 
-    /// What find searches. The help page is a modal over the note, so the
-    /// page in front is the one the query means — anything else searches a
-    /// document the user cannot see.
+    /// The help page while it's up, since find searches what's in front.
     private var findSourceText: String {
         showHelp ? helpDocument.plainText : text
     }
@@ -351,9 +294,7 @@ final class EditorModel: ObservableObject {
         findHighlightToken &+= 1
     }
 
-    /// Dismisses the topmost open modal overlay, in priority order, and
-    /// reports whether it dismissed anything — so a caller like Esc can fall
-    /// through to further handling only once nothing is left open.
+    /// Dismisses the topmost overlay; false when none was open, so Esc can fall through.
     @discardableResult
     func dismissTopOverlay() -> Bool {
         if showFind {
@@ -371,26 +312,19 @@ final class EditorModel: ObservableObject {
         return false
     }
 
-    /// Tear every modal overlay down. Called on every panel hide: the
-    /// panel only orders out, so SwiftUI never unmounts the overlays and
-    /// their local key monitors would otherwise stay installed app-wide
-    /// with the panel gone.
+    /// On every hide, since SwiftUI never unmounts the overlays or their key monitors.
     func dismissAllOverlays() {
         while dismissTopOverlay() {}
     }
 
-    /// Re-derives what the model computes from a config that has just been
-    /// re-read: the resolved theme and the help page.
+    /// Re-derives the resolved theme and the help page from a re-read config.
     func adoptSettings() {
-        // Assigned even when unchanged: `didSet` hands it to the chrome,
-        // which reads `background` straight from the config and only
-        // re-applies it when told.
+        // Even when unchanged: `didSet` tells the chrome to re-read `background`.
         theme = settings.config.theme.resolve()
         helpDocument = HelpDocument.make(keymap: settings.config.keymap)
     }
 
-    /// Counted on first read after an edit rather than on every body pass —
-    /// a caret move re-renders the footer too, and the text hasn't changed.
+    /// Counted on first read after an edit, not on every render.
     var wordCount: Int {
         if let cachedWordCount { return cachedWordCount }
         var count = 0
@@ -405,8 +339,7 @@ final class EditorModel: ObservableObject {
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
     }
 
-    /// Force a synchronous flush — call from applicationWillTerminate so an
-    /// in-flight debounced save isn't lost when the user quits.
+    /// For quitting, so a pending debounced save isn't lost.
     func flushSave() {
         saveTask?.cancel()
         hasPendingSave = false
@@ -414,9 +347,7 @@ final class EditorModel: ObservableObject {
         lastLoadedMTime = Self.fileMTime(at: scratchpadURL)
     }
 
-    /// The destination is resolved on the main actor and carried into the
-    /// background write, so a folder switch mid-debounce can't land the old
-    /// text in the new folder.
+    /// The URL is fixed up front, so a folder switch mid-debounce can't land the old text there.
     private func scheduleSave() {
         saveTask?.cancel()
         hasPendingSave = true
@@ -431,11 +362,8 @@ final class EditorModel: ObservableObject {
         }
     }
 
-    /// Baselines the file we just wrote so the directory watcher doesn't
-    /// treat our own save as someone else's change. Skipped when the
-    /// scratchpad has moved out from under the write — that file is no
-    /// longer the one being watched, and stamping it would suppress a real
-    /// reload of the new one.
+    /// Baselines our own write so the watcher doesn't read it as a change; skipped if the
+    /// scratchpad has since moved.
     private func didWrite(url: URL, mtime: Date?) {
         hasPendingSave = false
         guard url == scratchpadURL else { return }
@@ -443,11 +371,7 @@ final class EditorModel: ObservableObject {
         flashSaveIndicator()
     }
 
-    /// Shows the dot, then hides it again a moment later.
-    ///
-    /// A fresh task per save, cancelling the last: saving twice in quick
-    /// succession should leave the dot up until the *second* one has had
-    /// its moment, not blink out on the first one's timer.
+    /// A fresh task per save, so a second save keeps the dot up for its own moment.
     private func flashSaveIndicator() {
         guard settings.config.saveIndicator else { return }
         saveFlashTask?.cancel()
@@ -474,8 +398,7 @@ struct EditorView: View {
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
-                // One read, so a click jumps to the heading it was drawn from
-                // even if the note changed since.
+                // One read, so a click jumps to the heading it was drawn from.
                 let headings = barHeadings
                 HeaderBar(labels: headings.map(\.name)) { index in
                     model.jumpTo(headings[index])
@@ -488,9 +411,7 @@ struct EditorView: View {
                         scrollToken: model.scrollToken,
                         scrollTarget: model.scrollTarget,
                         findHighlightToken: model.findHighlightToken,
-                        // Cleared while the help page is up: the query is
-                        // searching the page, and a match left painted on
-                        // the note would be a stale one.
+                        // Cleared under the help page, which the query is searching.
                         findHighlightRange: model.showHelp
                             ? NSRange(location: 0, length: 0) : model.findHighlightRange,
                         style: .init(
@@ -507,8 +428,7 @@ struct EditorView: View {
                     .padding(.bottom, 4)
                     if model.text.isEmpty {
                         Text(model.placeholder)
-                            // Same face as the body it sits on top of, which
-                            // in source view is the code one.
+                            // The body's face, which in source view is the code one.
                             .font(Font(MinimalTextEditor.baseFont(isSourceView: model.isSourceView)))
                             .foregroundStyle(Color(palette.muted))
                             .allowsHitTesting(false)
@@ -517,8 +437,7 @@ struct EditorView: View {
                     }
                 }
                 FooterBar(
-                    // Only the readout on show is computed: both halves of
-                    // the other one scan the whole note.
+                    // Only the shown readout is computed; both scan the whole note.
                     readout: model.footerStatus == .position
                         ? .position(
                             CaretPosition(in: model.text, at: model.caretOffset),
@@ -543,8 +462,7 @@ struct EditorView: View {
                     onDismiss: { model.onDismissRequest?() }
                 )
             }
-            // Above the editor but under every overlay: a status light has
-            // no business showing through a modal page.
+            // Above the editor, under every overlay.
             if model.settings.config.saveIndicator, !model.showFind {
                 SaveIndicator(isVisible: model.isShowingSaveFlash)
             }
@@ -607,9 +525,6 @@ struct EditorView: View {
 
     private var palette: Palette { Palette.for(model.theme) }
 
-    /// What the header strip indexes: `#` and `##` only. Six levels in a
-    /// one-line strip is a run of ellipses, and `###` down are subsections
-    /// a reader scrolls to rather than jumps to. Styling and the ⌃⇧↑/↓
-    /// walk still see every level.
+    /// `#` and `##` only; `###` down are scrolled to rather than jumped to.
     private var barHeadings: [Heading] { model.headings.filter { $0.level <= 2 } }
 }

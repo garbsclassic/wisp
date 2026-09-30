@@ -1,13 +1,8 @@
 import AppKit
 
-/// Builds the main menu, which carries only the standard editing commands.
-///
-/// The app is `.accessory`, so this menu bar is never drawn — it exists
-/// purely for key equivalents that reach the notes view through the
-/// responder chain. Every configurable chord is dispatched by
-/// `KeyBindingMonitor` instead: `keyEquivalent` cannot express an
-/// Option-modified letter, since macOS composes `⌥L` into `¬` before AppKit
-/// compares characters.
+/// The never-drawn main menu, there for the standard edit commands' key equivalents.
+/// Configurable chords go through `KeyBindingMonitor`, since `keyEquivalent` can't express an
+/// ⌥-letter, which macOS composes first.
 @MainActor
 enum MainMenuBuilder {
     static func make() -> NSMenu {
@@ -31,8 +26,7 @@ enum MainMenuBuilder {
                     title: "Undo", action: NSSelectorFromString("undo:"), keyEquivalent: "z"),
                 redo,
                 .separator(),
-                // Cut and Copy fall back to the whole line when nothing is
-                // selected — see NotesTextView, which overrides them.
+                // NotesTextView's Cut and Copy take the whole line when nothing is selected.
                 NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"),
                 NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"),
                 NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"),
@@ -47,8 +41,6 @@ enum MainMenuBuilder {
 }
 
 extension NSMenu {
-    /// Adds a submenu in the one shape this menu bar uses: a titled menu
-    /// under an otherwise-empty parent item.
     fileprivate func addItem(submenu title: String, items: [NSMenuItem]) {
         let parent = NSMenuItem()
         let menu = NSMenu(title: title)

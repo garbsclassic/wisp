@@ -9,16 +9,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
     private var panelController: PanelController?
     private let hotKey = HotKeyMonitor()
-    /// The summon chord Carbon has registered: the config's, unless
-    /// registering that failed.
+    /// The chord Carbon has registered, which differs from the config's if registering failed.
     private var summon: KeyChord?
-    /// Every configurable chord except `summon`, which Carbon owns because
-    /// it has to fire while another app is frontmost.
+    /// Every chord but `summon`, which Carbon owns so it fires while another app is in front.
     private var keyBindings: KeyBindingMonitor?
-    /// Live reload: wisp.jsonc changed by hand or by a chezmoi apply, and
-    /// scratchpad.md changed by another Mac through iCloud Drive, Dropbox,
-    /// or Syncthing. The note watcher is rebuilt whenever the scratchpad
-    /// moves, since it is bound to one directory for its lifetime.
+    /// Live reload of the config and the note; the note's is rebuilt when the scratchpad moves.
     private var configWatcher: DirectoryWatcher?
     private var noteWatcher: DirectoryWatcher?
 
@@ -63,12 +58,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings.reportWatcherFailure(failures.joined(separator: " "))
         }
 
-        // If even this fails — the saved binding is now claimed by some
-        // other app — Wisp is left without a hotkey; the user can rebind
-        // from the menu bar menu.
+        // If this fails too, Wisp has no hotkey until the user rebinds it from the menu.
         adoptSummon(from: settings.config)
 
-        // Mediator the capture overlay calls when the user picks a combo.
+        // For the capture overlay.
         model.tryUpdateHotKey = { [weak self] chord in
             guard let self else { return "Internal error" }
             guard self.registerSummon(chord) else {
@@ -79,39 +72,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return nil
         }
 
-        // Nothing is shown at launch: NSApplicationLaunchIsDefaultLaunchKey
-        // isn't reliably false for an SMAppService login item, so there is
-        // no telling a login launch from a user one. The hotkey, the menu bar
-        // item, and a re-launch all open the panel — see
-        // applicationShouldHandleReopen.
+        // Nothing shows at launch: a login-item launch can't be told from a user's, so only the
+        // hotkey, the menu, and a re-launch open the panel.
     }
 
-    /// Re-launching the app while it's already running (Spotlight,
-    /// Finder double-click) hits this. Treat it as "open the panel."
+    /// A re-launch while running, from Spotlight or Finder, opens the panel.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         presentForUserAction()
         return true
     }
 
-    /// Bring Wisp to the front and show the panel — the re-launch path,
-    /// the only launch-adjacent one that opens anything. The hotkey summon
-    /// stays separate so it doesn't steal focus from
-    /// whatever app the user was in when they pressed the chord.
+    /// Activates Wisp; the hotkey summon doesn't, so it takes no focus from the app in front.
     private func presentForUserAction() {
         NSApp.activate(ignoringOtherApps: true)
         panelController?.openIfNeeded()
     }
 
-    /// Registers the config's summon chord unless it is the one already
-    /// registered — a re-registration can fail and cost the user their
-    /// binding.
+    /// Only when the chord changed, since a re-registration can fail and lose the binding.
     private func adoptSummon(from config: WispConfig) {
         if config.summonChord != summon { registerSummon(config.summonChord) }
     }
 
-    /// Swaps the summon chord for `chord`. When Carbon rejects it — usually
-    /// because another app or macOS owns it — the previous one is put back,
-    /// once, so the user isn't left without any.
+    /// When Carbon rejects `chord`, usually because something else owns it, the previous chord is
+    /// restored once.
     @discardableResult
     private func registerSummon(_ chord: KeyChord) -> Bool {
         if register(chord) {
@@ -131,8 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onRelease: { [weak self] in self?.panelController?.handleChordUp() })
     }
 
-    /// The one place a keymap action turns into work. `KeyBindingMonitor`
-    /// and the status menu both land here.
+    /// Where a keymap action becomes work, from `KeyBindingMonitor` or the status menu.
     private func perform(_ action: KeymapAction) {
         let notes = panelController?.focusedNotesView
         switch action {
@@ -170,22 +152,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // Flush any pending debounced save so quitting never loses the
-        // last few keystrokes.
         model.flushSave()
-        // The frame is otherwise written on hide; quitting with the panel
-        // still open never hides it.
+        // Otherwise written on hide, which quitting skips.
         panelController?.savePanelFrameIfVisible()
     }
 
-    /// Open an NSOpenPanel for the user to pick a folder. If the
-    /// chosen folder already contains a scratchpad.md, confirm before
-    /// adopting it (the local text gets backed up either way). The
-    /// panel's sidebar shows iCloud Drive as a one-click destination,
-    /// so users wanting iCloud sync just navigate there.
+    /// Confirms before adopting a folder's existing scratchpad; the local text is backed up.
     private func pickStorageLocation() {
-        // Make sure the panel is open and active so NSOpenPanel attaches
-        // somewhere visible; otherwise it can sit behind the desktop.
+        // Activate first, or the open panel can sit behind the desktop.
         panelController?.openIfNeeded()
         NSApp.activate(ignoringOtherApps: true)
 
@@ -217,8 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 currentFolder: settings.config.scratchpadFolderPath)
             settings.setScratchpadFolder(folder.path)
             startNoteWatcher()
-            // Also when the text is unchanged: it re-baselines the mtime, so
-            // the next reloadFromDiskIfChanged doesn't trip on our own write.
+            // Even when unchanged: it re-baselines the mtime, so our own write isn't a change.
             model.adoptLoadedText(result.text)
             if let backupURL = result.backupURL {
                 let alert = NSAlert()
@@ -247,37 +220,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// ⌘, and the status menu's Settings….
-    ///
-    /// The panel goes away first: settings open in whatever app owns
-    /// .jsonc, and leaving Wisp floating over the editor you are about to
-    /// type in is the wrong half of the screen.
+    /// Hides the panel first, since the config opens in another app.
     private func openSettings() {
         panelController?.dismiss()
         settings.openConfigFile()
     }
 
-    /// ⌘R and the status menu's Refresh — re-reads wisp.jsonc and re-checks
-    /// scratchpad.md's mtime, for either changing on disk without Wisp's
-    /// own writes (iCloud Drive, Dropbox, or a chezmoi apply on another
-    /// Mac).
-    ///
-    /// Shows the panel, since a refresh you can't see the result of isn't
-    /// worth a keystroke; one already open stays open and keeps its
-    /// selection.
+    /// Re-reads the config and checks the note's mtime, showing the panel so the result is visible.
     private func refresh() {
         panelController?.openIfNeeded()
         reloadConfig()
         model.reloadFromDiskIfChanged()
     }
 
-    /// Re-reads wisp.jsonc and applies whatever changed in it. Shared by
-    /// ⌘R and the config watcher, so a hand-edit and a menu Refresh land in
-    /// exactly the same place.
-    ///
-    /// Does nothing when the file's contents haven't actually changed —
-    /// Wisp writes this file itself on every theme flip, text-size change,
-    /// and panel hide, and each of those comes back as a watcher event.
+    /// Shared by ⌘R and the config watcher. A no-op when nothing changed, since Wisp's own writes
+    /// come back as watcher events.
     private func reloadConfig() {
         let previous = settings.config
         settings.reload()
@@ -285,23 +242,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         model.adoptSettings()
         adoptSummon(from: settings.config)
-        // The binding table and the status menu's equivalents are pure
-        // functions of the keymap, so a changed one means rebuilding both.
+        // Both are pure functions of the keymap.
         if settings.config.keymap != previous.keymap {
             keyBindings?.apply(settings.config.keymap)
             menuBarController?.apply(settings.config.keymap)
         }
-        // The note itself moved, so the watcher is pointed at the wrong
-        // directory and the mtime baseline describes the wrong file.
+        // The note moved: the watcher and the mtime baseline point at the old file.
         if settings.config.scratchpadFolder != previous.scratchpadFolder {
             startNoteWatcher()
             model.adoptScratchpadAtCurrentPath()
         }
     }
 
-    /// (Re)starts the watcher on the folder holding scratchpad.md. The
-    /// folder, not the file: every writer here replaces it by rename, and
-    /// a watch on the old inode would see nothing.
+    /// The folder, not the file: writers replace it by rename, so a watch on the old inode sees
+    /// nothing.
     private func startNoteWatcher() {
         noteWatcher = DirectoryWatcher(directoryURL: settings.config.scratchpadFolderPath) {
             [weak self] in

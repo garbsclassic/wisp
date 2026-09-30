@@ -9,12 +9,10 @@ enum ScrollCommand {
     case pageUp, pageDown
     case top, bottom
 
-    /// Nil for anything that isn't a scroll key, which is what tells the
-    /// text view to hand the event on.
+    /// Nil hands the event on.
     init?(event: NSEvent) {
         let shift = event.modifierFlags.contains(.shift)
-        // ⌘↑ / ⌘↓ are the macOS-wide "jump to the ends" chord, and Home and
-        // End are the same thing on a keyboard that has them.
+        // ⌘↑ / ⌘↓ jump to the ends, as Home and End do.
         let jump = event.modifierFlags.contains(.command)
         switch Int(event.keyCode) {
         case kVK_UpArrow: self = jump ? .top : .lineUp
@@ -28,11 +26,9 @@ enum ScrollCommand {
         }
     }
 
-    /// How far an arrow key moves. A line of help text plus its spacing —
-    /// arrows are for nudging the last row into view, not for travelling.
+    /// About one row, for nudging rather than travelling.
     private static let lineStep: CGFloat = 28
-    /// Kept on screen across a page turn, so there is an overlap to read
-    /// back into rather than a jump cut.
+    /// Kept on screen across a page turn, to read back into.
     private static let pageOverlap: CGFloat = 40
 
     @MainActor
@@ -56,21 +52,14 @@ enum ScrollCommand {
 
         scrollView.contentView.scroll(
             to: NSPoint(x: visible.origin.x, y: min(max(y, 0), maxY)))
-        // The clip view moved on its own, so the scroll view has to be told
-        // before it will redraw or report the new position.
+        // The clip view moved directly, so the scroll view must be told.
         scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 }
 
-/// The help page's text. Read-only but selectable, which is the whole point
-/// of it being an `NSTextView` at all: selection, ⌘A, ⌘C, and a string the
-/// find bar can search all arrive through the responder chain, and none of
-/// them reach the note underneath any more.
+/// Read-only but selectable, so selection, ⌘A, ⌘C, and find go to the page, not the note behind.
 final class HelpDocumentTextView: NSTextView {
-    /// Arrows and page keys scroll the page rather than walking an
-    /// invisible insertion point down it. A selectable text view would
-    /// otherwise move a caret nobody can see, scrolling only once it
-    /// reached the edge of the viewport.
+    /// Scroll keys scroll the page rather than walking an invisible caret down it.
     override func keyDown(with event: NSEvent) {
         if let command = ScrollCommand(event: event), let scrollView = enclosingScrollView {
             command.apply(to: scrollView)
@@ -80,11 +69,8 @@ final class HelpDocumentTextView: NSTextView {
     }
 }
 
-/// The section label that stays put while its section scrolls under it.
-///
-/// `NSTextView` has no way to pin a paragraph, so the pinned copy is a
-/// separate view drawn over the top of the real one — opaque, so the row it
-/// covers disappears cleanly rather than showing through.
+/// The section label pinned while its section scrolls: an opaque copy over the real one, since
+/// `NSTextView` can't pin a paragraph.
 private final class HelpStickyHeader: NSView {
     private let label = NSTextField(labelWithString: "")
     var fill: NSColor = .clear { didSet { needsDisplay = true } }
@@ -93,10 +79,7 @@ private final class HelpStickyHeader: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // `NSView.clipsToBounds` defaults to false, and AppKit will hand
-        // `draw` a dirty rect larger than this view — so without this the
-        // band's fill covers the entire page and everything under it reads
-        // as washed out rather than hidden.
+        // AppKit can hand `draw` a dirty rect larger than the view, which would wash out the page.
         clipsToBounds = true
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
@@ -121,17 +104,13 @@ private final class HelpStickyHeader: NSView {
             string: title.uppercased(), attributes: style.sectionTitleAttributes)
     }
 
-    /// Padding, label, padding — the same block the in-flow header occupies,
-    /// so the pinned copy lands exactly on top of the real one at the moment
-    /// it takes over.
+    /// The same block the in-flow title occupies, so the copy lands exactly on it.
     var contentHeight: CGFloat {
         Metrics.chromeInsetY * 2 + label.intrinsicContentSize.height
     }
 }
 
-/// Scroll view, text view, and the sticky header, assembled and kept in
-/// step. Flipped so the header's y is measured from the top, which is the
-/// direction it actually moves in.
+/// Scroll view, text view, and sticky header. Flipped, so the header's y runs from the top.
 final class HelpBodyView: NSView {
     let scrollView = NSScrollView()
     let textView: HelpDocumentTextView
@@ -144,10 +123,7 @@ final class HelpBodyView: NSView {
     override var isFlipped: Bool { true }
 
     override init(frame frameRect: NSRect) {
-        // Assembled by hand rather than through `NSTextView(frame:)`: a
-        // container added to a layout manager that isn't yet attached to
-        // storage lays nothing out, and the order only holds when the pieces
-        // are wired up explicitly.
+        // Wired by hand: a container on a layout manager without storage lays out nothing.
         let storage = NSTextStorage()
         let layoutManager = NSLayoutManager()
         storage.addLayoutManager(layoutManager)
@@ -187,9 +163,7 @@ final class HelpBodyView: NSView {
         addSubview(sticky)
         sticky.isHidden = true
 
-        // Selector-based rather than block-based: the block API hands back
-        // a token this view would have to store and tear down, and a token is
-        // not something a nonisolated `deinit` may read off a main-actor type.
+        // Selector-based, since a block observer's token can't be read in a nonisolated `deinit`.
         scrollView.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
             self, selector: #selector(clipViewBoundsChanged),
@@ -210,11 +184,8 @@ final class HelpBodyView: NSView {
         updateSticky()
     }
 
-    /// Taking first responder is what redirects ⌘A, ⌘C, and the scroll keys
-    /// away from the note behind the page — and this is the only hook that
-    /// reliably fires with a window attached. `makeNSView` runs before the
-    /// representable is mounted, so a `makeFirstResponder` scheduled from
-    /// there finds `window` still nil and silently does nothing.
+    /// First responder takes ⌘A, ⌘C, and the scroll keys from the note. Done here because
+    /// `makeNSView` runs before there is a window.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard window != nil else { return }
@@ -224,13 +195,8 @@ final class HelpBodyView: NSView {
         }
     }
 
-    /// Replaces the page. Destroys the selection, so callers only do this
-    /// when the content or the styling has actually moved.
-    ///
-    /// The scroll offset is carried across: the one thing that re-renders
-    /// mid-read is ⌘= / ⌘−, and being thrown back to the top of the page
-    /// every time you change the text size is worse than the reflow it is
-    /// there to show you.
+    /// Replaces the page, which clears the selection. Keeps the scroll offset, so ⌘= / ⌘− don't
+    /// throw you back to the top.
     func setDocument(_ document: HelpDocument, style: HelpTextStyle, stickyFill: NSColor) {
         let offset = scrollView.contentView.bounds.origin.y
         let rendered = document.render(style: style)
@@ -251,9 +217,7 @@ final class HelpBodyView: NSView {
         textView.selectedTextAttributes = [.backgroundColor: color]
     }
 
-    /// Paints the current find match, clearing any previous one. A storage
-    /// attribute rather than a temporary layout one, for the same reason the
-    /// notes view uses storage: a storage mutation always redraws.
+    /// Paints the current find match as a storage attribute, which always redraws.
     func applyFindHighlight(_ range: NSRange, color: NSColor) {
         guard let storage = textView.textStorage else { return }
         let full = NSRange(location: 0, length: storage.length)
@@ -263,25 +227,19 @@ final class HelpBodyView: NSView {
         textView.scrollRangeToVisible(range)
     }
 
-    /// Scrolls so the section's label block sits at the top edge, which is
-    /// exactly where the sticky copy takes over from it.
+    /// Puts the section's label at the top edge, where the sticky copy takes over.
     func scrollToSection(_ index: Int) {
         let tops = sectionBlockTops()
         guard tops.indices.contains(index) else { return }
         let maxY = max(0, textView.frame.height - scrollView.contentView.bounds.height)
         scrollView.contentView.scroll(to: NSPoint(x: 0, y: min(max(tops[index], 0), maxY)))
         scrollView.reflectScrolledClipView(scrollView.contentView)
-        // The link that asked for this is a button, and the scroll keys
-        // should keep working on the page afterwards.
+        // The link was a button; keep the scroll keys on the page.
         window?.makeFirstResponder(textView)
     }
 
-    /// Where each section's label block starts, in the text view's
-    /// coordinates.
-    ///
-    /// Positions come from the *used* rect of each title's first line
-    /// fragment — the fragment rect itself carries the paragraph spacing
-    /// above it, which would put every measurement a section-gap too high.
+    /// Where each section's label block starts. From the used rect, since the fragment rect
+    /// includes the paragraph spacing above.
     private func sectionBlockTops() -> [CGFloat] {
         guard let layoutManager = textView.layoutManager, let container = textView.textContainer
         else { return [] }
@@ -316,8 +274,7 @@ final class HelpBodyView: NSView {
         sticky.configure(title: sectionTitles[index], style: style)
         let height = sticky.contentHeight
 
-        // The next section's block, once it is within a header's height of
-        // the top, shoulders this one off the page rather than sliding under.
+        // The next section shoulders this one off rather than sliding under it.
         var y: CGFloat = 0
         if index + 1 < blockTops.count {
             let next = blockTops[index + 1] - scrollTop
@@ -349,9 +306,7 @@ struct HelpBody: NSViewRepresentable {
         context.coordinator.lastFindHighlightToken = findHighlightToken
         context.coordinator.lastFocusToken = focusToken
         context.coordinator.lastJumpToken = jumpToken
-        // Focus on mount is `viewDidMoveToWindow`'s job — there is no window
-        // to make a responder of yet. The token only handles re-focusing,
-        // after the find bar has taken it away.
+        // Initial focus is `viewDidMoveToWindow`'s; the token re-focuses after find.
         return view
     }
 
@@ -369,9 +324,7 @@ struct HelpBody: NSViewRepresentable {
         }
         if context.coordinator.lastFocusToken != focusToken {
             context.coordinator.lastFocusToken = focusToken
-            // Deferred for the same reason the find field's focus is: the
-            // view is not in the window's responder chain during the update
-            // pass that mounts it.
+            // Deferred, as the find field's focus is: the view isn't in the responder chain yet.
             DispatchQueue.main.async {
                 view.window?.makeFirstResponder(view.textView)
             }

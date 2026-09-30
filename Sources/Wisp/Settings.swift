@@ -1,21 +1,14 @@
 import AppKit
 import WispCore
 
-/// The app's live view of `~/.config/wisp/wisp.jsonc`, and the only thing
-/// that writes to it.
-///
-/// Every setting the UI can change goes through a `set…` here, which updates
-/// the in-memory config and rewrites just that one key in the file. Nothing
-/// else in the app persists anything: `wisp.jsonc` is the whole store.
+/// The live view of `wisp.jsonc` and its only writer: each `set…` updates memory and rewrites that
+/// one key.
 @MainActor
 final class Settings: ObservableObject {
     @Published private(set) var config: WispConfig
-    /// Unreadable file, malformed keys, or a failed write — surfaced in the
-    /// footer rather than swallowed.
+    /// An unreadable file, malformed keys, or a failed write, for the footer.
     @Published private(set) var configWarning: String?
-    /// A directory whose change stream wouldn't start, so edits there only
-    /// arrive on ⌘R. Sticky: the stream is never retried, so the state it
-    /// describes lasts until relaunch.
+    /// A directory whose watcher didn't start, so edits there need ⌘R. Lasts until relaunch.
     @Published private(set) var watcherWarning: String?
 
     init() {
@@ -26,10 +19,8 @@ final class Settings: ObservableObject {
         installSchema()
     }
 
-    /// Refreshes `wisp.schema.json` beside the config from the bundle's
-    /// copy. A bare `swift run` binary has no bundle resource, so a missing
-    /// source is silently nothing to do; a failed write is reported like any
-    /// other, but never displaces a config warning.
+    /// Under `swift run` there is no bundled copy to install. A failed write never displaces a
+    /// config warning.
     private func installSchema() {
         guard let source = Bundle.main.url(forResource: "wisp.schema", withExtension: "json")
         else { return }
@@ -40,11 +31,7 @@ final class Settings: ObservableObject {
         } catch {}
     }
 
-    /// The one warning worth showing, most severe first.
-    ///
-    /// Coalesced rather than stacked: the footer has room for one line, and
-    /// a config that won't parse makes everything downstream of it moot
-    /// anyway. Follows Clef's footer warning.
+    /// The most severe warning, since the footer has room for one. Follows Clef.
     var warning: String? {
         if let configWarning { return configWarning }
         if let watcherWarning { return watcherWarning }
@@ -91,10 +78,7 @@ final class Settings: ObservableObject {
         write(["footerStatus"], status)
     }
 
-    /// The one text-size control. `Typography` is reconfigured in the same
-    /// call rather than by the caller: the chrome re-resolves its fonts on
-    /// the next SwiftUI pass and would otherwise render at a scale the
-    /// config has already moved past.
+    /// Reconfigures `Typography` here, or the next SwiftUI pass would render at the old scale.
     func setFontScale(_ scale: Double) {
         let clamped = Metrics.clampFontScale(scale)
         guard clamped != config.fontScale else { return }
@@ -103,10 +87,7 @@ final class Settings: ObservableObject {
         write(["fontScale"], clamped)
     }
 
-    /// Stores the chord as the text a person would have typed. A capture
-    /// whose key code has no spelling is kept in memory but not written —
-    /// writing something the parser rejects would break the binding on the
-    /// next launch.
+    /// A key code with no spelling is dropped, since the parser would reject it next launch.
     func setSummon(_ summon: KeyChord) {
         guard
             let chord = KeyChord.string(
@@ -128,16 +109,14 @@ final class Settings: ObservableObject {
         write(["panel"], panel)
     }
 
-    /// Where the panel was dragged to, or nil — written as `null` — to go
-    /// back to the default spot. See `PanelPositioner`.
+    /// Nil, written as `null`, returns the panel to the default spot.
     func setPosition(_ position: PanelPosition?) {
         guard position != config.position else { return }
         config.position = position
         write(["position"], position)
     }
 
-    /// Re-reads wisp.jsonc from disk — the Refresh menu item, for a file
-    /// hand-edited or synced in from another Mac while Wisp was running.
+    /// The Refresh menu item, for a file edited or synced in while Wisp ran.
     func reload() {
         let load = ConfigStore.loadOrSeed()
         config = load.config
@@ -145,15 +124,12 @@ final class Settings: ObservableObject {
         applyTypography()
     }
 
-    /// The single place the live config reaches `Typography`. Both the
-    /// launch path and every later change go through it, so the resolved
-    /// families and the scale can't drift apart from the file.
+    /// The one place the config reaches `Typography`.
     private func applyTypography() {
         Typography.configure(fonts: config.fonts, scale: config.clampedFontScale)
     }
 
-    /// Opens the config in whatever app owns `.jsonc`, seeding it first if
-    /// it isn't there — the Settings… menu item.
+    /// The Settings… menu item; seeds the file first if it's missing.
     func openConfigFile() {
         if !FileManager.default.fileExists(atPath: ConfigStore.fileURL.path) {
             try? ConfigStore.write(config)

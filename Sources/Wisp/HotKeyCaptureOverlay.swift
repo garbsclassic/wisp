@@ -3,11 +3,8 @@ import AppKit
 import Carbon.HIToolbox
 import WispCore
 
-/// Modal overlay shown while the user is rebinding the global hotkey.
-/// Listens for the next valid key combo (must include at least one
-/// modifier), then asks the parent to attempt Carbon registration.
-/// On success the parent dismisses; on failure (combo in use system-
-/// wide) the error is shown inline and capture mode keeps listening.
+/// Captures the next chord with a modifier and tries to register it. A failure, such as a chord
+/// already in use, shows inline and capture keeps listening.
 struct HotKeyCaptureOverlay: View {
     @Environment(\.palette) private var palette
     /// Returns nil on success or a user-facing error message otherwise.
@@ -20,9 +17,7 @@ struct HotKeyCaptureOverlay: View {
 
     var body: some View {
         ZStack {
-            // Solid background — no click-to-cancel here. Stray clicks
-            // while the user is thinking about a combo shouldn't drop
-            // them out of capture mode. Esc still cancels.
+            // No click-to-cancel, so a stray click doesn't end capture; Esc cancels.
             Rectangle()
                 .fill(Color(palette.panel).opacity(0.98))
 
@@ -65,7 +60,6 @@ struct HotKeyCaptureOverlay: View {
 
             if let err = onTryRegister(chord) {
                 errorMessage = err
-                // Stay listening so the user can immediately try another.
             } else {
                 onSuccess()
             }

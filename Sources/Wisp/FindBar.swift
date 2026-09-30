@@ -3,9 +3,7 @@ import AppKit
 import Carbon.HIToolbox
 import WispCore
 
-/// A single-row find bar that floats at the top of the editor. Type to
-/// search; Return / Shift-Return step matches; Esc dismisses. Deliberately
-/// minimal — no replace, no regex, no case toggle.
+/// The find bar: ↵ and ⇧↵ step through matches, Esc dismisses.
 struct FindBar: View {
     @Environment(\.palette) private var palette
     @Binding var query: String
@@ -56,10 +54,7 @@ struct FindBar: View {
         )
         .onAppear {
             startListening()
-            // Setting @FocusState directly in onAppear loses the race —
-            // the field isn't in the window's responder chain yet, so the
-            // focus no-ops and the user has to click in. Bumping it to the
-            // next runloop tick lets the field register first.
+            // Next tick: the field isn't in the responder chain yet, so focusing now does nothing.
             DispatchQueue.main.async { focused = true }
         }
         .onDisappear { stopListening() }
@@ -93,10 +88,7 @@ struct FindBar: View {
         .help(help)
     }
 
-    /// Local key monitor so Esc / Return / Shift-Return work while the
-    /// text field holds focus (the field would otherwise swallow Esc as
-    /// "cancel editing" and Return as a no-op). Returning nil consumes
-    /// the event so no newline is inserted.
+    /// Esc and ↵ while the field has focus, which would otherwise swallow them.
     private func startListening() {
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             switch Int(event.keyCode) {

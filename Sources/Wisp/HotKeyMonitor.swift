@@ -1,12 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// Wraps Carbon's RegisterEventHotKey so we can listen for a system-wide
-/// keypress without requesting Accessibility permission.
-///
-/// Modern alternatives (NSEvent.addGlobalMonitorForEvents) require the user
-/// to grant Accessibility access; Carbon does not. Carbon also reports the
-/// key's *release*, which is what makes hold-to-peek possible.
+/// A system-wide hotkey through Carbon, which needs no Accessibility grant and reports the
+/// key's release, which hold-to-peek relies on.
 @MainActor
 final class HotKeyMonitor {
     private var hotKeyRef: EventHotKeyRef?
@@ -14,9 +10,8 @@ final class HotKeyMonitor {
 
     private static var nextID: UInt32 = 1
     private static var eventHandlerInstalled = false
-    // The Carbon callback fires on the main run loop but isn't formally
-    // MainActor-isolated. We only mutate this dict from MainActor methods,
-    // so reads from the callback are safe in practice.
+    // Carbon's callback runs on the main run loop but isn't main-actor isolated; only
+    // main-actor methods write this.
     private static nonisolated(unsafe) var handlers: [UInt32: Handlers] = [:]
 
     private struct Handlers {
@@ -29,19 +24,15 @@ final class HotKeyMonitor {
         Self.nextID += 1
     }
 
-    // No deinit cleanup: HotKeyMonitor is held by AppDelegate for the
-    // app's entire lifetime, so the hotkey naturally goes away on quit.
+    // No deinit: the app delegate holds this for the app's lifetime.
 
-    /// Register a system-wide hotkey. Returns true on success.
-    /// `keyCode` is a Carbon kVK_* value; `modifiers` is an OR of cmdKey /
-    /// shiftKey / optionKey / controlKey from Carbon.
+    /// `keyCode` is a Carbon `kVK_*`; `modifiers` is a Carbon mask.
     @discardableResult
     func register(
         keyCode: UInt32, modifiers: UInt32,
         onPress: @escaping () -> Void, onRelease: @escaping () -> Void
     ) -> Bool {
-        // Drop any existing registration first so re-registering after a
-        // user-driven hotkey change doesn't pile up dead refs.
+        // Drop the old registration first, or a rebind leaves a dead ref.
         unregister()
 
         Self.installSharedEventHandler()
@@ -60,7 +51,6 @@ final class HotKeyMonitor {
         return status == noErr
     }
 
-    /// Drop the current hotkey registration if any.
     func unregister() {
         if let ref = hotKeyRef {
             UnregisterEventHotKey(ref)

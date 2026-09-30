@@ -7,45 +7,26 @@ extension NSAttributedString.Key {
     static let horizontalRule = NSAttributedString.Key("WispHorizontalRule")
 }
 
-/// Draws the things the notes body renders as marks rather than as
-/// characters: horizontal rules, list bullets, and checklist boxes.
-///
-/// All use the same trick. The characters stay in storage — the file on
-/// disk is plain markdown, `---` and `- ` — and the styling pass paints
-/// them with a `.clear` foreground; this class then draws the mark over
-/// the space they reserved. Layout is untouched, so wrapping, selection,
-/// and every offset in the document are exactly what the plain text says
-/// they are.
-///
-/// The rule spans the line fragment's full width, so it tracks panel
-/// resizes for free.
+/// Draws rules, bullets, and checklist boxes over characters the styling pass paints clear, so
+/// the file stays plain Markdown and layout, selection, and offsets match the text.
 final class NotesLayoutManager: NSLayoutManager {
-    /// Stroke color for horizontal rules, refreshed on every theme flip
-    /// by `MinimalTextEditor.restyle`.
+    /// Refreshed on every theme change by `MinimalTextEditor.restyle`.
     var ruleColor: NSColor = .secondaryLabelColor
-    /// Bullets are drawn in the body text color, not the rule color: they
-    /// are content, and a muted bullet reads as a disabled item.
+    /// Body colour, since a muted bullet reads as a disabled item.
     var bulletColor: NSColor = .textColor
-    /// The body font at the current scale. Bullets are drawn at it so
-    /// they track ⌘= / ⌘- with the text they lead.
+    /// At the current scale, so bullets track ⌘= and ⌘-.
     var bulletFont: NSFont = .systemFont(ofSize: Metrics.bodySize)
-    /// Nesting is measured against the configured indent width, so a list
-    /// typed with the user's own Tab key steps glyphs at the same rate it
-    /// steps columns.
+    /// So glyphs step at the same rate as the user's Tab indents.
     var indentWidth: Int = Indent().width
-    /// The indent unit as typed, for measuring where each nesting level's
-    /// marker column lands.
+    /// For where each level's marker column lands.
     var indentUnit: String = Indent().unit
-    /// Guides down the left of nested items, one per ancestor level, in
-    /// the faintest text tier: they are structure, not content.
+    /// The faintest tier: guides are structure, not content.
     var guideColor: NSColor = .separatorColor
-    /// Raw mode draws neither rules nor bullets: both stand in for characters
-    /// the styling pass hides, and in raw mode nothing is hidden.
+    /// Raw mode hides nothing, so nothing is drawn over.
     var isSourceView: Bool = false
     /// A hairline, or a book's `*  *  *`.
     var ruleStyle: RuleStyle = .line
-    /// The seam's asterisks take a text tier rather than the hairline's
-    /// colour: thin glyph strokes in `rule` all but vanish on light.
+    /// A text tier, since thin strokes in `rule` vanish on light.
     var seamColor: NSColor = .tertiaryLabelColor
 
     override init() {
@@ -60,8 +41,7 @@ final class NotesLayoutManager: NSLayoutManager {
 
     // MARK: Whole-point line fragments
 
-    /// The trailing empty line is set without the delegate's say, so it is
-    /// rounded here to keep the container's height whole like the rest.
+    /// The trailing empty line bypasses the delegate, so it's rounded here.
     override func setExtraLineFragmentRect(
         _ fragmentRect: NSRect, usedRect: NSRect, textContainer container: NSTextContainer
     ) {
@@ -128,15 +108,12 @@ final class NotesLayoutManager: NSLayoutManager {
         context.restoreGState()
     }
 
-    /// Three asterisks spaced an em apart, centred across the text column
-    /// and on the line the hairline would take. Centred on the asterisk's
-    /// own ink rather than its baseline: the glyph sits up at cap height,
-    /// and on the baseline it would read as floating above the gap.
+    /// Three asterisks an em apart, centred on their ink rather than their baseline, since the
+    /// glyph sits at cap height.
     private func drawSeam(in fragmentRect: NSRect, centreY: CGFloat, originX: CGFloat) {
         let seam = NSMutableAttributedString(
             string: "***", attributes: [.font: bulletFont, .foregroundColor: seamColor])
-        // Kerned after the first two only, so the trailing gap doesn't pull
-        // the group off centre.
+        // Kerned after the first two, so the group stays centred.
         seam.addAttribute(.kern, value: bulletFont.pointSize, range: NSRange(location: 0, length: 2))
 
         var glyph = CGGlyph(0)
@@ -152,32 +129,19 @@ final class NotesLayoutManager: NSLayoutManager {
             y: baseline - bulletFont.ascender))
     }
 
-    /// Paints the bullet at the leading edge of the advance the hidden
-    /// marker reserved, sitting on that line's baseline.
-    ///
-    /// Leading edge, not centered: the styling pass kerns every bullet
-    /// marker out to exactly the glyph's own width, so the reserved box
-    /// and the glyph are the same size and there is nothing to center.
+    /// At the hidden marker's leading edge; its advance is kerned to the glyph's own width.
     private func drawMarker(_ glyph: String, for item: SmartEditing.ListItem, at origin: NSPoint) {
         guard let marker = marker(of: item) else { return }
         let glyph = NSAttributedString(
             string: glyph, attributes: [.font: bulletFont, .foregroundColor: bulletColor])
         glyph.draw(at: NSPoint(
             x: origin.x + marker.rect.minX,
-            // The text view is flipped, so `draw(at:)` takes the top-left
-            // of the glyph's line box rather than its baseline.
+            // Flipped, so `draw(at:)` takes the line box's top-left, not the baseline.
             y: origin.y + marker.baseline - bulletFont.ascender))
     }
 
-    /// Where an item's hidden marker sits, container-relative: the rectangle
-    /// its characters reserve, and the baseline they sit on. Nil when the
-    /// marker isn't laid out.
-    ///
-    /// Bullets and boxes fill the width the marker is kerned to, and an
-    /// ordered marker is the visible text, so the rectangle is the mark's in
-    /// every case. `location(forGlyphAt:)` is relative to the fragment's own
-    /// origin, and its `y` is the baseline — the one measurement that puts a
-    /// mark on the text's line rather than in the middle of a leaded box.
+    /// The hidden marker's rect and baseline, container-relative. `location(forGlyphAt:)`'s `y`
+    /// is the baseline, which puts a mark on the text's line rather than mid-box.
     private func marker(of item: SmartEditing.ListItem) -> (rect: NSRect, baseline: CGFloat)? {
         let glyphs = glyphRange(forCharacterRange: item.markerRange, actualCharacterRange: nil)
         guard glyphs.length > 0 else { return nil }
@@ -190,21 +154,9 @@ final class NotesLayoutManager: NSLayoutManager {
 
     // MARK: Indent guides
 
-    /// A one-point line for each level a nested line hangs under, centred
-    /// on that ancestor's own marker — bullet, box, or number — and
-    /// running the full height of the line's paragraph, wrapped lines
-    /// included, so consecutive lines join into one unbroken guide.
-    /// Blank lines inside a list carry the guides across the gap (see
-    /// `SmartEditing.guideDepth`).
-    ///
-    /// The first line under a parent starts its guide one cap height
-    /// below the parent's marker centre — half a cap clear of the
-    /// parent's letters, which end half a cap below that centre — rather
-    /// than at its own fragment's top, which butts against the parent's
-    /// descenders and reads as hanging off the marker. A line with no
-    /// ancestor at some level — a hand-typed jump of two levels — falls
-    /// back to where a marker at that level would sit, starting at its
-    /// own ascender line.
+    /// A guide per ancestor level, centred on its marker and running the line's full height so
+    /// lines join. Under a parent it starts a cap height below the marker's centre, clear of the
+    /// letters; with no ancestor it falls back to where a marker would sit.
     private func drawGuides(for lineRange: NSRange, in text: NSString, at origin: NSPoint) {
         guard let depth = SmartEditing.guideDepth(
                 lineRange: lineRange, in: text, indentWidth: indentWidth), depth > 0
@@ -247,9 +199,7 @@ final class NotesLayoutManager: NSLayoutManager {
         }
     }
 
-    /// Where a bullet at `level` would sit: the leading whitespace is
-    /// indented by its own width on top of rendering itself (see
-    /// `styleLists`), so the marker column is twice the whitespace in.
+    /// Twice the whitespace in, since `styleLists` also indents a line by its whitespace's width.
     private func fallbackMarkerCentre(level: Int) -> CGFloat {
         let whitespace = NSAttributedString(
             string: String(repeating: indentUnit, count: level), attributes: [.font: bulletFont]
@@ -262,22 +212,13 @@ final class NotesLayoutManager: NSLayoutManager {
 
     // MARK: Checklist boxes
 
-    /// The side of a checklist's box, in points, for text set in `font`. The
-    /// ascender rather than the cap height: the box is chrome standing in
-    /// for text, and at cap height it reads as a small square beside the
-    /// words rather than a control in front of them. Any bigger and it
-    /// crowds the line above at the body's 1.35× leading.
-    ///
-    /// Drawn rather than typeset: `☐` and `☑` fall back to two different
-    /// fonts on macOS — Apple Symbols and the system face — and come out
-    /// at two different sizes, the empty box barely above the x-height.
+    /// The ascender, not the cap height, so the box reads as a control rather than a small square.
+    /// Drawn rather than typeset, since `☐` and `☑` fall back to different fonts and sizes.
     static func checklistBoxSide(for font: NSFont) -> CGFloat {
         font.ascender.rounded()
     }
 
-    /// The box, centred on the midpoint of the cap height so it sits with
-    /// the letters rather than hanging off the baseline; the stroke sits
-    /// inside the reserved width, so a box never touches the text after it.
+    /// Centred on the cap-height midpoint, with the stroke inside the reserved width.
     private func drawChecklistBox(checked: Bool, for item: SmartEditing.ListItem, at origin: NSPoint) {
         guard let marker = marker(of: item) else { return }
         let baseline = origin.y + marker.baseline
@@ -286,8 +227,7 @@ final class NotesLayoutManager: NSLayoutManager {
         // 1.5pt at the default size, stepping in halves with the scale.
         let stroke = max(1, (bulletFont.pointSize / 5).rounded() / 2)
         let inset = stroke / 2
-        // Flipped view: `y` grows downward, so the top edge is the baseline
-        // less the box's reach above the cap-height midpoint.
+        // Flipped, so `y` grows downward.
         let midline = baseline - bulletFont.capHeight / 2
         let box = NSRect(
             x: origin.x + marker.rect.minX + inset, y: midline - side / 2 + inset,
@@ -300,8 +240,6 @@ final class NotesLayoutManager: NSLayoutManager {
         outline.stroke()
 
         guard checked else { return }
-        // A tick from a third of the way across, down to the low point at
-        // the middle, up to the top-right corner region.
         let tick = NSBezierPath()
         tick.lineWidth = stroke * 1.5
         tick.lineCapStyle = .round
@@ -314,18 +252,9 @@ final class NotesLayoutManager: NSLayoutManager {
 }
 
 extension NotesLayoutManager: NSLayoutManagerDelegate {
-    /// Rounds every line fragment to the nearest whole point. The body's leading
-    /// multiple makes the natural height fractional — 26.6pt at the default
-    /// size — and AppKit rounds that two ways: the selection fill rounds
-    /// out to the next point, the rect it invalidates when the selection
-    /// changes rounds to the pixel, and the half-pixel row between the two
-    /// is left painted when a selection shrinks. On whole points the two
-    /// agree.
-    ///
-    /// The delegate rather than `setLineFragmentRect`: the typesetter
-    /// positions the next line from the rect this hook returns, but not
-    /// from one an override of the setter stored, which left later lines
-    /// overlapping by the rounding.
+    /// Whole-point fragments: at a fractional height the selection fill and its invalidated rect
+    /// round differently and leave a painted row. The delegate rather than the setter, since the
+    /// typesetter places the next line from this hook's rect.
     func layoutManager(
         _ layoutManager: NSLayoutManager,
         shouldSetLineFragmentRect lineFragmentRect: UnsafeMutablePointer<NSRect>,

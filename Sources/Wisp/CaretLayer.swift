@@ -1,15 +1,8 @@
 import AppKit
 import WispCore
 
-/// The caret, drawn as a Core Animation layer in place of AppKit's.
-///
-/// Both the move and the blink are animations the render server runs on
-/// its own: no timer fires, no rect is dirtied, and the main thread does
-/// nothing between caret moves. That makes it cheaper than the stock
-/// caret, which wakes on an `NSTimer` every half second to repaint.
-///
-/// Owned by `NotesTextView`, which suppresses the stock caret and calls
-/// `update` from the same hook AppKit uses to reposition its own.
+/// The caret as a Core Animation layer: the render server runs the move and the blink, so the
+/// main thread idles between moves. `NotesTextView` calls `update` from AppKit's caret hook.
 final class CaretLayer {
     /// A touch under the modern AppKit indicator's 2pt.
     static let width: CGFloat = 1.5
@@ -22,8 +15,7 @@ final class CaretLayer {
     let layer = CALayer()
     var style = Caret()
 
-    /// Where the layer was last sent, so a refresh that lands on the same
-    /// rect is a no-op rather than a snap that cuts an animation short.
+    /// The last target, so a refresh to the same rect doesn't cut an animation short.
     private var target: CGRect?
 
     init() {
@@ -33,10 +25,7 @@ final class CaretLayer {
         layer.zPosition = 1
     }
 
-    /// Moves the caret to `frame` — or hides it — animating the move when
-    /// `animated` and the style allow. Restarts the blink so the caret is
-    /// solid for a moment after every move, which is what keeps it solid
-    /// while typing.
+    /// Restarts the blink, so the caret stays solid while typing.
     func update(to frame: CGRect?, color: NSColor, animated: Bool) {
         guard let frame else {
             hide()

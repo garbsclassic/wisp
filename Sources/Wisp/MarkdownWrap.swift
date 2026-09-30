@@ -2,12 +2,7 @@ import AppKit
 
 @MainActor
 enum MarkdownWrap {
-    /// What goes either side of the selection.
-    ///
-    /// A pair rather than one string because underline is `<u>…</u>`: HTML,
-    /// since markdown has no underline and `__` is already bold here. Every
-    /// other marker Wisp inserts is its own closer, which is what the
-    /// one-argument initializer is for.
+    /// A pair for `<u>…</u>`; every other marker closes itself.
     struct Markers: Equatable {
         let open: String
         let close: String
@@ -18,28 +13,18 @@ enum MarkdownWrap {
         }
 
         static let bold = Markers("**")
-        /// `_word_` rather than `*word*`. Both *render* as italic — this is
-        /// only what the key inserts.
+        /// `_word_`; `*word*` renders as italic too.
         static let italic = Markers("_")
         static let highlight = Markers("==")
-        /// The one non-markdown marker Wisp writes. `<u>` is what Obsidian's
-        /// own underline command inserts, which matters, because these notes
-        /// are read there too.
+        /// HTML, as Obsidian's underline command inserts.
         static let underline = Markers("<u>", "</u>")
-        /// `~~` rather than `~`: both render, but the doubled form is what
-        /// Obsidian writes and what Notion exports.
+        /// `~~`, as Obsidian writes and Notion exports.
         static let strikethrough = Markers("~~")
         static let code = Markers("`")
     }
 
-    /// Toggle `markers` around the text view's current selection.
-    ///
-    /// - Empty selection: inserts `marker + marker` with the cursor between
-    ///   the two halves.
-    /// - Selection already wrapped (starts and ends with the marker):
-    ///   unwraps, leaving just the inner content selected.
-    /// - Otherwise: wraps the selection, keeping the inner content selected
-    ///   so the user can immediately re-toggle or keep typing.
+    /// With no selection, inserts the pair around the caret; a wrapped selection is unwrapped, and
+    /// any other is wrapped.
     static func toggle(in textView: NSTextView, markers: Markers) {
         let nsString = textView.string as NSString
         let selectedRange = textView.selectedRange()
@@ -75,13 +60,8 @@ enum MarkdownWrap {
         wrap(in: textView, range: selectedRange, markers: markers)
     }
 
-    /// Put `markers` around `range`, leaving the inner content selected so a
-    /// second pass nests rather than starting over.
-    ///
-    /// Split out of `toggle` because typing a delimiter over a selection wants
-    /// this half and not the unwrap half: ⌘B is a command and may toggle, but
-    /// typing a character is an insertion, and having `"` swallow the quotes
-    /// off `"foo"` is not what the keypress meant.
+    /// Wraps without unwrapping, for a delimiter typed over a selection: `"` over `"foo"`
+    /// shouldn't strip its quotes. The inner text stays selected.
     static func wrap(in textView: NSTextView, range: NSRange, markers: Markers) {
         let inner = (textView.string as NSString).substring(with: range)
         let wrapped = markers.open + inner + markers.close
@@ -92,14 +72,8 @@ enum MarkdownWrap {
         ))
     }
 
-    /// What typing `typed` over a selection wraps it in, or nil for a
-    /// character that means nothing here.
-    ///
-    /// Doubled for `*`, `=`, and `~` because that is the emphasis those
-    /// characters are reached for — a lone `*` is italic, but `_` already
-    /// covers italic, `=` alone is not markup at all, and `~~` is the
-    /// strikethrough Obsidian writes. `'` and `"` aren't markup either; they
-    /// are the other thing a selection gets wrapped in.
+    /// What typing `typed` over a selection wraps it in. `*`, `=`, and `~` double: `_` already
+    /// covers italic, and a lone `=` or `~` isn't markup.
     static func surroundMarkers(for typed: String) -> Markers? {
         switch typed {
         case "`", "_", "'", "\"": return Markers(typed)
