@@ -628,18 +628,17 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// `.horizontalRule`, which `NotesLayoutManager` reads to draw the full-width rule without
     /// classifying the note again.
     ///
-    /// A blank line directly above or below a rule is set exactly 1em tall — the body's point
-    /// size — rather than the ~1.7em a blank line takes at the body's leading, so the rule sits
-    /// close to the text it divides.
+    /// A blank line directly above a rule is set 1.1em tall and one directly below 0.5em — ems of
+    /// the body's point size — rather than the ~1.7em a blank line takes at the body's leading,
+    /// so the rule sits close to the text it divides. Uneven because the leading sits above each
+    /// text line's glyphs; these put the rule midway between the ink on either side.
     private static func styleHorizontalRules(
         in storage: NSTextStorage, baseFont: NSFont, blocks: MarkdownBlocks
     ) {
         let ns = storage.string as NSString
         let lines = blocks.lines
-        let tight = makeParagraphStyle()
-        tight.lineHeightMultiple = 1
-        tight.minimumLineHeight = baseFont.pointSize
-        tight.maximumLineHeight = baseFont.pointSize
+        let above = blankLineStyle(height: baseFont.pointSize * 1.1)
+        let below = blankLineStyle(height: baseFont.pointSize * 0.5)
 
         for (index, line) in lines.enumerated() where line.kind == .rule {
             let content = NSRange(
@@ -648,12 +647,21 @@ struct MinimalTextEditor: NSViewRepresentable {
             storage.addAttributes(
                 [.foregroundColor: NSColor.clear, .horizontalRule: true], range: content)
 
-            for neighbour in [index - 1, index + 1] where lines.indices.contains(neighbour) {
+            for (neighbour, style) in [(index - 1, above), (index + 1, below)]
+            where lines.indices.contains(neighbour) {
                 let blank = lines[neighbour]
                 guard blank.kind == .blank, blank.range.length > 0 else { continue }
-                storage.addAttribute(.paragraphStyle, value: tight, range: blank.range)
+                storage.addAttribute(.paragraphStyle, value: style, range: blank.range)
             }
         }
+    }
+
+    private static func blankLineStyle(height: CGFloat) -> NSParagraphStyle {
+        let style = makeParagraphStyle()
+        style.lineHeightMultiple = 1
+        style.minimumLineHeight = height
+        style.maximumLineHeight = height
+        return style
     }
 
     func makeCoordinator() -> Coordinator {
