@@ -22,17 +22,27 @@ Deduplicated across the four reviews, most valuable first.
 - [x] **Reuse** — `HotKey` and `KeyChord` are both a key code and a Carbon mask, converted by hand in four places, with `hyperMask` defined twice and an unused `HotKey.default` ([HotKey.swift:5](../Sources/WispCore/HotKey.swift:5)).
 - [x] **Reuse** — "one indent level" is written four times across `LineEdits` and `SmartEditing`, and `isSpaceOrTab` three times ([LineEdits.swift:175](../Sources/WispCore/LineEdits.swift:175)).
 - [x] **Reuse** — the border overlay's corner radius is a literal `18` that stopped matching the panel's `10` when the panel changed; the placeholder's `24` is `chromeInsetX` ([EditorView.swift:714](../Sources/Wisp/EditorView.swift:714)).
-- [ ] **Simplification** — `HotKeyMonitor` routes Carbon events through an id-keyed handler table for one instance ([HotKeyMonitor.swift:13](../Sources/Wisp/HotKeyMonitor.swift:13)).
+- [-] **Simplification** — `HotKeyMonitor` routes Carbon events through an id-keyed handler table for one instance ([HotKeyMonitor.swift:13](../Sources/Wisp/HotKeyMonitor.swift:13)).
 - [x] **Reuse** — the help page's sticky header rebuilds the section-title attributes `HelpDocument.render` sets ([HelpBody.swift:119](../Sources/Wisp/HelpBody.swift:119)); the footer, help footer, and header repeat one chrome-bar style ([HelpOverlay.swift:69](../Sources/Wisp/HelpOverlay.swift:69)).
 - [x] **Reuse** — `drawMarker` and `drawChecklistBox` open with the same marker geometry `baseline(of:)` and `markerCentre(of:)` compute ([NotesLayoutManager.swift:162](../Sources/Wisp/NotesLayoutManager.swift:162)).
-- [ ] **Simplification** — small ones: `ChecklistBoxIndex` is a function with a type's name, `Typography.notes` is unused, `resetStorageLocation` only forwards, `HotKeyCaptureOverlay`'s `onSuccess` and `onCancel` are the same closure, `PanelController` pins four views with four copies of the same constraints.
+- [x] **Simplification** — small ones: `ChecklistBoxIndex` is a function with a type's name, `Typography.notes` is unused, `resetStorageLocation` only forwards, `HotKeyCaptureOverlay`'s `onSuccess` and `onCancel` are the same closure, `PanelController` pins four views with four copies of the same constraints.
 - [x] **Comments** — stale comments (no file watcher, UserDefaults theme, `esc` never "escape", `build-app.sh`, `notes/designs`, "no tables", the type-size cycle) and ones narrating earlier approaches.
+
+## Skipped
+
+- `HotKeyMonitor`'s id-keyed table: a dozen lines in the Carbon callback, the one path that can only be checked by pressing the chord.
+- `HotKeyCaptureOverlay`'s `onSuccess` and `onCancel`: the same closure today, but two different events.
+- The three one-line `isSpaceOrTab` predicates: sharing them couples three types to save three lines.
+- The help body's TextKit stack beside `NotesTextView.makeScrollView`: the two differ in layout manager and view class, and a generic builder costs about what it saves.
+- One storage-edit hook for everything derived from an edit, and `MarkdownBlocks` carrying list context for styling, drawing, and hit-testing: the right depth, but a larger reshape than a cleanup pass. The per-keystroke cost it was flagged for is fixed above; the list half would also fix the frontmatter and fence bullets below.
+- A find-match attribute of its own, drawn by the layout manager: it fixes the stale `==` highlight below, which is a behaviour change, not a cleanup.
+- Applying only the attribute runs that changed, to skip the relayout a full restyle forces: it reverses the deliberate whole-storage reset.
 
 ## Incidental bugs
 
 Reported by the reviewers while reading; not the point of this pass.
 
-- CRLF notes: `handleEnter` and the typed-`---` check trim only `\n`, so ↵ on an empty bullet never leaves the list and `---` never becomes a rule.
+- ~~CRLF notes: `handleEnter` and the typed-`---` check trim only `\n`, so ↵ on an empty bullet never leaves the list and `---` never becomes a rule.~~ Fixed by the move into WispCore; the inserted newline is still `\n`.
 - List markers inside fenced code and frontmatter are hidden and drawn as bullets or boxes, unlike headings and rules there.
 - Breaking a `==x==` run leaves its highlight painted until the next find step or theme change: the per-keystroke reset never clears `.backgroundColor`.
 - A folder switch onto an existing scratchpad reports the backup as saved even when writing it failed (`try?`), then deletes the old file.
