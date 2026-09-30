@@ -1,25 +1,10 @@
 import Foundation
 
-/// A surgical editor for the config file's *text*.
-///
-/// The app mutates settings from its own UI — the theme cycle, the text size,
-/// the shortcut capture, the storage picker, the panel frame — so
-/// `wisp.jsonc` has to round-trip. Re-encoding the whole document on every one
-/// of those would rewrite key order, re-indent, and drop any comment the user
-/// added, which turns `chezmoi diff` into noise and makes hand-editing feel
-/// adversarial.
-///
-/// So instead: find the one value's span in the file text and splice a new
-/// literal over it, leaving every other byte — including comments and trailing
-/// commas the JSON5 reader allows — exactly where it was.
-///
-/// This is a *rewriter*, not a parser: it understands enough syntax to find a
-/// value's boundaries and nothing more. A key it can't find returns nil, and
-/// the caller falls back to a full strict-JSON encode.
+/// Splices one value into the config's text, leaving order, indentation, and comments alone so a
+/// UI-driven change doesn't churn `chezmoi diff`. It finds a value's span and nothing more; a
+/// missing key returns nil and the caller re-encodes.
 public enum JSONTextEdit {
-    /// Replaces the value at `path` (e.g. `["keymap", "summon"]`) with
-    /// `literal`, which must already be valid JSON for the value it stands in
-    /// for. Returns nil when the path isn't present in the text.
+    /// `literal` must already be valid JSON. Nil when `path` isn't in the text.
     public static func replacingValue(
         in text: String, at path: [String], with literal: String
     ) -> String? {
@@ -29,7 +14,6 @@ public enum JSONTextEdit {
         return String(chars[..<range.lowerBound]) + literal + String(chars[range.upperBound...])
     }
 
-    /// The half-open index range of the value at `path`, or nil.
     static func valueRange(in chars: [Character], at path: [String]) -> Range<Int>? {
         var cursor = skipTrivia(chars, from: 0)
         guard cursor < chars.count, chars[cursor] == "{" else { return nil }
@@ -39,8 +23,6 @@ public enum JSONTextEdit {
             guard let found = member(named: key, inObjectAt: cursor, chars) else { return nil }
             range = found
             if depth < path.count - 1 {
-                // Every step but the last has to land on an object to descend
-                // into; a scalar mid-path means the file's shape moved on.
                 let start = skipTrivia(chars, from: found.lowerBound)
                 guard start < chars.count, chars[start] == "{" else { return nil }
                 cursor = start
@@ -49,10 +31,7 @@ public enum JSONTextEdit {
         return range
     }
 
-    /// Scans one object's immediate members for `key`, returning that
-    /// member's value range. Nested objects are skipped wholesale, so a key
-    /// that also appears one level down never shadows the one being looked
-    /// for.
+    /// Immediate members only, so a same-named key one level down can't shadow `key`.
     private static func member(named key: String, inObjectAt objectStart: Int, _ chars: [Character])
         -> Range<Int>?
     {
@@ -104,9 +83,7 @@ public enum JSONTextEdit {
         return name.isEmpty ? nil : (name, i)
     }
 
-    /// The index just past the value starting at `index`. Objects and arrays
-    /// are matched by nesting; scalars run to the first delimiter that isn't
-    /// inside a string.
+    /// The index just past the value at `index`.
     private static func valueEnd(_ chars: [Character], from index: Int) -> Int? {
         guard index < chars.count else { return nil }
         switch chars[index] {
@@ -164,8 +141,7 @@ public enum JSONTextEdit {
         return nil
     }
 
-    /// Whitespace plus both JSON5 comment forms — the reason the rewriter can
-    /// be pointed at a commented file at all.
+    /// Whitespace and both comment forms.
     private static func skipTrivia(_ chars: [Character], from index: Int) -> Int {
         var i = index
         while i < chars.count {

@@ -6,14 +6,13 @@ public enum Theme: String, CaseIterable, Sendable {
     case light
 }
 
-/// User-facing appearance preference, the config's `theme`. `.system`
-/// resolves at runtime against NSApp.effectiveAppearance.
+/// The config's `theme`; `.system` follows the app's effective appearance.
 public enum ThemeSetting: String, Codable, CaseIterable, Sendable {
     case light
     case dark
     case system
 
-    /// One-click cycle wired into the FooterBar button.
+    /// The footer button's cycle.
     public var next: ThemeSetting {
         switch self {
         case .light: return .dark
@@ -42,58 +41,37 @@ public func rgb(_ hex: UInt32, _ alpha: CGFloat = 1.0) -> NSColor {
     )
 }
 
-/// Text-surface tokens. Dark is Flexoki Dark, light is Modernist Light
-/// (colors only — Wisp keeps its own rounded, blurred posture). Views
-/// draw their colors from here.
+/// Colour tokens: Flexoki Dark and Modernist Light.
 public struct Palette {
     /// Body text. Flexoki `tx` / Modernist `ink`.
     public let text: NSColor
     /// Secondary text on modal surfaces. Flexoki `tx-2` / Modernist `muted`.
     public let muted: NSColor
-    /// Syntax a reader is meant to look past rather than at — the backslash
-    /// of an escape. Flexoki `tx-3`; on light, Modernist's own `tx-3` is
-    /// already `muted`, so this takes `ui-2`, the next tier out.
+    /// Syntax to look past, such as an escape's backslash. Flexoki `tx-3` / Modernist `ui-2`.
     public let faint: NSColor
-    /// Failure text — hotkey registration errors. Flexoki red; distinct
-    /// from `accent` so an error never reads as a hint.
+    /// Error text, distinct from `accent` so an error never reads as a hint.
     public let danger: NSColor
-    /// The paper the live panel composites to, so modal backdrops paint
-    /// the same tone rather than stepping over it. See Chrome.for(.light).
+    /// What the live panel composites to, so modal backdrops match it.
     public let panel: NSColor
-    /// Raised chips: the find bar. Always lighter than `panel`
-    /// in both themes, or a chip reads as a recess.
+    /// Raised chips such as the find bar; lighter than `panel`, or a chip reads as a recess.
     public let surface: NSColor
-    /// The header and footer bars. Flexoki `bg-2`, whose whole job in that
-    /// palette is "surfaces: cards, sidebars, modals" — which is what the
-    /// chrome bars are relative to the writing area they frame.
+    /// The header and footer bars. Flexoki `bg-2`.
     public let chrome: NSColor
-    /// The single accent, used sparingly — caret, selection, the save dot,
-    /// help section labels, and the header's heading links.
-    /// Flexoki cyan / Modernist vermilion.
+    /// Caret, selection, save dot, help labels, heading links. Flexoki cyan / Modernist vermilion.
     public let accent: NSColor
     public let indicator: NSColor
-    /// 1px incidental rules, including the horizontal-rule glyph. Alpha,
-    /// not opaque: the panel is vibrancy whose luminance tracks the
-    /// desktop, so an opaque rule washes out over a light wallpaper.
+    /// Hairline rules. Translucent, since an opaque one washes out over a light wallpaper.
     public let rule: NSColor
-    /// Panel frame and chip borders — a hairline, not a structural rule.
+    /// Panel frame and chip borders.
     public let border: NSColor
-    /// Selection background. Accent-tinted per theme.
     public let selection: NSColor
-    /// Background behind the current Find match. Amber in both themes so
-    /// it stays distinguishable from an accent-tinted selection.
+    /// The current find match: amber, so it stays distinct from the accent-tinted selection.
     public let findHighlight: NSColor
-    /// Background behind `==marked==` text. A marker-pen yellow, and a
-    /// token of its own rather than a reuse of `findHighlight`: one is
-    /// content the user wrote and the other is transient UI state, so
-    /// they should be free to diverge. They read alike today, which is
-    /// survivable because only the *current* find match is painted and
-    /// the view scrolls to it.
+    /// `==marked==` text. Its own token apart from `findHighlight`, since content and UI state
+    /// may diverge.
     public let highlight: NSColor
-    /// One colour per heading level, `#` first: red, orange, yellow, green,
-    /// blue, purple. Flexoki's own hue ramp in both themes — the 400s on
-    /// dark and the 600s on light — since Modernist has only green and
-    /// blue and the light `danger` already borrows Flexoki red-600.
+    /// One colour per level, `#` first: Flexoki's hue ramp, 400s on dark and 600s on light, since
+    /// Modernist has too few hues.
     public let headings: [NSColor]
 
     public static func `for`(_ theme: Theme) -> Palette {
@@ -121,8 +99,7 @@ public struct Palette {
                 ]
             )
         case .light:
-            // Modernist Light — near-black ink on warm paper, vermilion
-            // accent kept for the caret and selection only.
+            // Modernist Light.
             return Palette(
                 text: rgb(0x161413),
                 muted: rgb(0x4B4949),
@@ -147,10 +124,7 @@ public struct Palette {
     }
 }
 
-/// Window-chrome tokens feeding AppKit: blur material, tint layer, and
-/// the NSAppearance that makes system controls and semantic colors agree
-/// with the palette. Kept separate from Palette because they have
-/// different types and different consumers.
+/// Window tokens for AppKit: blur material, tint, and the appearance system controls follow.
 public struct Chrome {
     public let material: NSVisualEffectView.Material
     public let tintColor: NSColor
@@ -159,19 +133,15 @@ public struct Chrome {
     public static func `for`(_ theme: Theme) -> Chrome {
         switch theme {
         case .dark:
-            // Warm-black glass over the Flexoki bg tone rather than pure
-            // black, so the blur reads with the palette instead of against it.
+            // Warm black rather than pure, so the blur sits with the palette.
             return Chrome(
                 material: .fullScreenUI,
                 tintColor: rgb(0x100F0F, 0.55),
                 appearance: .darkAqua
             )
         case .light:
-            // Modernist paper over vibrancy: the tint is a translucent
-            // wash so the blur stays alive in both themes. It composites
-            // over .windowBackground to #F0EFEF (measured), which is
-            // what Palette.light.panel records — keep the two in step,
-            // or modal backdrops step over the live panel.
+            // Composites over .windowBackground to #F0EFEF (measured), which
+            // `Palette.light.panel` records; keep the two in step.
             return Chrome(
                 material: .windowBackground,
                 tintColor: rgb(0xE8E6E6, 0.75),
@@ -187,31 +157,20 @@ private struct PaletteKey: EnvironmentKey {
 }
 
 extension EnvironmentValues {
-    /// Set once on the panel's root view. Every view below reads its
-    /// colors from here rather than taking a `theme` parameter and
-    /// resolving a Palette of its own.
+    /// Set once on the panel's root view, for every view below.
     public var palette: Palette {
         get { self[PaletteKey.self] }
         set { self[PaletteKey.self] = newValue }
     }
 }
 
-/// Every type size Wisp draws with, plus the geometry that derives from
-/// one. Sizes are *design* sizes: `Typography` multiplies them by the
-/// live font scale on the way out, so nothing here is pre-scaled.
-///
-/// Named by role rather than by value — `chromeSize` survives 11 becoming
-/// 12, `size11` renames itself the first time that happens.
+/// Type sizes and the geometry derived from them, at design size: `Typography` applies the scale.
 public enum Metrics {
     // MARK: Notes body
 
-    /// The notes body at scale 1.0.
     public static let bodySize: CGFloat = 15
-    /// Heading size off the body, `#` first, two points of scale per level.
-    /// `#####` sits at body size and `######` just under it: with six
-    /// levels the ramp has to pass through the body somewhere, and
-    /// `Palette.headings` carries the tier a reader actually keys on. Index
-    /// is `level - 1`.
+    /// Heading size off the body, indexed by `level - 1`. The ramp is shallow because
+    /// `Palette.headings` carries the tier.
     public static let headingRatios: [CGFloat] = [1.08, 1.06, 1.04, 1.02, 1, 0.98]
     /// Generous leading — this is a writing surface, not a dense list.
     public static let bodyLineHeightMultiple: CGFloat = 1.40
@@ -220,71 +179,44 @@ public enum Metrics {
 
     /// Header, footer, and the incidental hint lines in the overlays.
     public static let chromeSize: CGFloat = 13
-    /// Secondary labels inside an overlay — chord names, the find field's
-    /// leading glyph.
+    /// Secondary overlay labels, such as chord names.
     public static let labelSize: CGFloat = 14
-    /// Overlay row text and the find field itself: the one chrome size
-    /// meant to be read rather than glanced at.
+    /// Overlay rows and the find field: chrome meant to be read.
     public static let rowSize: CGFloat = 15
     /// The single large string in the hotkey-capture overlay.
     public static let titleSize: CGFloat = 21
 
-    /// The save dot. Small enough to read as a status light rather than a
-    /// control.
+    /// The save dot, small enough to read as a status light.
     public static let saveIndicatorSize: CGFloat = 6
 
-    /// The header and footer bars' own insets, and the save dot's, so the
-    /// dot lines up with the chrome it sits in rather than with the panel
-    /// edge.
+    /// The header and footer insets, which the save dot shares.
     public static let chromeInsetX: CGFloat = 24
     public static let chromeInsetY: CGFloat = 10
 
-    /// Where the save dot's top edge goes, so the dot's centre lands on
-    /// the header text's rather than on its line-box top.
-    ///
-    /// Matching `chromeInsetY` outright looks wrong: padding aligns the top
-    /// of the *line box*, but glyphs start below it, so the dot measured
-    /// 7pt high of the text it was meant to sit beside. Half the leftover
-    /// line height puts it back.
+    /// Centres the dot on the header text rather than on its line box's top.
     public static var saveIndicatorTopInset: CGFloat {
         chromeInsetY + (chromeLineHeight - saveIndicatorSize) / 2
     }
 
-    /// A chrome line's rendered height. The 1.2 is the usual ratio for a
-    /// text face at UI sizes — close enough to centre a 6pt dot against,
-    /// and it tracks `chromeSize` where a literal would not.
+    /// Approximate: 1.2 is the usual ratio at UI sizes, close enough to centre the dot.
     public static var chromeLineHeight: CGFloat { chromeSize * 1.2 }
 
-    /// How far the header stops short of the panel's right edge: the dot's
-    /// own inset, the dot, and a gap. Without it a long heading list runs
-    /// underneath the indicator. The gap is a little over an em of the
-    /// chrome face — 8pt read as the dot crowding the last heading.
+    /// Keeps a long heading list clear of the save dot: its inset, the dot, and about an em.
     public static var headerTrailingInset: CGFloat {
         chromeInsetX + saveIndicatorSize + chromeSize + 2
     }
 
-    /// Footer buttons are pinned to a fixed box rather than sized by
-    /// their glyph, so the row's spacing doesn't rag as icons change.
+    /// A fixed box, so the footer's spacing doesn't rag as icons change.
     public static let footerButtonWidth: CGFloat = 24
     public static let footerButtonHeight: CGFloat = 20
 
     // MARK: Help page
 
-    // The page has no insets of its own: its content column and the space
-    // around a section label both come from `chromeInsetX` / `chromeInsetY`,
-    // the same values the header bar and the note's own column use, since
-    // the page crossfades onto the editor and a column that lands somewhere
-    // else is the first thing you see when it does.
-    //
-    // The first label's gap goes in the container inset rather than in
-    // `paragraphSpacingBefore`, which AppKit does not reliably honour on a
-    // container's first paragraph. `NSTextView` applies the inset to both
-    // ends, so it is also the gap below the last row.
+    // The page reuses `chromeInsetX` and `chromeInsetY`, so its column lands on the note's when
+    // they crossfade. The first label's gap is the container inset, since AppKit doesn't reliably
+    // honour `paragraphSpacingBefore` on a first paragraph; the inset also pads the last row.
 
-    /// Rows are set at `bodySize`, so the design's `172px` gutter and `22px`
-    /// column gap are carried as multiples of the row size rather than as
-    /// the pixel counts they were drawn at — the two columns then keep their
-    /// proportions when the text scale moves, which pixels would not.
+    /// The design's 172px gutter and 22px gap, as multiples of the row size so they scale.
     public static let helpKeyColumnRatio: CGFloat = 172.0 / 14.5
     public static let helpColumnGapRatio: CGFloat = 22.0 / 14.5
     /// Section labels against the row size, same reasoning.
@@ -292,36 +224,25 @@ public enum Metrics {
     /// Letter-spacing on those labels, as a fraction of their own size.
     public static let helpSectionTracking: CGFloat = 0.16
 
-    /// Half the gap between two rows: it is paid twice, once below a row and
-    /// once above the next, so the pair collapses to the design's 10.
+    /// Half the design's 10pt row gap, paid once below a row and once above the next.
     public static let helpRowSpacing: CGFloat = 5
 
     // MARK: Font scale
 
     /// One press of ⌘= / ⌘- or one click of a footer button.
     public static let fontScaleStep: Double = 0.1
-    /// Bounded so a typo in the config — or a key held down — can't leave
-    /// the app unreadable at either end.
+    /// Bounded so a typo or a held key can't leave the app unreadable.
     public static let fontScaleRange: ClosedRange<Double> = 0.6...2.5
 
-    /// The scale clamped into range. A hand-edited value is kept as
-    /// written — only stepping snaps to `fontScaleStep`.
+    /// Only stepping snaps to `fontScaleStep`; a hand-edited value is kept as written.
     public static func clampFontScale(_ scale: Double) -> Double {
         min(max(scale, fontScaleRange.lowerBound), fontScaleRange.upperBound)
     }
 
-    /// How many steps make up a scale of 1.0. The step is expressed as a
-    /// whole number of these rather than as `fontScaleStep` so the
-    /// arithmetic below can stay in integers until the last moment.
     private static let stepsPerUnit: Double = 1 / fontScaleStep
 
-    /// `scale` moved by `steps` increments.
-    ///
-    /// Counts in whole steps and *divides* at the end. Adding 0.1 repeatedly
-    /// drifts (1.0999999999999999), and so does multiplying back — `12 * 0.1`
-    /// is 1.2000000000000002, a different double from `12 / 10`. Only the
-    /// division lands on the double that prints as "1.2", and this value is
-    /// written into a config a person has to read.
+    /// Counts whole steps and divides at the end: `12 * 0.1` is 1.2000000000000002, but `12 / 10`
+    /// prints as 1.2 in the config.
     public static func steppedFontScale(_ scale: Double, by steps: Int) -> Double {
         let grid = (scale * stepsPerUnit).rounded() + Double(steps)
         return clampFontScale(grid / stepsPerUnit)

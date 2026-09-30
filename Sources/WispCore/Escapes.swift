@@ -1,20 +1,8 @@
 import Foundation
 
-/// Backslash escapes, as offsets into the text.
-///
-/// Obsidian's set, since these notes are read there too, extended with the
-/// markers Wisp renders that Obsidian's list doesn't name (`=` for
-/// `==highlight==`, `<` for `<u>`, `+` for a bullet, `)` for a `1)` item).
-/// `|` is included so a `\|` typed in a table cell reads as an escape
-/// rather than as a stray backslash.
-///
-/// Most of what an escape has to stop, the parsers already refuse on their
-/// own: `\# foo` doesn't match the heading pattern, `\- foo` isn't a bullet
-/// because `\` isn't a bullet character, and `\---` isn't a rule because the
-/// line isn't all dashes. What the escape buys there is only the *rendering* —
-/// the backslash is painted faint so it reads as syntax. It is the inline
-/// passes, whose patterns happily match starting one character in, that need
-/// to be told to skip.
+/// Backslash escapes, as UTF-16 offsets. Obsidian's set, plus `=` `<` `+` `)` that Wisp renders
+/// and `|` for table cells. Block parsers already refuse escaped markers, so only the inline
+/// passes consult these.
 public enum Escapes {
     public static let escapable: Set<Character> = [
         "\\", "`", "*", "_", "=", "#", "-", "+", ".", ")", "<", "|", "~",
@@ -22,20 +10,14 @@ public enum Escapes {
 
     private static let backslash: unichar = 0x5C
 
-    /// The escapable set as UTF-16 units. Every one of them is a single BMP
-    /// code unit, so the membership test is a comparison rather than a
-    /// grapheme walk.
+    /// Each escapable character is one UTF-16 unit.
     private static let escapableUnits: Set<unichar> = Set(
         escapable.compactMap { $0.unicodeScalars.first.map { unichar($0.value) } })
 
-    /// Where the active backslashes are, and what they cover. Offsets are
-    /// UTF-16, to line up with `NSTextStorage` and `NSRange` without
-    /// conversion.
     public struct Marks: Equatable, Sendable {
-        /// Backslashes doing the escaping. Painted faint.
+        /// Painted faint.
         public let backslashes: Set<Int>
-        /// The characters they escape. A pattern whose delimiter starts on
-        /// one of these is not markup.
+        /// A delimiter on one of these isn't markup.
         public let escaped: Set<Int>
 
         public static let none = Marks(backslashes: [], escaped: [])
@@ -49,18 +31,8 @@ public enum Escapes {
 
         public func isEscaped(_ offset: Int) -> Bool { escaped.contains(offset) }
 
-        /// The text with every escaped character blanked to a space, for the
-        /// inline passes to scan instead of the real thing. Offsets are
-        /// unchanged — every escapable character is one UTF-16 unit — so a
-        /// match on the masked text is a range into the storage.
-        ///
-        /// Masking rather than filtering matches after the fact: a regex
-        /// scan is left-to-right and non-overlapping, so a match that a
-        /// filter then rejects has still consumed its characters, and the
-        /// real run that began inside it never gets a turn. `~a\~ b~` found
-        /// `~a\~`, threw it away, and had only ` b~` left to look at. With
-        /// the escaped tilde blanked there is nothing for the scanner to
-        /// pair wrongly in the first place.
+        /// Escaped characters blanked to spaces, offsets unchanged. Masking, not filtering matches
+        /// afterwards: a rejected match has already consumed the run that began inside it.
         public func masking(_ text: String) -> String {
             guard !isEmpty else { return text }
             let masked = NSMutableString(string: text)
@@ -71,17 +43,13 @@ public enum Escapes {
         }
     }
 
-    /// Scanned left to right, consuming both characters of every pair, so
-    /// `\\` escapes itself and the second backslash cannot go on to escape a
-    /// third character. Only the first of the two is painted.
+    /// Each pair is consumed whole, so `\\` escapes itself and can't escape a third character.
     public static func scan(_ text: NSString) -> Marks {
         guard text.length > 1 else { return .none }
         var backslashes: Set<Int> = []
         var escaped: Set<Int> = []
         var index = 0
-        // `length - 1`, so a trailing backslash is inert without a special
-        // case: the loop can never stand on the last character, and there is
-        // nothing after it to escape anyway.
+        // Stops before the last character, so a trailing backslash is inert.
         while index < text.length - 1 {
             guard text.character(at: index) == backslash,
                 escapableUnits.contains(text.character(at: index + 1))

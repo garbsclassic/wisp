@@ -1,34 +1,17 @@
 import CoreServices
 import Foundation
 
-/// Watches one directory and calls back when anything inside it changes.
-///
-/// FSEvents rather than a `DispatchSource` on the directory's descriptor:
-/// every writer Wisp cares about — its own atomic saves, iCloud Drive,
-/// Dropbox, Syncthing, a chezmoi apply — replaces the file by writing a
-/// temporary one and renaming over the original. A descriptor watch follows
-/// the file that was replaced; FSEvents reports the directory, which is what
-/// actually happened. Ported from Clef's VaultWatcher.
-///
-/// `@unchecked Sendable` because the C callback hands back an opaque pointer
-/// to `self`: the stream is dispatched to the main queue, so every touch of
-/// the instance is already serialised there.
+/// Calls back when anything in one directory changes. FSEvents, since atomic saves and sync
+/// clients rename over the file and a descriptor watch would follow the replaced one.
+/// `@unchecked Sendable`: the stream runs on the main queue, which serialises every touch.
 public final class DirectoryWatcher: @unchecked Sendable {
     private var stream: FSEventStreamRef?
     private let onChange: @MainActor () -> Void
 
-    /// Non-nil when the stream couldn't be created or started — live reload
-    /// is off for this directory until relaunch. Surfaced in the footer
-    /// rather than left as silent staleness, since the failure mode is a
-    /// panel quietly showing yesterday's note.
+    /// Set when live reload couldn't start; the footer shows it so a stale note isn't silent.
     public private(set) var failureDescription: String?
 
-    /// `IgnoreSelf` drops the events Wisp causes itself — every debounced
-    /// note save and every config write comes back as one otherwise, and
-    /// what it would report is already in memory.
-    ///
-    /// Bursts of writes — a sync client landing several files, or an editor
-    /// saving twice in a second — collapse into one callback.
+    /// Collapses a burst of writes, such as a sync client landing several files, into one call.
     private static let coalescingInterval: CFTimeInterval = 0.3
 
     public init(directoryURL: URL, onChange: @escaping @MainActor () -> Void) {
@@ -45,8 +28,7 @@ public final class DirectoryWatcher: @unchecked Sendable {
         let callback: FSEventStreamCallback = { _, info, _, _, _, _ in
             guard let info else { return }
             let watcher = Unmanaged<DirectoryWatcher>.fromOpaque(info).takeUnretainedValue()
-            // Dispatched to the main queue below, so this already is the
-            // main actor — the compiler just can't see through the C call.
+            // The stream runs on the main queue.
             MainActor.assumeIsolated { watcher.onChange() }
         }
 
@@ -60,7 +42,7 @@ public final class DirectoryWatcher: @unchecked Sendable {
             FSEventStreamCreateFlags(
                 kFSEventStreamCreateFlagFileEvents
                     | kFSEventStreamCreateFlagNoDefer
-                    | kFSEventStreamCreateFlagIgnoreSelf
+                    | kFSEventStreamCreateFlagIgnoreSelf  // our own writes are in memory
             )
         )
 

@@ -1,18 +1,10 @@
 import Foundation
 
-/// Typing shortcuts that rewrite what was just typed, and take it back on
-/// the next press of the same key: `--` for an em dash, a third ↵ for a
-/// rule.
-///
-/// The take-back needs to know the rewrite happened — a `—` or `---` the
-/// user wrote by hand is left alone — so the caller keeps the location it
-/// made and passes it back in.
+/// Typing shortcuts that rewrite what was just typed and take it back on the next press. The
+/// caller passes back where it made a rewrite, so a hand-typed `—` or `---` is left alone.
 extension SmartEditing {
-    /// A `--` just typed, ending at `cursor`: the pair becomes `—`. Nil
-    /// where a double dash means something else: at the start of a line,
-    /// where `---` is on its way to a rule; as part of a longer run; in
-    /// code, frontmatter, or a table; and after `<`, `!`, `|`, or `:`,
-    /// which start `<!--`, arrows, and table alignment rows.
+    /// A just-typed `--` becomes `—`. Not at a line start, where `---` is coming; not in code or a
+    /// table; and not after `<` `!` `|` `:`, which start `<!--`, arrows, and alignment rows.
     public static func emDashEdit(in text: NSString, cursor: Int) -> LineEdits.Edit? {
         let line = LineEdits.lineRange(in: text, at: cursor)
         let pair = NSRange(location: cursor - 2, length: 2)
@@ -21,9 +13,7 @@ extension SmartEditing {
             text.character(at: pair.location + 1) == hyphen
         else { return nil }
 
-        // Something other than whitespace before the pair, and that
-        // something isn't a dash or one of the characters that start a
-        // different construct.
+        // Something other than whitespace before the pair.
         let head = NSRange(location: line.location, length: pair.location - line.location)
         guard head.length > 0,
             text.rangeOfCharacter(
@@ -43,11 +33,8 @@ extension SmartEditing {
             range: pair, replacement: "—", selection: NSRange(location: pair.location + 1, length: 0))
     }
 
-    /// A `-` or `>` typed at `cursor` right after the `—` that `emDashEdit`
-    /// made at `autoDash`: the dash goes back to hyphens, as `---` or the
-    /// `-->` that closes an HTML comment. Nil for any other key, once the
-    /// caret has moved off it, or once the dash is gone, so a later `-`
-    /// just types.
+    /// A `-` or `>` right after the `—` `emDashEdit` made gives back `---` or `-->`. Nil once
+    /// the caret or the dash has moved.
     public static func emDashRevert(
         in text: NSString, cursor: Int, autoDash: Int?, typed: String
     ) -> LineEdits.Edit? {
@@ -61,11 +48,8 @@ extension SmartEditing {
             selection: NSRange(location: autoDash + 3, length: 0))
     }
 
-    /// A third `-` typed at `cursor` on a line that holds only `--`: the line
-    /// becomes a rule with the caret past it, without waiting for ↵. Nil
-    /// under paragraph text, where the dashes are a setext underline and the
-    /// restyle makes the paragraph a heading, and in code or frontmatter,
-    /// where they are text.
+    /// A third `-` on a line holding only `--` makes it a rule without waiting for ↵. Nil under
+    /// a paragraph, where the dashes underline a heading, and in code.
     public static func ruleOnThirdDash(in text: NSString, cursor: Int) -> LineEdits.Edit? {
         let line = LineEdits.lineRange(in: text, at: cursor)
         guard cursor - line.location == 2, MarkdownBlocks.contentEnd(of: line, in: text) == cursor,
@@ -83,13 +67,8 @@ extension SmartEditing {
             horizontalRule + "\n", replacing: NSRange(location: line.location, length: 2))
     }
 
-    /// ↵ on an empty line under exactly one blank line under prose — the
-    /// third ↵ in a row after text: a rule, set off by a blank line on each
-    /// side, with the caret below it. The blank above is what keeps the
-    /// dashes from being a setext underline for the text.
-    ///
-    /// Two ↵ is an ordinary paragraph break and stays one. Nil in code and
-    /// frontmatter, under a rule already, and after more than one blank.
+    /// The third ↵ in a row after text inserts a rule with a blank line on each side; the blank
+    /// above keeps it from underlining the text. Nil in code, under a rule, or after two blanks.
     public static func ruleOnReturn(in text: NSString, cursor: Int) -> LineEdits.Edit? {
         let line = LineEdits.lineRange(in: text, at: cursor)
         guard LineEdits.contentLength(of: line, in: text) == 0, line.location >= 2 else {
@@ -102,9 +81,7 @@ extension SmartEditing {
             let above = blocks.line(at: blank.location - 1)?.kind
         else { return nil }
 
-        // Inside a fence or frontmatter the empty lines are code, not `.blank`, so the guard
-        // above has already turned those away. An indented block ends at its blank line, so
-        // that one is refused here.
+        // Fence and frontmatter lines are never `.blank`, so only indented code is left to refuse.
         guard above != .blank, above != .rule, !above.isCode else { return nil }
 
         return LineEdits.Edit(
@@ -112,10 +89,8 @@ extension SmartEditing {
             selection: NSRange(location: cursor + 5, length: 0))
     }
 
-    /// The ↵ after `ruleOnReturn`: the rule it inserted at `autoRule`
-    /// becomes a blank line, leaving what four plain ↵ would have — the
-    /// text, three blank lines, and the caret on the next. Nil once the
-    /// caret has moved or the rule has changed.
+    /// The next ↵ turns that rule into a blank line, as four plain ↵ would have. Nil once the
+    /// caret or the rule has changed.
     public static func ruleRevert(in text: NSString, cursor: Int, autoRule: Int?) -> LineEdits.Edit? {
         let inserted = "---\n\n" as NSString
         guard let autoRule, cursor == autoRule + inserted.length,

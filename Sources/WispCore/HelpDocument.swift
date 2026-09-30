@@ -1,21 +1,10 @@
 import AppKit
 
-/// The help page's content and its typesetting, as a value.
-///
-/// Both halves live here rather than in the view because both are pure
-/// functions of a `Keymap` and a `Palette` — which makes them testable
-/// without a window, and keeps `HelpBody` down to scrolling, selection,
-/// and the sticky header.
-///
-/// Chords come from the live keymap, so a rebind shows up on the page
-/// without anyone editing a string. The rows that are literals are the ones
-/// with nothing to bind: AppKit's own keys (⌘↑, ⇥) and Wisp's smart-editing
-/// triggers.
+/// The help page's content and typesetting, pure functions of the keymap so they test without a
+/// window. Rows read chords from the live keymap; the literal ones have nothing to bind.
 public struct HelpDocument: Equatable, Sendable {
     public struct Row: Equatable, Sendable {
-        /// Right-aligned in the key gutter. Several alternatives for one
-        /// idea are joined with a middot; an alias list for a single action
-        /// arrives from `Keymap.display` joined with a slash.
+        /// A middot joins separate actions; a slash joins one action's aliases.
         public let key: String
         public let detail: String
 
@@ -44,9 +33,6 @@ public struct HelpDocument: Equatable, Sendable {
     public static func make(keymap: Keymap) -> HelpDocument {
         func chord(_ action: KeymapAction) -> String { keymap.display(action) }
 
-        /// Distinct actions that read as one idea — "larger · smaller ·
-        /// reset text". The middot separates *actions*; a slash inside any
-        /// one of these separates that action's own aliases.
         func group(_ actions: KeymapAction...) -> String {
             actions.map(chord).joined(separator: " · ")
         }
@@ -77,8 +63,7 @@ public struct HelpDocument: Equatable, Sendable {
                 Row(chord(.bulletedList), "toggle bulleted list"),
                 Row(chord(.checklist), "toggle checklist · check it off"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
-                // Two rows, not one: six chords don't fit the key gutter, and a
-                // key wider than its right-aligned stop runs over the detail.
+                // Split in two: six chords overflow the key gutter.
                 Row(group(.bold, .highlight, .italic), "bold · highlight · italic"),
                 Row(
                     group(.underline, .strikethrough, .code),
@@ -102,12 +87,7 @@ public struct HelpDocument: Equatable, Sendable {
     }
 }
 
-/// Everything the renderer needs that isn't content: two resolved faces,
-/// three colors, and the geometry of the key gutter.
-///
-/// Fonts arrive resolved rather than as sizes so `HelpDocument` never has to
-/// reach into `Typography`, which is `@MainActor` — the renderer stays a
-/// plain function a test can call.
+/// Resolved fonts rather than sizes, so rendering never reaches into main-actor `Typography`.
 public struct HelpTextStyle: Equatable {
     public var rowFont: NSFont
     public var sectionFont: NSFont
@@ -115,8 +95,7 @@ public struct HelpTextStyle: Equatable {
     public var detailColor: NSColor
     public var sectionColor: NSColor
 
-    /// A section title's look, shared with the sticky header that pins a
-    /// copy of it, so the copy lands exactly on top of the real one.
+    /// Shared with the sticky header, so its copy lands exactly on the real title.
     public var sectionTitleAttributes: [NSAttributedString.Key: Any] {
         [
             .font: sectionFont,
@@ -136,19 +115,13 @@ public struct HelpTextStyle: Equatable {
         self.sectionColor = sectionColor
     }
 
-    /// The key gutter's right edge and the gap to the description, both in
-    /// multiples of the row size so the two columns keep their proportions
-    /// as the text scale moves.
+    /// In multiples of the row size, so the columns keep their proportions as the scale moves.
     public var keyColumnWidth: CGFloat { rowFont.pointSize * Metrics.helpKeyColumnRatio }
     public var columnGap: CGFloat { rowFont.pointSize * Metrics.helpColumnGapRatio }
     public var detailIndent: CGFloat { keyColumnWidth + columnGap }
 }
 
-/// A typeset help page, plus where its section titles landed.
-///
-/// The ranges are what the sticky header needs: they turn into y positions
-/// through the layout manager, which is the only way to know when one
-/// section has scrolled far enough to hand off to the next.
+/// A typeset help page. The sticky header turns the title ranges into y positions.
 public struct RenderedHelp {
     public let attributed: NSAttributedString
     /// Index-aligned to `HelpDocument.sections`.
@@ -156,10 +129,7 @@ public struct RenderedHelp {
 }
 
 extension HelpDocument {
-    /// The page as plain text, character for character what `render` puts in
-    /// the text storage — which is what lets find search this without a
-    /// window, and hand back ranges the text view can highlight directly.
-    /// `HelpDocumentTests` pins the two together.
+    /// Exactly the text `render` produces, so find can search it and highlight the same ranges.
     public var plainText: String {
         sections.map { section in
             section.title.uppercased() + "\n"
@@ -177,15 +147,12 @@ extension HelpDocument {
             var attributes = style.sectionTitleAttributes
             attributes[.paragraphStyle] = Self.sectionParagraphStyle(isFirst: index == 0)
             output.append(NSAttributedString(string: title + "\n", attributes: attributes))
-            // The trailing newline belongs to the paragraph, not the title —
-            // a sticky header measuring the line break would sit a fragment
-            // low.
+            // Stops before the newline, or the sticky header would sit a fragment low.
             titleRanges.append(NSRange(location: start, length: (title as NSString).length))
 
             let rowStyle = Self.rowParagraphStyle(style: style)
             for row in section.rows {
-                // Leading tab first: it is what carries the caret to the
-                // right-aligned stop, so the key ends flush at the gutter.
+                // The leading tab carries the key to the right-aligned stop.
                 output.append(
                     NSAttributedString(
                         string: "\t" + row.key + "\t",
@@ -208,9 +175,7 @@ extension HelpDocument {
         return RenderedHelp(attributed: output, sectionTitleRanges: titleRanges)
     }
 
-    /// The first section takes none: its gap is in the text container's own
-    /// inset, where AppKit can't decline to draw it. See the note on
-    /// `Metrics.helpRowSpacing`.
+    /// The first section's gap is the container inset; see `Metrics.helpRowSpacing`.
     private static func sectionParagraphStyle(isFirst: Bool) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.paragraphSpacingBefore = isFirst ? 0 : Metrics.chromeInsetY
@@ -220,16 +185,13 @@ extension HelpDocument {
 
     private static func rowParagraphStyle(style: HelpTextStyle) -> NSParagraphStyle {
         let paragraph = NSMutableParagraphStyle()
-        // Right stop for the key, left stop for the description. `headIndent`
-        // repeats the left stop so a description that wraps lines up under
-        // itself rather than running back under the gutter.
+        // `headIndent` repeats the left stop so a wrapped description lines up under itself.
         paragraph.tabStops = [
             NSTextTab(textAlignment: .right, location: style.keyColumnWidth),
             NSTextTab(textAlignment: .left, location: style.detailIndent),
         ]
         paragraph.headIndent = style.detailIndent
-        // Past the last explicit stop AppKit falls back to this interval; put
-        // it beyond the gutter so a stray default stop can't catch a tab.
+        // Beyond the gutter, so no default stop can catch a tab.
         paragraph.defaultTabInterval = style.detailIndent
         paragraph.paragraphSpacingBefore = Metrics.helpRowSpacing
         paragraph.paragraphSpacing = Metrics.helpRowSpacing

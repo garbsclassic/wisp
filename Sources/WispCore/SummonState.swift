@@ -1,13 +1,7 @@
-/// What the summon chord has left the panel doing. Mirrors Clef's
-/// `HUDController.State`: tap to pin, hold to peek.
-///
-/// Pure transitions only. The controller owns the timers that produce
-/// `holdElapsed` and `modifiersReleased`, and the showing and hiding that
-/// follow from a change.
+/// Tap to pin, hold to peek, as in Clef's `HUDController.State`. Timers live in the controller.
 public enum SummonState: Equatable, Sendable {
     case hidden
-    /// On screen with the mode still open: the chord is down and hasn't been
-    /// held long enough to be a peek, nor let go of to become a pin.
+    /// Chord down, not yet held long enough to peek nor released to pin.
     case summoning
     /// Up for as long as the chord is held; gone when it's let go.
     case peeking
@@ -16,16 +10,13 @@ public enum SummonState: Equatable, Sendable {
 
     public enum Event: Equatable, Sendable {
         case chordDown
-        /// The chord's key came up. `modifiersHeld` is whether the chord's
-        /// modifiers are all still down, which keeps a peek open until they
-        /// lift too.
+        /// The key came up; `modifiersHeld` keeps a peek open until the modifiers lift too.
         case chordUp(modifiersHeld: Bool)
         /// The chord has been held for `peekHold`.
         case holdElapsed
         /// A peek's modifiers lifted after its key already had.
         case modifiersReleased
-        /// The status item's left click, and anything else that opens the
-        /// panel without a chord to time.
+        /// The status item's click, or anything else that opens the panel without a chord.
         case togglePin
         case dismiss
     }

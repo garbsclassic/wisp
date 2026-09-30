@@ -1,14 +1,8 @@
 import Foundation
 
-/// Every line of a note, classified by the Markdown block it belongs to, in one forward pass.
-///
-/// Whether `---` is a rule or a heading underline, and whether `#` starts a heading, depends on
-/// the lines above: an open paragraph, a list item, a code fence, frontmatter. Deciding one line
-/// in isolation means rescanning its neighbours, which turns every pass over the note quadratic.
-/// Classify once per edit instead, and read the result.
-///
-/// The scanners read UTF-16 units directly. A regex literal in a function body is rebuilt on
-/// every call, which costs about 75 µs each, and these run for every line on every keystroke.
+/// Every line of a note classified by Markdown block in one forward pass: whether `---` is a rule
+/// or an underline depends on the lines above, and rescanning them per line is quadratic. The
+/// scanners read UTF-16 units, since a regex literal in a function body is rebuilt every call.
 public struct MarkdownBlocks: Sendable {
     public enum Kind: Equatable, Sendable {
         case blank
@@ -18,7 +12,6 @@ public struct MarkdownBlocks: Sendable {
         case listItem
         case quote
         case tableRow
-        /// A `#` heading; `level` is the number of `#`.
         case heading(level: Int)
         /// `===` (level 1) or `---` (level 2) under the paragraph that starts at `paragraphStart`.
         case setextUnderline(level: Int, paragraphStart: Int)
@@ -147,9 +140,7 @@ public struct MarkdownBlocks: Sendable {
         return nil
     }
 
-    /// Everything in the note that is code rather than prose: fenced and indented blocks with
-    /// their fences, frontmatter, and `` `inline` `` spans. For the spellchecker, which would
-    /// otherwise mark every identifier.
+    /// Code and metadata lines, and `` `inline` `` spans, for the spellchecker to skip.
     public func codeRanges(in text: NSString) -> [NSRange] {
         let escapes = Escapes.scan(text)
         var ranges: [NSRange] = []
@@ -166,10 +157,8 @@ public struct MarkdownBlocks: Sendable {
         return ranges
     }
 
-    /// The `` `inline` `` spans in `range`, which shouldn't cross a line, read the way the
-    /// styling pass's `` `[^`\n]+` `` over escape-masked text reads them: an escaped backtick
-    /// is text, and an empty pair is two backticks rather than a span. `open` is where a
-    /// backtick still waiting for its closer sits at the end of the range.
+    /// The `` `inline` `` spans in one line's `range`, as the styling pass reads them: an escaped
+    /// backtick is text and an empty pair isn't a span. `open` is a backtick yet to close.
     public static func codeSpans(
         in text: NSString, over range: NSRange, escapes: Escapes.Marks
     ) -> (spans: [NSRange], open: Int?) {
@@ -187,8 +176,7 @@ public struct MarkdownBlocks: Sendable {
         return (spans, open)
     }
 
-    /// Where a line's content ends: before its `\n`, and before a `\r` ahead of it, so a note
-    /// saved with CRLF line endings reads the same as one with LF.
+    /// Before the `\n`, and before a `\r` ahead of it, so CRLF notes read like LF ones.
     public static func contentEnd(of lineRange: NSRange, in text: NSString) -> Int {
         var end = lineRange.location + LineEdits.contentLength(of: lineRange, in: text)
         if end > lineRange.location, text.character(at: end - 1) == 0x0D { end -= 1 }
@@ -206,9 +194,7 @@ public struct MarkdownBlocks: Sendable {
         Scan(line: lineRange, in: text).isRuleShaped
     }
 
-    /// Where frontmatter ends: past the next `---` line, when the note's first line is `---`.
-    /// Zero when the note has none, and then a first-line `---` is a rule. Obsidian closes
-    /// frontmatter only with `---`, not YAML's `...`.
+    /// Past the next `---` when the first line is `---`, else 0. Obsidian doesn't close on `...`.
     private static func frontmatterEnd(in text: NSString) -> Int {
         let first = text.lineRange(for: NSRange(location: 0, length: 0))
         guard first.length > 0, Scan(line: first, in: text).isExactly("---") else { return 0 }
@@ -327,11 +313,8 @@ private struct Scan {
         return count >= 3
     }
 
-    /// An opening fence: three or more backticks or tildes. A backtick fence's info string
-    /// can't contain a backtick, so ```` ```ls``` ```` is inline code, not a fence.
-    ///
-    /// Any indent, where CommonMark stops at three spaces and reads the rest as indented code:
-    /// a fence typed after ⇥, or nested under a list item, is meant as a fence.
+    /// Three or more backticks or tildes, at any indent: a fence typed after ⇥ is meant as one.
+    /// A backtick fence's info string can't hold a backtick, so ```` ```ls``` ```` is inline code.
     func opensFence() -> (mark: unichar, count: Int)? {
         let index = afterWhitespace
         guard index < end else { return nil }

@@ -1,28 +1,15 @@
 import Foundation
 
 public enum SmartEditing {
-    /// Plain-text horizontal rule, stored as the markdown-standard
-    /// `---`. The visual full-width line is drawn by the custom layout
-    /// manager (NotesLayoutManager) — the on-disk text is
-    /// just three dashes, so rendering tracks the panel's width and
-    /// the file remains portable plain markdown.
+    /// Stored as plain `---`; `NotesLayoutManager` draws the full-width line.
     public static let horizontalRule = "---"
 
-    /// Given a line of text, return the marker to insert on the next line if
-    /// this line is a list item. Returns `nil` if not a list, or the next
-    /// marker (e.g. `"- "`, `"3. "`, `"  B. "`). Returns an empty string when
-    /// the current line is an empty list item — the caller should treat that
-    /// as a signal to exit the list.
-    ///
-    /// The line's own leading whitespace is part of what comes back, so ↵ on a
-    /// nested item continues the list at the depth it was already at rather
-    /// than dropping it back to the margin.
+    /// The marker ↵ continues a list item with, indent included, or nil off a list. "" for an
+    /// empty item, the signal to leave the list.
     public static func nextListMarker(for line: String) -> String? {
         // `* * *` and `- - -` would otherwise continue as bullets.
         if isRuleShaped(line) { return nil }
-        // Before the plain bullet, which this would otherwise match as a
-        // bullet whose content is `[ ]`. The next box is always empty —
-        // a new checklist starts undone whatever the one above it says.
+        // Before the plain bullet, which would take `[ ]` as content. A new box starts undone.
         if let match = line.firstMatch(of: /^([ \t]*)([-*+])[ \t]+\[[ xX]\]\s/) {
             if isEmptyAfter(match.range, in: line) { return "" }
             return "\(match.1)\(match.2) [ ] "
@@ -54,9 +41,6 @@ public enum SmartEditing {
         return nil
     }
 
-    /// The leading spaces and tabs on `line`, for carrying an indent onto the
-    /// next one. Empty when the line is flush left, which is the caller's
-    /// signal to leave ↵ to AppKit.
     public static func leadingIndent(of line: String) -> String {
         String(line.prefix { $0 == " " || $0 == "\t" })
     }
@@ -72,21 +56,14 @@ public enum SmartEditing {
 
     // MARK: List structure
 
-    /// A list line taken apart: where its indent, marker, and content
-    /// each begin. Offsets are absolute, into the whole text, so the
-    /// styling pass can apply attributes straight from one of these.
+    /// A list line taken apart, with offsets into the whole text.
     public struct ListItem: Equatable {
-        /// What kind of marker leads the line. Only `bullet` is drawn as
-        /// a glyph — an ordered marker *is* its own content, and swapping
-        /// it for a symbol would lose the number.
         public enum Marker: Equatable {
             /// `-`, `*`, or `+`.
             case bullet
             /// `1.`, `1)`, `A.`, or `a.`.
             case ordered
-            /// `- [ ]` or `- [x]`, any bullet character. The box is part
-            /// of the marker, not the content: it is drawn as one glyph
-            /// and the caret's stops treat it as chrome.
+            /// `- [ ]` or `- [x]`, any bullet character; the box is part of the marker.
             case checklist(checked: Bool)
 
             public var isChecklist: Bool {
@@ -96,54 +73,39 @@ public enum SmartEditing {
         }
 
         public let marker: Marker
-        /// The marker characters themselves — not the whitespace on
-        /// either side. This is the range the bullet glyph replaces.
+        /// The marker characters, without the whitespace around them.
         public let markerRange: NSRange
-        /// Where the item's text starts, past the whitespace after the
-        /// marker. Wrapped lines hang to here.
+        /// Past the whitespace after the marker; wrapped lines hang here.
         public let contentStart: Int
         /// Leading whitespace, in characters.
         public let indentWidth: Int
 
-        /// Nesting level, counting from zero. Whitespace that doesn't
-        /// divide evenly rounds down, so a hand-typed three-space indent
-        /// under a two-space setting still reads as one level in rather
-        /// than as none.
+        /// Zero-based; an uneven indent rounds down.
         public func depth(indentWidth unit: Int) -> Int {
             guard unit > 0 else { return 0 }
             return indentWidth / unit
         }
 
-        /// Whether the marker is chrome — painted clear, and drawn over by
-        /// `NotesLayoutManager` — rather than content. Only an ordered
-        /// marker is content: `1.` stays visible as itself.
+        /// Painted clear and drawn over by `NotesLayoutManager`; only an ordered marker shows.
         public var isMarkerHidden: Bool {
             if case .ordered = marker { return false }
             return true
         }
 
-        /// The character typeset in place of a bullet. Nil for a checklist,
-        /// whose box is drawn rather than typeset, and for an ordered
-        /// marker, which is its own content.
+        /// The character typeset in place of a bullet; nil for a checklist or ordered marker.
         public func glyph(indentWidth unit: Int) -> String? {
             guard case .bullet = marker else { return nil }
             return bulletGlyph(depth: depth(indentWidth: unit))
         }
 
-        /// The character inside a checklist's box — the ` ` or `x` — which is
-        /// the one character a check toggles.
+        /// The ` ` or `x` a check toggles.
         public var checklistStateIndex: Int? {
             marker.isChecklist ? NSMaxRange(markerRange) - 2 : nil
         }
     }
 
-    /// Parses `lineRange` as a list item, or returns nil if it isn't one.
-    ///
-    /// Deliberately stricter than `nextListMarker`: that one runs on Enter
-    /// against the line you just typed, while this runs on every line of
-    /// the document on every keystroke, and a false positive here shows up
-    /// as a stray glyph rather than a missed continuation. A marker with no
-    /// whitespace after it isn't a list item — `-word` is a hyphen.
+    /// Stricter than `nextListMarker`, since this styles every line and a false positive is a
+    /// stray glyph. A marker needs whitespace after it: `-word` is a hyphen.
     public static func listItem(lineRange: NSRange, in text: NSString) -> ListItem? {
         var contentEnd = NSMaxRange(lineRange)
         if contentEnd > lineRange.location, text.character(at: contentEnd - 1) == 0x0A {
@@ -155,17 +117,14 @@ public enum SmartEditing {
         let indentWidth = index - lineRange.location
         let markerStart = index
 
-        // A rule shape (`- - -`, `* * *`) would otherwise parse as a bullet whose content is
-        // the rest of the marks.
+        // A rule shape would otherwise parse as a bullet.
         if MarkdownBlocks.isRuleShaped(lineRange: lineRange, in: text) { return nil }
 
         var marker: ListItem.Marker
         if index < contentEnd, isBulletCharacter(text.character(at: index)) {
             marker = .bullet
             index += 1
-            // `- [ ] ` and `- [x] `. The box needs whitespace after it
-            // like any marker does; `- [ ]` alone at the end of a line is
-            // a bullet whose content is the box, until the space arrives.
+            // `- [ ]` with nothing after it is a bullet until the space arrives.
             if let box = checklistBox(at: index, before: contentEnd, in: text) {
                 marker = .checklist(checked: box.checked)
                 index = box.end
@@ -176,13 +135,11 @@ public enum SmartEditing {
             {
                 digits += 1
                 index += 1
-                // `A.` and `a.` are single-character markers; only digits
-                // run on.
+                // Only digits run on; a letter marker is one character.
                 if !isDigit(text.character(at: index - 1)) { break }
             }
             guard digits > 0, index < contentEnd else { return nil }
-            // `.` after any marker; `)` only after digits, as CommonMark has it, so `a)` stays
-            // text.
+            // `)` only after digits, as CommonMark has it, so `a)` stays text.
             let delimiter = text.character(at: index)
             let afterDigits = isDigit(text.character(at: index - 1))
             guard delimiter == 0x2E || (delimiter == 0x29 && afterDigits) else { return nil }
@@ -191,8 +148,6 @@ public enum SmartEditing {
         }
         let markerRange = NSRange(location: markerStart, length: index - markerStart)
 
-        // The whitespace after the marker is required, and is what
-        // separates a list item from a stray character.
         guard index < contentEnd, isSpaceOrTab(text.character(at: index)) else { return nil }
         while index < contentEnd, isSpaceOrTab(text.character(at: index)) { index += 1 }
 
@@ -201,23 +156,15 @@ public enum SmartEditing {
             indentWidth: indentWidth)
     }
 
-    /// Where Home lands on a list line: the start of the item's text, or
-    /// column 0 when the cursor is already there. The marker is chrome
-    /// rather than content — it is drawn as a glyph — so the stop a
-    /// second press adds is the one that puts the cursor before it. Nil
-    /// off a list line, which keeps the ordinary behavior.
+    /// Home on a list line: the item's text, or column 0 from there. Nil off a list line.
     public static func homeTarget(in text: NSString, cursor: Int) -> Int? {
         let line = LineEdits.lineRange(in: text, at: cursor)
         guard let item = listItem(lineRange: line, in: text) else { return nil }
         return cursor == item.contentStart ? line.location : item.contentStart
     }
 
-    /// ↵ in a list or on an indented line, or nil to leave the key to AppKit,
-    /// which keeps undo coalescing on the common path. `shifted` is ⇧↵: inside
-    /// an item it starts a continuation line, anywhere else it is a plain ↵.
-    /// The typed-rule shortcut, `ruleOnReturn`, is the caller's to try first.
-    ///
-    /// Over a selection the selection goes, as AppKit's own newline does.
+    /// ↵ in a list or on an indented line, or nil to leave it to AppKit and keep undo coalescing.
+    /// ⇧↵ in an item starts a continuation line. The caller tries `ruleOnReturn` first.
     public static func returnEdit(
         in text: NSString, selection: NSRange, shifted: Bool, unit: String
     ) -> LineEdits.Edit? {
@@ -235,8 +182,7 @@ public enum SmartEditing {
             length: MarkdownBlocks.contentEnd(of: lineRange, in: text) - lineRange.location)
         let line = text.substring(with: content)
 
-        // On a continuation line: the next item, at the depth and with the
-        // marker of the item the line belongs to.
+        // On a continuation line, the owning item's next marker.
         if let continued = continuedItem(lineRange: lineRange, in: text),
             cursor >= lineRange.location + leadingIndent(of: line).utf16.count,
             let marker = nextListMarker(
@@ -249,11 +195,7 @@ public enum SmartEditing {
         }
 
         guard let marker = nextListMarker(for: line) else {
-            // Not a list, but an indented line still carries its indent onto
-            // the next one, where AppKit's newline would land at the margin.
-            // The indent up to the *cursor*, not the whole line's: splitting
-            // inside the leading run would otherwise hand the tail a full
-            // copy of the indent on top of the whitespace it already carries.
+            // Carry the indent up to the cursor, so a split inside the indent doesn't double it.
             let head = text.substring(
                 with: NSRange(location: lineRange.location, length: cursor - lineRange.location))
             let indent = leadingIndent(of: head)
@@ -261,10 +203,8 @@ public enum SmartEditing {
         }
         guard marker.isEmpty else { return .insert("\n" + marker, replacing: selection) }
 
-        // An empty item. A nested one steps out a level per press, and a
-        // flush-left one leaves the list — in both cases in place, with no
-        // new line: the item was the blank line the user wanted. A selection
-        // reaching past the line is a delete first, and takes a plain ↵.
+        // An empty item steps out a level, or leaves the list when flush, in place. A selection
+        // past the line takes a plain ↵.
         if selection.length == 0 {
             return .insert(outdentedEmptyItem(line, unit: unit) ?? "", replacing: content)
         }
@@ -274,13 +214,8 @@ public enum SmartEditing {
                 location: lineRange.location, length: NSMaxRange(selection) - lineRange.location))
     }
 
-    /// ↵ with the caret before a list item's text — at column 0, or inside
-    /// the indent or marker. There is nothing to split there: continuing
-    /// the list would put a fresh marker in front of the one already on
-    /// the line (`- - foo`). Instead the item moves down intact and the
-    /// caret rides with it, which is what Obsidian and iA Writer do. Nil
-    /// off a list line or once the caret reaches the content, where the
-    /// ordinary continuation applies.
+    /// ↵ before an item's text moves the item down intact, as Obsidian does, rather than making
+    /// `- - foo`.
     public static func newlineBeforeItem(in text: NSString, cursor: Int) -> LineEdits.Edit? {
         let line = LineEdits.lineRange(in: text, at: cursor)
         guard let item = listItem(lineRange: line, in: text), cursor < item.contentStart else {
@@ -291,12 +226,8 @@ public enum SmartEditing {
             selection: NSRange(location: line.location + 1, length: 0))
     }
 
-    /// ⌫ with the caret at the start of an item's text. What comes off is
-    /// the marker and the whitespace after it, not the one space before
-    /// the caret — deleting that leaves `-item`, which silently stops
-    /// being a list item anyway. The indent stays, so a nested item
-    /// becomes a nested line; ⇧⇥ is the key for flattening it. Nil
-    /// anywhere else on the line, where ⌫ is an ordinary ⌫.
+    /// ⌫ at the start of an item's text removes the marker and keeps the indent; one space would
+    /// leave `-item`.
     public static func backspaceAtItemStart(in text: NSString, cursor: Int) -> LineEdits.Edit? {
         let line = LineEdits.lineRange(in: text, at: cursor)
         guard let item = listItem(lineRange: line, in: text), cursor == item.contentStart else {
@@ -308,22 +239,14 @@ public enum SmartEditing {
             selection: NSRange(location: markerStart, length: 0))
     }
 
-    /// ↵ on an empty item that is nested: the line, one level shallower.
-    /// Each press steps out a level and only the last leaves the list —
-    /// the only way ↵ alone can walk a caret back up to its parent. Nil
-    /// for a flush-left item, which is the signal to exit. The level is
-    /// `LineEdits.outdent`'s: one leading tab, or up to a unit of spaces.
+    /// An empty nested item one level shallower, by `LineEdits.leadingLevel`. Nil when flush left.
     public static func outdentedEmptyItem(_ line: String, unit: String) -> String? {
         guard !leadingIndent(of: line).isEmpty else { return nil }
         return String(line.dropFirst(LineEdits.leadingLevel(of: line, unit: unit)))
     }
 
-    /// ⇧↵ inside an item's text: a newline plus whitespace out to the
-    /// content column, so the next line reads as more of the same item.
-    /// CommonMark's own spelling of a continuation, which is what keeps
-    /// it an item in Obsidian too. The indent is copied as written — tabs
-    /// stay tabs — and only the marker's width is padded with spaces.
-    /// Nil off a list line or with the caret before the content.
+    /// ⇧↵ in an item's text: a newline and whitespace out to the content column, CommonMark's
+    /// continuation. The indent is copied as written; only the marker's width becomes spaces.
     public static func continuationLine(in text: NSString, cursor: Int) -> String? {
         let line = LineEdits.lineRange(in: text, at: cursor)
         let item: ListItem
@@ -332,8 +255,7 @@ public enum SmartEditing {
             guard cursor >= own.contentStart else { return nil }
             (item, itemLine) = (own, line)
         } else if let continued = continuedItem(lineRange: line, in: text) {
-            // On a continuation line the caret has to be past the
-            // whitespace, the same as being past an item's marker.
+            // Past the whitespace, as past a marker.
             guard cursor >= line.location + leadingIndent(of: text.substring(with: line)).utf16.count
             else { return nil }
             (item, itemLine) = continued
@@ -346,12 +268,8 @@ public enum SmartEditing {
         return "\n" + indent + String(repeating: " ", count: markerColumns)
     }
 
-    /// Whether a non-list line is a continuation of the item above it:
-    /// its leading whitespace reaches the item's content column. Text
-    /// after the whitespace is not required — a whitespace-only line
-    /// that reaches the column is what ⇧↵ has just written, and it has
-    /// to be styled as the continuation it is about to become or the
-    /// caret sits at the wrong column until the first character lands.
+    /// Leading whitespace reaching the item's content column. A whitespace-only line counts, since
+    /// that is what ⇧↵ just wrote.
     public static func isContinuation(
         lineRange: NSRange, in text: NSString, of item: ListItem, itemLine: NSRange
     ) -> Bool {
@@ -362,11 +280,7 @@ public enum SmartEditing {
         return index - lineRange.location >= contentColumn
     }
 
-    /// The item a continuation line belongs to: walking up over any
-    /// continuation lines, the first list item whose content column the
-    /// line's whitespace reaches. Nil when the line isn't a continuation
-    /// of anything. `nextListMarker` on the item's line is then what ↵
-    /// continues with.
+    /// The item a continuation line belongs to, walking up over other continuation lines.
     public static func continuedItem(
         lineRange: NSRange, in text: NSString
     ) -> (item: ListItem, line: NSRange)? {
@@ -378,8 +292,7 @@ public enum SmartEditing {
                 return isContinuation(lineRange: lineRange, in: text, of: item, itemLine: line)
                     ? (item, line) : nil
             }
-            // Only whitespace-led lines can sit between an item and its
-            // continuation; an empty line ends the item.
+            // Only whitespace-led lines sit between an item and its continuation.
             guard line.length > 0, isSpaceOrTab(text.character(at: line.location))
             else { return nil }
             cursor = line.location
@@ -389,11 +302,8 @@ public enum SmartEditing {
 
     // MARK: Indent guides
 
-    /// How deep a line sits for the purpose of indent guides, or nil when
-    /// it is outside any list. An item is its own depth; a continuation
-    /// line takes its item's; a blank line between two list lines takes
-    /// the shallower of the two, so a loose list keeps its guides through
-    /// the gaps. Any other line is outside the list.
+    /// A line's depth for indent guides, or nil outside a list. A blank between list lines takes
+    /// the shallower depth, so a loose list keeps its guides.
     public static func guideDepth(
         lineRange: NSRange, in text: NSString, indentWidth: Int
     ) -> Int? {
@@ -409,13 +319,8 @@ public enum SmartEditing {
         return min(above, below)
     }
 
-    /// The items a nested line hangs under, one slot per level from 0 to
-    /// `depth - 1`, found by walking up over deeper items, continuation
-    /// lines, and blanks until a line outside the list. An item at a
-    /// shallower level than the one being sought fills every slot down
-    /// to its own — a hand-typed jump of two levels still hangs under
-    /// the one parent it has. A slot stays nil when nothing above is
-    /// shallow enough.
+    /// The items a nested line hangs under, one slot per level. A parent two levels up fills both
+    /// slots; a slot stays nil when nothing above is shallow enough.
     public static func ancestors(
         of lineRange: NSRange, depth: Int, in text: NSString, indentWidth: Int
     ) -> [(item: ListItem, line: NSRange)?] {
@@ -446,8 +351,7 @@ public enum SmartEditing {
         return continuedItem(lineRange: lineRange, in: text)?.item.depth(indentWidth: indentWidth)
     }
 
-    /// Skipping blank lines, the depth of the first list line in the
-    /// direction `step` walks; nil at a non-list line or the document's edge.
+    /// The first list line's depth in `step`'s direction, skipping blanks.
     private static func nearestListDepth(
         from lineRange: NSRange, in text: NSString, indentWidth: Int,
         stepping step: (NSRange, NSString) -> NSRange?
@@ -477,30 +381,22 @@ public enum SmartEditing {
         return LineEdits.lineRange(in: text, at: NSMaxRange(lineRange))
     }
 
-    /// Ordered markers put back in sequence. A run is consecutive items
-    /// at one indent with one kind of marker — `1.`, `1)`, `A.`, or `a.` —
-    /// and the first item's value is kept, so a list can start at 3 or
-    /// at C. Deeper items, continuation lines, and any indented line
-    /// sit inside a run without breaking it; a blank line, a flush
-    /// non-list line, a bullet at the run's depth, or an item at a
-    /// shallower depth all end it. The result is the set of markers
-    /// that differ from what the sequence says, as pre-edit ranges.
-    /// Digits beyond this are a serial number, not a position, and are
-    /// left alone. Also keeps `value + 1` clear of overflow.
+    /// Longer digit runs are serial numbers, not positions, and stay as typed.
     public static let maxCountedDigits = 9
 
+    /// Ordered markers put back in sequence, as edits. A run is consecutive items at one indent
+    /// with one marker kind, counting from the first item's value; deeper and indented lines stay
+    /// inside it, and a blank, a flush line, a bullet, or a shallower item ends it.
     public static func renumber(
         in text: NSString, blocks: MarkdownBlocks? = nil
     ) -> [LineEdits.Edit] {
         enum Kind { case digits, upper, lower }
-        // The delimiter is part of a run's identity: `1.` then `1)` starts a new list, as in
-        // CommonMark.
+        // `1.` then `1)` starts a new list, as in CommonMark.
         struct Run { let kind: Kind; let delimiter: unichar; var next: Int }
         var runs: [Int: Run] = [:]
         var edits: [LineEdits.Edit] = []
         for block in (blocks ?? MarkdownBlocks(text)).lines {
-            // A `1.` in a code block or in frontmatter is text to keep as written, not a list
-            // item.
+            // A `1.` in code or frontmatter is text.
             if block.kind == .fencedCode || block.kind == .frontmatter { continue }
             let line = block.range
 
@@ -530,8 +426,7 @@ public enum SmartEditing {
                 kind = .digits
                 value = n
             } else {
-                // A marker too long to be a count is left as typed, and
-                // ends the run rather than being counted across.
+                // Too long to count: left as typed, and it ends the run.
                 runs[item.indentWidth] = nil
                 continue
             }
@@ -559,9 +454,7 @@ public enum SmartEditing {
         return edits
     }
 
-    /// Flips the box on the checklist line at `index`: `[ ]` to `[x]` or back.
-    /// A one-character swap, so `selection` survives it untouched. Nil
-    /// off a checklist line.
+    /// `[ ]` to `[x]` or back: a one-character swap, so `selection` survives it.
     public static func toggledChecklist(
         in text: NSString, lineAt index: Int, selection: NSRange
     ) -> LineEdits.Edit? {
@@ -574,24 +467,17 @@ public enum SmartEditing {
             selection: selection)
     }
 
-    /// The glyph drawn in place of a hidden bullet marker at each nesting
-    /// level.
+    /// One per nesting level.
     public static let bulletGlyphs = ["•", "◦", "▪"]
 
-    /// Cycles rather than clamping past the last glyph, the way Word and
-    /// Docs do. The indent already states the absolute depth, so what a
-    /// fourth level needs from its glyph is to look different from its
-    /// parent — not to be a fourth distinct symbol.
+    /// Cycles past the last glyph, as Word does: a level only needs to differ from its parent.
     public static func bulletGlyph(depth: Int) -> String {
         let count = bulletGlyphs.count
         return bulletGlyphs[((depth % count) + count) % count]
     }
 
-    /// Whitespace, then `[ ]` or `[x]`, then more whitespace, starting at
-    /// `index`. Any run of whitespace before the box, not one space: a
-    /// tab-separated `-\t[ ] foo` is a checklist too, and ⌘⇧L puts the box
-    /// after whatever whitespace the marker already had. `end` is the
-    /// index one past the closing bracket.
+    /// Whitespace, `[ ]` or `[x]`, then whitespace; any run before the box, so `-\t[ ] foo`
+    /// counts. The returned `end` is just past the `]`.
     private static func checklistBox(
         at index: Int, before end: Int, in text: NSString
     ) -> (checked: Bool, end: Int)? {

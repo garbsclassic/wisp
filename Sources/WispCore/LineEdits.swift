@@ -1,18 +1,9 @@
 import Foundation
 
-/// Line-oriented edits as pure range arithmetic: given the text and the
-/// current selection, produce the one replacement that performs the edit
-/// and where the selection lands afterwards.
-///
-/// Kept out of the text view on purpose. Every one of these has edges that
-/// are easy to get wrong and awkward to reach through the UI — a last line
-/// with no trailing newline, a selection that ends exactly on a line
-/// boundary, a cursor sitting inside the whitespace an outdent is about to
-/// remove — and here they are ordinary unit tests.
+/// Line edits as pure range arithmetic: one replacement plus where the selection lands. Kept out
+/// of the text view so edge cases, like a last line with no newline, are ordinary unit tests.
 public enum LineEdits {
-    /// One replacement plus the selection to restore after applying it.
-    /// `range` is in the *pre-edit* text; `selection` is in the post-edit
-    /// text.
+    /// `range` is in the pre-edit text; `selection` is in the post-edit text.
     public struct Edit: Equatable {
         public let range: NSRange
         public let replacement: String
@@ -24,12 +15,10 @@ public enum LineEdits {
             self.selection = selection
         }
 
-        /// True when applying this would leave the text exactly as it is,
-        /// so callers can skip the undo group entirely.
+        /// Lets callers skip the undo group.
         public var isNoOp: Bool { range.length == 0 && replacement.isEmpty }
 
-        /// Replaces `range` and leaves the caret just after the replacement,
-        /// which is what typing it would have done.
+        /// Leaves the caret just after the replacement, as typing it would.
         public static func insert(_ replacement: String, replacing range: NSRange) -> Edit {
             Edit(
                 range: range, replacement: replacement,
@@ -46,11 +35,8 @@ public enum LineEdits {
 
     // MARK: Duplicate
 
-    /// ⌘D. With a selection, the selected text is copied in immediately
-    /// after itself and the copy is selected — so a second ⌘D duplicates
-    /// the duplicate rather than compounding. With no selection the whole
-    /// line is copied below, and the cursor rides onto the copy keeping
-    /// its column, which is what Xcode and VS Code both do.
+    /// ⌘D: a selection is copied after itself and the copy selected; with none, the line is
+    /// copied below and the caret keeps its column on the copy.
     public static func duplicate(in text: NSString, selection: NSRange) -> Edit {
         if selection.length > 0 {
             let copy = text.substring(with: selection)
@@ -73,9 +59,7 @@ public enum LineEdits {
                 replacement: content + "\n",
                 selection: NSRange(location: insertAt + column, length: 0))
         }
-        // Last line of the document, with nothing after it. The newline
-        // has to lead the copy rather than trail it, or the duplicate is
-        // appended to the line it was supposed to sit under.
+        // On a last line with no newline, the newline leads the copy.
         let content = text.substring(with: line)
         return Edit(
             range: NSRange(location: insertAt, length: 0),
@@ -85,15 +69,8 @@ public enum LineEdits {
 
     // MARK: Open a line
 
-    /// ⌘↩ / ⌘⇧↩. Opens a fresh line below or above the current one and
-    /// puts the caret on it, wherever on the line the caret was — the
-    /// "I'm done with this line" gesture from VS Code and Xcode. With a
-    /// selection, the line goes under its last line or over its first.
-    ///
-    /// The new line takes the current line's leading whitespace, so a note
-    /// nested under a list item stays nested, but no marker: ↵ and ⇧↵ are
-    /// the keys that continue a list, and this one is for stepping out of
-    /// what you were typing.
+    /// ⌘↩ / ⌘⇧↩: a new line below or above, wherever the caret is, as in VS Code. It keeps the
+    /// line's indent but not a list marker, since this steps out of what you were typing.
     public static func openLine(in text: NSString, selection: NSRange, below: Bool) -> Edit {
         let block = lineBlock(in: text, covering: selection)
         let line = below ? lineRange(in: text, at: max(block.location, NSMaxRange(block) - 1))
@@ -108,8 +85,7 @@ public enum LineEdits {
                 replacement: indent + "\n",
                 selection: NSRange(location: insertAt + indentLength, length: 0))
         }
-        // Last line of the document, with nothing after it: the newline
-        // leads rather than trails, as in `duplicate`.
+        // On a last line with no newline, the newline leads, as in `duplicate`.
         let insertAt = NSMaxRange(line)
         return Edit(
             range: NSRange(location: insertAt, length: 0),
@@ -125,11 +101,7 @@ public enum LineEdits {
 
     // MARK: Whole-line copy, cut, and paste
 
-    /// What ⌘C puts on the pasteboard when nothing is selected: the whole
-    /// line, newline included. The newline is what makes the round trip
-    /// idempotent — without it a paste lands mid-line instead of becoming
-    /// a line of its own, so it is appended even on a last line that has
-    /// none of its own.
+    /// ⌘C with nothing selected: the whole line, always with a newline so it pastes as a line.
     public static func lineForClipboard(
         in text: NSString, selection: NSRange
     ) -> (range: NSRange, string: String) {
@@ -138,9 +110,7 @@ public enum LineEdits {
         return (line, endsWithNewline(line, in: text) ? content : content + "\n")
     }
 
-    /// ⌘X with nothing selected. Removes the whole line and puts the
-    /// cursor at the same column on whatever line moved up into its
-    /// place, clamped to that line's length.
+    /// ⌘X with nothing selected: removes the line, keeping the column on the line that moves up.
     public static func cutLine(in text: NSString, selection: NSRange) -> Edit {
         let line = lineRange(in: text, at: selection.location)
         let column = selection.location - line.location
@@ -151,13 +121,8 @@ public enum LineEdits {
             selection: NSRange(location: line.location + min(column, followingLength), length: 0))
     }
 
-    /// ⌘V of a whole-line copy with nothing selected. The line goes in
-    /// *above* the current one rather than at the caret, so a copy-then-
-    /// paste round trip never splits the line the caret happens to be on.
-    /// The caret rides down with its line, column intact — what VS Code,
-    /// Sublime, and JetBrains all do with their own line-copy flag.
-    ///
-    /// `line` is what `lineForClipboard` produced, newline included.
+    /// ⌘V of a whole-line copy goes above the current line rather than splitting it, as in VS
+    /// Code. `line` comes from `lineForClipboard`.
     public static func pasteLine(in text: NSString, selection: NSRange, line: String) -> Edit {
         let current = lineRange(in: text, at: selection.location)
         return Edit(
@@ -169,18 +134,14 @@ public enum LineEdits {
 
     // MARK: Indent and outdent
 
-    /// Tab. Adds one `unit` to the front of every line the selection
-    /// touches.
+    /// ⇥: one `unit` at the front of every line the selection touches.
     public static func indent(in text: NSString, selection: NSRange, unit: String) -> Edit {
         rewriteLines(in: text, selection: selection) { _ in
             (inserted: unit, removed: 0)
         }
     }
 
-    /// ⇧Tab. Removes one level from the front of every line the selection
-    /// touches — a leading tab, or up to `unit`'s width in spaces. A line
-    /// already flush left is left alone, so outdenting a mixed block
-    /// doesn't drag the rest out of alignment.
+    /// ⇧⇥: one level off the front of every line the selection touches.
     public static func outdent(in text: NSString, selection: NSRange, unit: String) -> Edit {
         rewriteLines(in: text, selection: selection) { line in
             (inserted: "", removed: leadingLevel(of: line, unit: unit))
@@ -194,11 +155,8 @@ public enum LineEdits {
         return min(line.prefix { $0 == " " }.count, (unit as NSString).length)
     }
 
-    /// The length of one indent level just before `cursor`, looking no
-    /// further back than `floor`: a tab, or up to `unit`'s width in spaces.
-    /// One tab is one level, whatever the configured width says; and only the
-    /// spaces count, so a run of `\t  ` gives up its two spaces without also
-    /// losing the tab.
+    /// One indent level just before `cursor`, no further back than `floor`: a tab, or up to a unit
+    /// of spaces, so `\t  ` gives up its spaces before its tab.
     private static func levelBefore(
         _ cursor: Int, floor: Int, in text: NSString, unit: String
     ) -> Int {
@@ -210,15 +168,8 @@ public enum LineEdits {
         return min(spaces, (unit as NSString).length)
     }
 
-    /// ⇧⇥ with a bare cursor sitting after whitespace that is *not* the
-    /// line's own leading indent — the exact inverse of what a mid-line ⇥
-    /// inserts there. Without it, whitespace typed into the middle of a line
-    /// can be added but never taken back.
-    ///
-    /// Nil rather than a no-op `Edit` when there is nothing mid-line to take,
-    /// so the caller falls through to outdenting the whole line — which is
-    /// what ⇧⇥ means everywhere else, and what a cursor sitting *in* the
-    /// leading indent still gets.
+    /// ⇧⇥ after mid-line whitespace takes back what a mid-line ⇥ inserted. Nil otherwise, so the
+    /// caller outdents the whole line.
     public static func outdentAtCursor(
         in text: NSString, selection: NSRange, unit: String
     ) -> Edit? {
@@ -230,8 +181,7 @@ public enum LineEdits {
         while runStart > line.location, isSpaceOrTab(text.character(at: runStart - 1)) {
             runStart -= 1
         }
-        // Nothing before the cursor, or the run reaches the line start and so
-        // *is* the leading indent. Either way this is not our edit.
+        // Nothing to take, or the run is the leading indent.
         guard runStart < cursor, runStart > line.location else { return nil }
 
         let removed = levelBefore(cursor, floor: runStart, in: text, unit: unit)
@@ -239,14 +189,8 @@ public enum LineEdits {
         return .insert("", replacing: NSRange(location: cursor - removed, length: removed))
     }
 
-    /// ⌫ with a bare cursor and nothing but whitespace between it and the
-    /// line start: one indent level comes off, not one character. Obsidian's
-    /// behaviour, and the one that makes ⇥ ⌫ a round trip at the head of a
-    /// line. Nil anywhere else, so the caller falls through to a plain
-    /// delete.
-    ///
-    /// The mirror image of `outdentAtCursor`: that one wants the whitespace
-    /// run to stop short of the line start, this one wants it to reach it.
+    /// ⌫ with only whitespace before the caret takes one indent level, as Obsidian does, so ⇥ ⌫
+    /// round trips. Nil anywhere else.
     public static func backspaceInIndent(
         in text: NSString, selection: NSRange, unit: String
     ) -> Edit? {
@@ -264,12 +208,8 @@ public enum LineEdits {
 
     // MARK: Move and toggle
 
-    /// ⌥↑ / ⌥↓. Swaps the block of lines the selection touches with its
-    /// neighbour one line above (`steps` -1) or below (+1).
-    ///
-    /// Returns a no-op at either end of the note rather than wrapping —
-    /// carrying the top line to the bottom is never what the keypress
-    /// meant, and a no-op leaves the undo stack alone.
+    /// ⌥↑ / ⌥↓: swaps the selected lines with the neighbour above (-1) or below (+1). A no-op at
+    /// either end rather than wrapping.
     public static func moveLines(in text: NSString, selection: NSRange, by steps: Int) -> Edit {
         let noOp = Edit(
             range: NSRange(location: selection.location, length: 0), replacement: "",
@@ -290,8 +230,6 @@ public enum LineEdits {
         var lines = contentLines(of: combined, in: text)
         guard lines.count > 1 else { return noOp }
 
-        // The neighbour is whichever end the move came from; putting it on
-        // the other end is the whole operation.
         if steps < 0 {
             lines.append(lines.removeFirst())
         } else {
@@ -299,9 +237,7 @@ public enum LineEdits {
         }
         let joined = lines.joined(separator: "\n") + (trailingNewline ? "\n" : "")
 
-        // Where the moved block starts afterwards: at the top of the
-        // combined range going up, and one whole neighbour line further
-        // down going down.
+        // Where the moved block starts afterwards.
         let blockStart =
             steps < 0
             ? combined.location
@@ -313,14 +249,8 @@ public enum LineEdits {
             selection: NSRange(location: blockStart + offset, length: selection.length))
     }
 
-    /// ⌘L. Makes every line the selection touches a bullet item, or strips
-    /// the marker if they all already are.
-    ///
-    /// Mixed blocks become a list rather than losing their markers: "make
-    /// this a list" is what the key is usually reaching for, and unsetting
-    /// a half-list would silently discard the half that was already right.
-    /// Leading whitespace survives either way, so toggling doesn't flatten
-    /// a nested item.
+    /// ⌘L: bullets every line the selection touches, or strips them when all are items. A mixed
+    /// block becomes a list; the indent survives either way.
     public static func toggleBulletedList(
         in text: NSString, selection: NSRange, marker: String = "- "
     ) -> Edit {
@@ -336,8 +266,7 @@ public enum LineEdits {
             let indent = body.prefix { $0 == " " || $0 == "\t" }
             let ns = body as NSString
             if allItems {
-                // Everything from the line start through the whitespace
-                // after the marker goes; the indent is put straight back.
+                // Strip through the marker's whitespace, then restore the indent.
                 let lineRange = NSRange(location: 0, length: ns.length)
                 guard let item = SmartEditing.listItem(lineRange: lineRange, in: ns) else {
                     return (inserted: "", removed: 0)
@@ -348,19 +277,9 @@ public enum LineEdits {
         }
     }
 
-    /// ⌘⇧L. Two intents behind one key, told apart by what the block
-    /// already is: lines that aren't all checklists *become* checklists, unchecked;
-    /// a block that is all checklists gets checked, or unchecked when every
-    /// box was already ticked. Checking wins the mixed case for the same
-    /// reason a mixed ⌘L block becomes a list — "mark these done" is what
-    /// the key is reaching for, and unticking the done half would lose
-    /// state the user set on purpose.
-    ///
-    /// A plain line gets the whole `- [ ] `; a bullet keeps its marker and
-    /// gains the box after it. An ordered item trades its number for a
-    /// bullet, the way Apple Notes converts a numbered list to a
-    /// checklist: GFM does spell `1. [ ] foo`, but a box drawn in place of
-    /// the number would hide the one thing an ordered marker is for.
+    /// ⌘⇧L: lines that aren't all checklists become unchecked ones; an all-checklist block is
+    /// checked, or unchecked when every box is ticked. A bullet gains a box, and an ordered item
+    /// becomes a bullet, as in Apple Notes, since a box would hide its number.
     public static func toggleChecklist(in text: NSString, selection: NSRange) -> Edit {
         let block = lineBlock(in: text, covering: selection)
         let allChecklists = everyLine(of: block, in: text) { line in
@@ -400,8 +319,7 @@ public enum LineEdits {
         }
     }
 
-    /// True when `predicate` holds for every line in `range`. An empty
-    /// range has no lines, so it is false — nothing to unset.
+    /// False for an empty range: nothing to unset.
     private static func everyLine(
         of range: NSRange, in text: NSString, _ predicate: (NSRange) -> Bool
     ) -> Bool {
@@ -435,13 +353,8 @@ public enum LineEdits {
         endsWithNewline(line, in: text) ? line.length - 1 : line.length
     }
 
-    /// Shared engine for indent and outdent: applies `change` to the head
-    /// of every line the selection touches and maps the selection through
-    /// the resulting width changes.
-    ///
-    /// One replacement spanning the whole block rather than one per line,
-    /// so the edit is a single undo step and the offsets never have to be
-    /// re-derived against a text that is moving underneath them.
+    /// Applies `change` to the head of every line the selection touches, as one replacement so
+    /// it is one undo step, and maps the selection through.
     private static func rewriteLines(
         in text: NSString,
         selection: NSRange,
@@ -449,8 +362,7 @@ public enum LineEdits {
     ) -> Edit {
         let block = lineBlock(in: text, covering: selection)
 
-        /// How one line's head changed, and how far everything before it
-        /// had already moved — enough to map any offset on that line.
+        /// One line's head change, and how far earlier lines had moved it.
         struct LineShift {
             let oldStart: Int
             let shift: Int
@@ -476,11 +388,8 @@ public enum LineEdits {
             cursor = NSMaxRange(line)
         }
 
-        /// Maps one offset through its own line's head change. Clamped at
-        /// the line start so a cursor sitting inside whitespace an outdent
-        /// removed lands on the first surviving character rather than
-        /// before it. An offset outside the block — only reachable when the
-        /// block is empty — moves by the total shift.
+        /// Clamped at the line start, so a caret in whitespace an outdent removed lands on the
+        /// first surviving character.
         func mapped(_ offset: Int) -> Int {
             guard let line = shifts.last(where: { $0.oldStart <= offset }) else {
                 return offset + runningShift
@@ -499,18 +408,14 @@ public enum LineEdits {
 
     // MARK: Line helpers
 
-    /// The full line range containing `offset`, clamped so an offset past
-    /// the end of the text still resolves to the last line.
+    /// Clamps `offset`, so one past the end resolves to the last line.
     public static func lineRange(in text: NSString, at offset: Int) -> NSRange {
         let safe = max(0, min(offset, text.length))
         return text.lineRange(for: NSRange(location: safe, length: 0))
     }
 
-    /// Every line the selection touches, as one range.
-    ///
-    /// A selection ending exactly on a line boundary is pulled back off it
-    /// first: selecting a line by dragging past its newline shouldn't
-    /// indent the untouched line below.
+    /// Every line the selection touches. A selection ending just past a newline doesn't take the
+    /// next line.
     public static func lineBlock(in text: NSString, covering selection: NSRange) -> NSRange {
         var range = NSRange(
             location: max(0, min(selection.location, text.length)),
@@ -525,8 +430,7 @@ public enum LineEdits {
         line.length > 0 && text.character(at: NSMaxRange(line) - 1) == newline
     }
 
-    /// Characters from `start` up to the next newline, or the end of the
-    /// text. Zero when `start` is already at the end.
+    /// Characters from `start` to the next newline or the end.
     private static func lineContentLength(in text: NSString, from start: Int) -> Int {
         guard start < text.length else { return 0 }
         var index = start

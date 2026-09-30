@@ -1,14 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// The chords bound to one action. A single string or a list — `"cmd+/"`
-/// and `["f1", "cmd+/"]` both decode — since most actions want one chord and
-/// wrapping every one of those in an array would be noise to read and to
-/// write. It encodes back in whichever of the two forms fits, so a seeded
-/// config doesn't sprout one-element arrays.
-///
-/// Aliasing is the point: F1 and ⌘/ are the same action reached two ways,
-/// and this is what lets the config say so. Follows Clef's `ChordSet`.
+/// One action's chords: a bare string or an alias list, encoded in whichever form fits so a seeded
+/// config has no one-element arrays. Follows Clef's `ChordSet`.
 public struct ChordSet: Codable, Equatable, Sendable, ExpressibleByStringLiteral,
     ExpressibleByArrayLiteral
 {
@@ -23,9 +17,7 @@ public struct ChordSet: Codable, Equatable, Sendable, ExpressibleByStringLiteral
         if let single = try? container.decode(String.self) {
             chords = [single]
         } else {
-            // Not `try?`: a value that's neither string nor array of strings
-            // has to throw, or `lenientValue` never hears about it and the
-            // typo goes unreported.
+            // Not `try?`: a wrong shape must throw so `lenientValue` reports it.
             chords = try container.decode([String].self)
         }
     }
@@ -40,15 +32,9 @@ public struct ChordSet: Codable, Equatable, Sendable, ExpressibleByStringLiteral
     }
 }
 
-/// Every action Wisp binds a key to.
-///
-/// One case per binding, carrying its own default chord and its own scope,
-/// so the config file, the menu, and the panel-focus gate are all generated
-/// from this list rather than kept in step by hand. Adding a binding is
-/// adding a case.
+/// Every action Wisp binds. The config, the menu, and the panel-focus gate derive from this list.
 public enum KeymapAction: String, CaseIterable, Codable, Sendable {
-    /// The global chord, registered with Carbon. The only one that fires
-    /// while another app is frontmost.
+    /// Registered with Carbon; the only chord that fires while another app is frontmost.
     case summon
 
     case find
@@ -124,58 +110,45 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
         case .find: return "cmd+f"
         case .settings: return "cmd+,"
         case .refresh: return "cmd+r"
-        // F1 first, since that is what the key is for; ⌘/ is the alias
-        // people reach for without thinking.
+        // F1 first; ⌘/ is the alias people reach for.
         case .help: return ["f1", "cmd+/"]
         case .bold: return "cmd+b"
         case .italic: return "cmd+i"
         case .cycleTheme: return "cmd+t"
-        // VS Code's markdown-preview chord. Obsidian's ⌘E and Typora's ⌘/
-        // are both taken here, and the other unclaimed ⌘-letters read as
-        // formatting commands.
+        // VS Code's preview chord; Obsidian's ⌘E and Typora's ⌘/ are taken here.
         case .sourceView: return "cmd+shift+v"
-        // No macOS default toggles checking as you type. F6 is Sublime Text's
-        // toggle; ⌘; is the system's own spelling chord, taken over here.
+        // Sublime Text's F6, and ⌘;, the system's own spelling chord.
         case .spellcheck: return ["f6", "cmd+;"]
         case .highlight: return "opt+h"
-        // `<u>` is HTML, not markdown — which is also what Obsidian's own
-        // underline command inserts, and this note is read there too.
+        // Inserts `<u>`, as Obsidian's underline command does.
         case .underline: return "cmd+u"
-        // Notion's chord, and the one the user's Obsidian is set to.
+        // Notion's chord, and the user's Obsidian binding.
         case .strikethrough: return "cmd+shift+s"
         case .code: return "cmd+e"
         case .duplicateLine: return "cmd+d"
-        // The VS Code / Xcode pair: ⌘↩ steps out of the line you're on onto
-        // a fresh one below, ⇧ puts it above.
+        // VS Code and Xcode's pair.
         case .openLineBelow: return "cmd+return"
         case .openLineAbove: return "cmd+shift+return"
         case .bulletedList: return "cmd+l"
-        // The shifted sibling of ⌘L: one says "is this a list", the other
-        // "is this done".
+        // ⌘L's shifted sibling.
         case .checklist: return "cmd+shift+l"
         case .moveLineUp: return "opt+up"
         case .moveLineDown: return "opt+down"
-        // Beside ⌥↑/↓, which move a line: ⌃⇧ moves the caret a section.
+        // ⌥↑/↓ move a line; ⌃⇧↑/↓ move the caret a section.
         case .previousHeading: return "ctrl+shift+up"
         case .nextHeading: return "ctrl+shift+down"
         case .increaseFontScale: return "cmd+="
         case .decreaseFontScale: return "cmd+-"
         case .resetFontScale: return "cmd+0"
-        // ⌘R with Option, beside the plain ⌘R it is a cousin of: one
-        // re-reads the note, the other goes and looks at it.
+        // A cousin of ⌘R: one re-reads the note, the other shows it in Finder.
         case .reveal: return "opt+cmd+r"
-        // ⌘0 resets the text size; ⌥⌘0 resets the panel's place. Clef's is
-        // the same chord.
+        // Beside ⌘0's text-size reset, and the same as Clef's.
         case .resetPosition: return "cmd+opt+0"
         }
     }
 
-    /// True when the action only means something with the panel in front
-    /// of the user, and so should do nothing when Wisp is merely active.
-    ///
-    /// `find`, `settings`, and `refresh` are the exceptions: each opens the
-    /// panel when it is dismissed, which is the point of them. `summon` isn't
-    /// a menu item at all — Carbon owns it, and being global is its job.
+    /// Acts only with the panel in front. `find`, `settings`, and `refresh` open a dismissed
+    /// panel, and `summon` is global by nature.
     public var isPanelScoped: Bool {
         switch self {
         case .summon, .find, .settings, .refresh: return false
@@ -184,14 +157,8 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
     }
 }
 
-/// Every chord Wisp binds, as an action → chord table.
-///
-/// A table rather than fifteen properties: fifteen lenient-decode blocks
-/// would have to be kept in step with fifteen declarations and fifteen menu
-/// call sites, and the whole point of `KeymapAction` is that the list lives
-/// in one place. Decoding overlays the file onto the defaults, so a
-/// `keymap` object naming only one action still works — the same bargain
-/// every other key in the config makes.
+/// Action → chords. Decoding overlays the file onto the defaults, so a `keymap` naming one
+/// action still works.
 public struct Keymap: Codable, Equatable, Sendable {
     private var bindings: [String: ChordSet]
 
@@ -215,9 +182,7 @@ public struct Keymap: Codable, Equatable, Sendable {
         bindings = table
     }
 
-    /// Written back in full, so a seeded config lists every binding there
-    /// is — a keymap you have to consult the README to discover is not
-    /// hand-editable in any useful sense.
+    /// Writes every binding, so a seeded config documents them all.
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: DynamicKey.self)
         for action in KeymapAction.allCases {
@@ -230,22 +195,17 @@ public struct Keymap: Codable, Equatable, Sendable {
         bindings[action.rawValue] ?? action.defaultChords
     }
 
-    /// The first chord bound to the action — what the Set Shortcut… overlay
-    /// rewrites, and what the help page prints when there is only one.
+    /// The first chord: what Set Shortcut… rewrites.
     public func chord(for action: KeymapAction) -> String {
         chordSet(for: action).chords.first ?? ""
     }
 
-    /// Replaces every chord on the action. The capture overlay binds one
-    /// key at a time, so an alias list it rewrites collapses to that key —
-    /// which is what picking a shortcut in a UI means.
+    /// Replaces every chord, collapsing an alias list: the capture overlay binds one key.
     public mutating func setChord(_ chord: String, for action: KeymapAction) {
         bindings[action.rawValue] = ChordSet([chord])
     }
 
-    /// Every chord on the action that parses. Unparseable ones are dropped
-    /// rather than failing the whole set, so one typo in an alias list
-    /// doesn't cost you the alias that was fine.
+    /// Drops unparseable chords, so one typo doesn't cost the aliases that were fine.
     public func parsedChords(for action: KeymapAction) -> [KeyChord] {
         chordSet(for: action).chords.compactMap(KeyChord.parse)
     }
@@ -255,9 +215,7 @@ public struct Keymap: Codable, Equatable, Sendable {
         parsedChords(for: action).first
     }
 
-    /// The chords as a person reads them — "⌘B", or "F1 / ⌘/" for an alias
-    /// list. Falls back to the raw configured text when nothing parses, so
-    /// the help page shows what is actually in the file rather than a blank.
+    /// "⌘B", or "F1 / ⌘/" for an alias list. Falls back to the raw text when nothing parses.
     public func display(_ action: KeymapAction) -> String {
         let parsed = parsedChords(for: action)
         guard !parsed.isEmpty else { return chordSet(for: action).chords.joined(separator: " / ") }
@@ -266,23 +224,19 @@ public struct Keymap: Codable, Equatable, Sendable {
             .joined(separator: " / ")
     }
 
-    /// Just the first chord, for places with room for one — a tooltip
-    /// listing "F1 / ⌘/" is naming the feature twice rather than telling
-    /// you the shortcut.
+    /// Just the first chord, for a tooltip with room for one.
     public func primaryDisplay(_ action: KeymapAction) -> String {
         guard let chord = parsed(action) else { return self.chord(for: action) }
         return chord.displayString
     }
 
-    /// Actions left with no working chord at all, for the footer warning.
-    /// In `allCases` order so the message reads consistently.
+    /// Actions with no working chord, in `allCases` order, for the footer.
     public var unparseableActions: [KeymapAction] {
         KeymapAction.allCases.filter { parsedChords(for: $0).isEmpty }
     }
 }
 
-/// A coding key for a name only known at runtime — here, the raw values of
-/// `KeymapAction`. `CodingKeys` can't be generated from a `CaseIterable`.
+/// A coding key known only at runtime, since `CodingKeys` can't come from a `CaseIterable`.
 struct DynamicKey: CodingKey {
     var stringValue: String
     var intValue: Int? { nil }

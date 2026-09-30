@@ -1,15 +1,7 @@
 import Foundation
 
-/// Collects keys that were present but unreadable, so one bad value can be
-/// named in the footer rather than silently becoming its default. Passed
-/// through `JSONDecoder.userInfo` so the config types don't have to carry a
-/// stored property that would then land in `Equatable` and get written back
-/// out on the next encode.
-///
-/// A class, not a struct: the decoder hands this to several nested
-/// `init(from:)` calls and they all have to append to the *same* collector.
-/// `@unchecked Sendable` because `userInfo` requires it and the lock is the
-/// handling — decoding is single-threaded, so it is never contended.
+/// Keys that were present but unreadable, for the footer. Passed through `userInfo` so no config
+/// type stores it, and a class so nested decoders share one. `@unchecked Sendable` for `userInfo`.
 public final class ConfigDiagnostics: @unchecked Sendable {
     private let lock = NSLock()
     private var keys: [String] = []
@@ -20,9 +12,7 @@ public final class ConfigDiagnostics: @unchecked Sendable {
 
     public func note(_ key: String) { lock.withLock { keys.append(key) } }
 
-    /// Reported in the order the decoder visits them — `WispConfig`'s
-    /// declaration order, not the order the keys happen to appear in the
-    /// file — so it reads as "here's what I skipped on the way through".
+    /// In the order the decoder visits keys, which is `WispConfig`'s declaration order.
     public var summary: String? {
         let malformed = malformedKeys
         guard !malformed.isEmpty else { return nil }
@@ -43,17 +33,8 @@ extension Decoder {
     }
 }
 
-/// Reads one optional config value, shared by every decoder in the file.
-///
-/// A key that's absent — or explicitly null — takes its default quietly,
-/// which is what keeps hand-edited configs working across new settings. A key
-/// that's *present but the wrong shape* is a different thing: it looks like
-/// it's doing something and isn't, so it gets named. `decodeIfPresent`
-/// returns nil for both quiet cases, so only a genuine type mismatch reaches
-/// `catch`.
-///
-/// The warning names the key by its full path ("keymap.summon"), so it says
-/// where to look rather than naming a bare "summon".
+/// Absent or null takes the default quietly; a present key of the wrong shape is noted by its full
+/// path, such as "keymap.summon".
 extension KeyedDecodingContainer {
     func lenientValue<T: Decodable>(
         forKey key: Key,
@@ -71,20 +52,13 @@ extension KeyedDecodingContainer {
 
 /// Which screen the panel opens on. Same key and values as Clef's.
 public enum MonitorTarget: String, Codable, CaseIterable, Sendable {
-    /// The screen holding the menu bar. A saved position is used wherever it
-    /// is, even on another screen.
+    /// The menu bar's screen; a saved position is used wherever it is.
     case primary
-    /// Whichever screen the pointer is on, with a saved position carried to
-    /// the same relative spot there.
+    /// The pointer's screen, with a saved position carried to the same relative spot.
     case pointer
 }
 
-/// The three faces Wisp draws with, by family name.
-///
-/// Nil, the default, is the system's own face: SF Pro for `notes` and `ui`,
-/// SF Mono for `code`. A named family is never bundled, so it's allowed to be
-/// missing — `Typography` falls back to the system face and the footer says
-/// which one didn't resolve.
+/// Family names, where nil is the system face. A missing family falls back in `Typography`.
 public struct FontSet: Codable, Equatable, Sendable {
     /// The notes body.
     public var notes: String?
@@ -99,8 +73,7 @@ public struct FontSet: Codable, Equatable, Sendable {
         self.code = code
     }
 
-    /// Missing keys fall back per-face, so adding one doesn't reset a font
-    /// set someone has already customised.
+    /// Per-face defaults, so adding a face doesn't reset a customised set.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let diagnostics = decoder.configDiagnostics
@@ -113,8 +86,7 @@ public struct FontSet: Codable, Equatable, Sendable {
     }
 }
 
-/// Whether the Tab key — and the smart list indentation built on it —
-/// writes spaces or a tab character.
+/// What the Tab key and list indentation write.
 public enum IndentStyle: String, Codable, CaseIterable, Sendable {
     case spaces
     case tabs
@@ -123,8 +95,7 @@ public enum IndentStyle: String, Codable, CaseIterable, Sendable {
 /// How one level of indentation is spelled.
 public struct Indent: Codable, Equatable, Sendable {
     public var style: IndentStyle
-    /// Spaces per level. Ignored under `.tabs`, where the width is the
-    /// reader's tab stop rather than ours.
+    /// Spaces per level; ignored under `.tabs`.
     public var size: Int
 
     public init(style: IndentStyle = .spaces, size: Int = 2) {
@@ -142,10 +113,7 @@ public struct Indent: Codable, Equatable, Sendable {
             forKey: .size, default: defaults.size, diagnostics: diagnostics)
     }
 
-    /// The text one level of indentation inserts. `size` is bounded here
-    /// rather than at decode time so a typo stays visible in the file and
-    /// is recoverable by editing it back, the same bargain `fontScale`
-    /// makes.
+    /// Bounded here rather than at decode, so a typo stays visible in the file.
     public var unit: String {
         switch style {
         case .tabs: return "\t"
@@ -153,17 +121,15 @@ public struct Indent: Codable, Equatable, Sendable {
         }
     }
 
-    /// Columns one level occupies, for working out a list item's nesting
-    /// depth from its leading whitespace. A tab counts as one level.
+    /// Columns per level, for a list item's depth. A tab counts as one.
     public var width: Int {
         style == .tabs ? 1 : min(max(size, 1), 16)
     }
 }
 
-/// How the caret gets from where it was to where it is going.
+/// How the caret moves to a new position.
 public enum CaretMotion: String, Codable, CaseIterable, Sendable {
-    /// Lands almost at once and settles — most of the distance in the
-    /// first third of a short animation, then a soft stop.
+    /// Most of the way in the first third of a short animation, then a soft stop.
     case snappy
     /// The slower slide that makes a jump easy to follow with the eye.
     case gliding
@@ -183,19 +149,14 @@ public enum RuleStyle: String, Codable, CaseIterable, Sendable {
 public enum FooterStatus: String, Codable, CaseIterable, Sendable {
     /// `12:4 · 120 words`.
     case position
-    /// When the note was last written to disk. Skips counting the whole
-    /// note on every keystroke.
+    /// When the note was last saved; skips counting the note on every keystroke.
     case modified
 }
 
-/// The caret's animation: how it moves, and whether it blinks.
-///
-/// Drawn by `NotesTextView` as a Core Animation layer rather than by
-/// AppKit, so both the move and the fade run on the render server.
+/// Drawn as a Core Animation layer, so the move and the fade run on the render server.
 public struct Caret: Codable, Equatable, Sendable {
     public var motion: CaretMotion
-    /// A fade in and out rather than the stock on/off. Off leaves the
-    /// caret solid.
+    /// A fade rather than the stock on/off. Off leaves the caret solid.
     public var blink: Bool
 
     public init(motion: CaretMotion = .snappy, blink: Bool = true) {
@@ -216,11 +177,8 @@ public struct Caret: Codable, Equatable, Sendable {
 
 /// The panel's backdrop, Ghostty's `background-blur` and `background-opacity`.
 public struct Background: Codable, Equatable, Sendable {
-    /// Blurs whatever is behind the panel.
     public var blur: Bool
-    /// Alpha of the panel's tint, 0–1. Nil takes the theme's own value —
-    /// the two themes tune it differently, so one number can't be the
-    /// default for both.
+    /// The tint's alpha, 0–1. Nil takes the theme's own, since the themes tune it differently.
     public var opacity: Double?
 
     public init(blur: Bool = true, opacity: Double? = nil) {
@@ -244,9 +202,7 @@ public struct Background: Codable, Equatable, Sendable {
     }
 }
 
-/// The panel's remembered size, in screen points. Written when the panel
-/// hides; where it sits is `WispConfig.position`, kept apart because Clef
-/// shares that key and not this one.
+/// The panel's remembered size. Position is separate, since Clef shares that key and not this one.
 public struct PanelFrame: Codable, Equatable, Sendable {
     public var width: Double
     public var height: Double
@@ -257,52 +213,31 @@ public struct PanelFrame: Codable, Equatable, Sendable {
     }
 }
 
-/// Everything Wisp persists, and the only place it persists it: there is
-/// deliberately no shadow store, such as UserDefaults, beside it.
+/// Everything Wisp persists; there is deliberately no UserDefaults beside it.
 public struct WispConfig: Codable, Equatable, Sendable {
-    /// Light, dark, or follow the system. Richer than Clef's, which has no
-    /// system option.
     public var theme: ThemeSetting
     public var fonts: FontSet
-    /// The one text-size control: a multiplier on every design size in
-    /// `Metrics`, body and chrome alike. Moved by ⌘= / ⌘- and the footer
-    /// buttons, and persisted, so a size you set survives a relaunch.
-    /// Clamped on the way out, not on the way in, so a typo is
-    /// recoverable by editing the file back.
+    /// Multiplies every design size in `Metrics`. Clamped on use, so a typo stays fixable.
     public var fontScale: Double
-    /// What ⌘0 returns `fontScale` to. Separate from the live value so
-    /// "reset" means *your* normal size rather than a constant 1.0.
+    /// What ⌘0 returns `fontScale` to, so reset means your normal size.
     public var defaultFontScale: Double
-    /// Blur and tint alpha. Blur is on by default in both themes — the
-    /// tints are translucent so the blur is the panel's whole substance.
     public var background: Background
     public var monitor: MonitorTarget
-    /// Where the panel was last dragged to. Nil — absent, or `null` after
-    /// Reset Position — opens it at the default spot.
+    /// Where the panel was last dragged; nil opens it at the default spot.
     public var position: PanelPosition?
-    /// Milliseconds the summon chord must be held before the panel becomes a
-    /// peek, which closes when the chord is let go, instead of a pin. `0`
-    /// peeks straight away, so the chord never pins. Same key as Clef's.
+    /// Milliseconds the chord must be held to peek rather than pin; `0` always peeks. As in Clef.
     public var peekHold: Int
-    /// Flashes a dot in the panel's top corner each time the note is
-    /// written to disk. On by default — the save is debounced and silent
-    /// otherwise, so there is nothing else that says it happened.
+    /// Flashes a dot on each save, which is otherwise silent.
     public var saveIndicator: Bool
-    /// ⌘V onto a blank line turns a tab-separated grid into a pipe table
-    /// and a run of short plain lines into a bulleted list. Off pastes
-    /// everything verbatim.
+    /// ⌘V on a blank line turns a grid into a table and short lines into a list.
     public var smartPaste: Bool
     /// Folder holding `scratchpad.md`. Empty means the default, `~/Documents`.
     public var scratchpadFolder: String
     public var keymap: Keymap
-    /// What the Tab key writes, and the step smart list indentation moves by.
     public var indent: Indent
-    /// How the caret moves and blinks.
     public var caret: Caret
-    /// How a `---` rule is drawn.
     public var rule: RuleStyle
-    /// Check spelling as you type. Code, fenced blocks, and frontmatter are
-    /// skipped. Toggled from the footer and persisted.
+    /// Skips code, fenced blocks, and frontmatter.
     public var spellcheck: Bool
     /// Clicking the footer's label flips it; persisted.
     public var footerStatus: FooterStatus
@@ -349,8 +284,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.panel = panel
     }
 
-    /// Every key is optional on the way in, so adding a setting never
-    /// invalidates a config someone has already edited by hand.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let diagnostics = decoder.configDiagnostics
@@ -391,8 +324,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .spellcheck, default: defaults.spellcheck, diagnostics: diagnostics)
         footerStatus = container.lenientValue(
             forKey: .footerStatus, default: defaults.footerStatus, diagnostics: diagnostics)
-        // `T` is `PanelFrame?` here, so a missing key and an explicit null
-        // both land on "no remembered frame".
+        // `T` is `PanelFrame?`, so missing and null both mean no frame.
         panel = container.lenientValue(
             forKey: .panel, default: defaults.panel, diagnostics: diagnostics)
     }
@@ -402,21 +334,15 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// Bounded so a typo can't render the app unreadable or unusable.
     public var clampedFontScale: Double { Metrics.clampFontScale(fontScale) }
 
-    /// The ⌘0 target, bounded the same way — a `defaultFontScale` outside
-    /// the range would otherwise make reset the one way to reach an
-    /// unreadable size.
+    /// Bounded too, or ⌘0 could reach an unreadable size.
     public var clampedDefaultFontScale: Double { Metrics.clampFontScale(defaultFontScale) }
 
-    /// The summon chord, or the default when the configured string doesn't
-    /// parse — an unusable chord would otherwise leave the app with no way
-    /// to open at all.
+    /// Falls back to the default, or an unparseable chord would leave no way to open the app.
     public var summonChord: KeyChord {
         keymap.parsed(.summon) ?? KeyChord.parse(KeymapAction.summon.defaultChords.chords[0])!
     }
 
-    /// True when the configured summon chord didn't parse, so the footer can
-    /// say so rather than leaving the user wondering why their chord does
-    /// nothing. Every other action reports through `unparseableActions`.
+    /// For the footer; other actions report through `Keymap.unparseableActions`.
     public var summonChordIsValid: Bool { keymap.parsed(.summon) != nil }
 
     public var scratchpadFolderPath: URL {

@@ -2,15 +2,8 @@ import AppKit
 import Carbon.HIToolbox
 import Foundation
 
-/// A parsed hotkey chord, in the form Carbon's hotkey API wants.
-///
-/// This is what makes `keymap.summon` hand-editable: the config stores
-/// `"ctrl+opt+."`, not the pair of Carbon integers the registration wants.
-///
-/// Key codes are physical positions on an ANSI layout, not typed characters —
-/// so `/` means "the key where slash sits on a US keyboard" regardless of the
-/// active input source. Good enough here; a non-US layout would need
-/// `UCKeyTranslate` to do better.
+/// A hotkey chord parsed from config text such as `"ctrl+opt+."`. Key codes are physical ANSI
+/// positions, so `/` is wherever slash sits on a US keyboard, whatever the input source.
 public struct KeyChord: Equatable, Sendable {
     public let keyCode: UInt32
     public let carbonModifiers: UInt32
@@ -20,8 +13,7 @@ public struct KeyChord: Equatable, Sendable {
         self.carbonModifiers = carbonModifiers
     }
 
-    /// Parses `"cmd+opt+/"`. Order doesn't matter and spacing is ignored;
-    /// the last non-modifier token is the key.
+    /// Order and spacing don't matter; the one non-modifier token is the key.
     public static func parse(_ text: String) -> KeyChord? {
         let tokens =
             text
@@ -50,10 +42,7 @@ public struct KeyChord: Equatable, Sendable {
         return KeyChord(keyCode: keyCode, carbonModifiers: modifiers)
     }
 
-    /// What a config may write for "all four at once". The glyph is accepted
-    /// alongside the word for the same reason `⌘` is accepted alongside
-    /// `cmd`: it is what the help page prints back, so it should be legal to
-    /// paste in. Follows Clef.
+    /// The glyph is accepted because the help page prints it, as with `⌘`. Follows Clef.
     private static let hyperSpellings: Set<String> = ["hyper", hyperGlyph]
 
     private static let hyperMask: UInt32 =
@@ -136,14 +125,10 @@ public struct KeyChord: Equatable, Sendable {
 
     // MARK: Display
 
-    /// All four modifiers at once. Written as one glyph rather than as
-    /// `⌃⌥⇧⌘`, which is four fifths of the row before the key even
-    /// arrives — and which reads as four separate keys when it is really
-    /// one, since a hyperkey is what a remapped Caps Lock produces.
+    /// All four modifiers, as a remapped Caps Lock sends them: one glyph, not `⌃⌥⇧⌘`.
     public static let hyperGlyph = "❖"
 
-    /// How a person reads the chord: "⌥Space", "⇧⌘P", or "❖.". Modifier
-    /// glyphs go in a fixed ⌃⌥⇧⌘ order, however the chord was written.
+    /// "⌥Space", "⇧⌘P", or "❖.", with modifiers always in ⌃⌥⇧⌘ order.
     public var displayString: String {
         var s = ""
         if carbonModifiers & Self.hyperMask == Self.hyperMask {
@@ -195,17 +180,11 @@ public struct KeyChord: Equatable, Sendable {
 
     // MARK: Config spelling
 
-    /// The inverse of `parse` — renders a captured key code and modifier
-    /// mask back into a chord string.
-    ///
-    /// The Set Shortcut… overlay captures an `NSEvent`, and what has to land
-    /// in the config is the same text a person would have typed there. An
-    /// unmapped key code has no spelling, so it fails rather than writing
-    /// something the parser would reject on the next launch.
+    /// The inverse of `parse`, for the Set Shortcut… capture. Nil for an unmapped key code rather
+    /// than a string the parser would reject.
     public static func string(keyCode: UInt32, carbonModifiers: UInt32) -> String? {
         guard let key = keyNames[keyCode] else { return nil }
-        // All four is the hyper key, and `hyper+.` is how the config spells
-        // it — the four-word form parses too, but nobody wants to read it.
+        // `hyper+.` rather than the four-word form, which parses but reads badly.
         if carbonModifiers & hyperMask == hyperMask { return "hyper+\(key)" }
         var parts: [String] = []
         if carbonModifiers & UInt32(controlKey) != 0 { parts.append("ctrl") }
@@ -216,11 +195,8 @@ public struct KeyChord: Equatable, Sendable {
         return parts.joined(separator: "+")
     }
 
-    /// Key code → the token `parse` prefers for it. Built by inverting
-    /// `keyCodes`, keeping the *first* spelling of each code in a fixed
-    /// preference order so `.` comes back as `.` rather than "period" and
-    /// the escape key as "escape" rather than "esc" — one code, one
-    /// canonical spelling, round-tripping.
+    /// One canonical token per key code, preferring `preferredKeyTokens`: `.` over "period",
+    /// "escape" over "esc".
     private static let keyNames: [UInt32: String] = {
         var names: [UInt32: String] = [:]
         for token in preferredKeyTokens {
@@ -230,26 +206,13 @@ public struct KeyChord: Equatable, Sendable {
         return names
     }()
 
-    /// The `(character, modifiers)` pair `NSMenuItem` wants for a key
-    /// equivalent.
-    ///
-    /// AppKit matches a menu equivalent on the *character*, not the key
-    /// code, which is why this is a second mapping rather than a cast of
-    /// `keyCode`. Arrows and the like have no printable character, so they
-    /// use the `NSxxxFunctionKey` constants AppKit reserves for exactly
-    /// this. A key with no menu spelling returns nil, and the item is built
-    /// without an equivalent rather than with a wrong one.
-    ///
-    /// Shift goes in the mask, never in the character: an uppercase
-    /// keyEquivalent makes AppKit draw a second ⇧ in the menu.
+    /// What an `NSMenuItem` wants: AppKit matches the character, not the key code, and arrows use
+    /// its function-key scalars. Shift stays in the mask; an uppercase character draws a second ⇧.
     public var menuEquivalent: (character: String, modifiers: NSEvent.ModifierFlags)? {
         guard let character = Self.menuCharacters[keyCode] else { return nil }
         return (character, modifierFlags)
     }
 
-    /// Key code → the character a menu equivalent matches on. Built from
-    /// `keyCodes` for everything printable, then overlaid with the function
-    /// keys AppKit spells with private-use scalars.
     private static let menuCharacters: [UInt32: String] = {
         var map: [UInt32: String] = [:]
         for token in preferredKeyTokens where token.count == 1 {

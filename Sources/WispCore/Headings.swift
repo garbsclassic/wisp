@@ -3,39 +3,29 @@ import Foundation
 public struct Heading: Identifiable, Equatable {
     public let name: String
     public let level: Int
-    /// NSString character offset where the heading line starts, used for
-    /// scrolling the text view to the section.
+    /// UTF-16 offset of the heading's first line.
     public let lineStart: Int
-    /// NSString offset just past the heading's last character, before any newline. A setext
-    /// heading runs from its first paragraph line through the underline.
+    /// Just past the last character, before any newline. A setext heading ends on its underline.
     public let end: Int
-    /// The syntax that makes the line a heading, painted dimmer than the heading: the `#` run,
-    /// or a setext heading's whole `===` or `---` underline.
+    /// The `#` run, or a setext heading's whole underline; painted dimmer than the name.
     public let marker: NSRange
 
     public var id: Int { lineStart }
 }
 
 extension Array where Element == Heading {
-    /// The nearest heading above the line at `lineStart`, or nil from the
-    /// first section. The caret's own heading doesn't count — pressing
-    /// "previous" from any line of a heading, a setext underline included,
-    /// goes to the one before it.
+    /// The nearest heading above, not counting the one `lineStart` is part of.
     public func heading(before lineStart: Int) -> Heading? {
         last { $0.end < lineStart }
     }
 
-    /// The nearest heading below the line at `lineStart`, or nil past the
-    /// last one.
     public func heading(after lineStart: Int) -> Heading? {
         first { $0.lineStart > lineStart }
     }
 }
 
 extension String {
-    /// Parse markdown headings out of the text: `#`-prefixed lines, and paragraphs underlined
-    /// with `===` (level 1) or `---` (level 2). Lines inside a fenced code block are code, not
-    /// headings. Returns one entry per heading, in document order.
+    /// ATX and setext headings in document order, skipping fenced code.
     public func extractHeadings() -> [Heading] {
         let ns = self as NSString
         return MarkdownBlocks(ns).headings(in: ns)
@@ -43,8 +33,7 @@ extension String {
 }
 
 extension MarkdownBlocks {
-    /// The headings among these lines, in document order. `text` is the note they were
-    /// classified from.
+    /// `text` is the note these lines were classified from.
     public func headings(in text: NSString) -> [Heading] {
         var result: [Heading] = []
         for line in lines {

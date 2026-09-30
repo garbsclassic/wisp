@@ -1,17 +1,11 @@
 import Foundation
 
-/// Recognises pasted text that is obviously a list or a table and writes it
-/// as the markdown Wisp already renders. Pure: the caller decides when a
-/// paste qualifies (nothing selected, blank line, not source view).
+/// Rewrites a pasted list or table as Markdown; the caller decides when a paste qualifies.
 public enum SmartPaste {
-    /// The longest line that still reads as a list item rather than a
-    /// paragraph. Anything wrapping past it is prose that happens to have
-    /// line breaks.
+    /// Longer lines are prose that happens to have line breaks.
     static let maxItemLength = 80
 
-    /// The pasted text rewritten as markdown, or nil when it should go in
-    /// untouched. A trailing newline is dropped either way — the caller is
-    /// inserting onto a line of its own.
+    /// Nil means paste as-is. Drops a trailing newline, since the caller pastes onto its own line.
     public static func format(_ text: String) -> String? {
         let lines = splitLines(text)
         guard lines.count >= 2 else { return nil }
@@ -20,9 +14,7 @@ public enum SmartPaste {
         return nil
     }
 
-    /// A tab-separated grid — what a spreadsheet or a terminal table puts on
-    /// the pasteboard — as a pipe table with a divider under the first row.
-    /// Every row has to have the same number of cells, or it is not a table.
+    /// A tab-separated grid, as a spreadsheet copies one, with every row the same width.
     static func pipeTable(_ lines: [String]) -> String? {
         let rows = lines.map { $0.components(separatedBy: "\t") }
         guard let width = rows.first?.count, width >= 2,
@@ -43,15 +35,10 @@ public enum SmartPaste {
         return ([line(cells[0]), divider] + cells.dropFirst().map(line)).joined(separator: "\n")
     }
 
-    /// Short lines, one item each, none already marked up — a shopping list
-    /// typed into a chat, a column copied out of a sheet. Prefixed `- `.
-    /// Any blank line, long line, or line that is already a list item,
-    /// heading, or rule means the text is something else, and it goes in
-    /// as-is.
+    /// Short plain lines, such as a shopping list or a column copied out of a sheet.
     static func bulletedList(_ lines: [String]) -> String? {
         guard lines.allSatisfy(isPlainItem) else { return nil }
-        // Together, not line by line: a table row, a fence, a quote, or a setext underline is
-        // Markdown already, and only shows as such beside its neighbours.
+        // Together: a table, fence, quote, or setext heading only shows beside its neighbours.
         let blocks = MarkdownBlocks(lines.joined(separator: "\n") as NSString)
         guard blocks.lines.allSatisfy({ if case .text = $0.kind { true } else { false } })
         else { return nil }
@@ -68,8 +55,7 @@ public enum SmartPaste {
         return true
     }
 
-    /// Lines on any newline convention, trailing blank lines dropped so a
-    /// copy that ends in a newline is still a list.
+    /// Any newline convention; trailing blank lines are dropped.
     static func splitLines(_ text: String) -> [String] {
         var lines = text.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")

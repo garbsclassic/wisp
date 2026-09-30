@@ -2,10 +2,8 @@ import Foundation
 
 /// Reads and writes `wisp.jsonc`.
 public enum ConfigStore {
-    /// `~/.config/wisp`, honouring `XDG_CONFIG_HOME` — alongside the rest of
-    /// the user's tools rather than buried in Application Support, and
-    /// straightforward for chezmoi to manage. Neither location is
-    /// TCC-protected, so reading it prompts for nothing.
+    /// `~/.config/wisp`, or under `XDG_CONFIG_HOME`: beside the user's other tools, where chezmoi
+    /// can manage it and reading needs no TCC prompt.
     public static var directory: URL {
         let base: URL
         if let xdg = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"], !xdg.isEmpty {
@@ -19,25 +17,20 @@ public enum ConfigStore {
 
     public static var fileURL: URL { directory.appendingPathComponent("wisp.jsonc") }
 
-    /// The JSON Schema for `wisp.jsonc`, kept beside it so an editor can
-    /// validate and complete the file with nothing fetched from the network.
-    /// The app bundle carries the source copy; `installSchema` refreshes this
-    /// one from it at launch.
+    /// Kept beside the config so an editor validates it offline. `installSchema` refreshes it
+    /// from the bundle at launch.
     public static var schemaFileURL: URL { directory.appendingPathComponent(schemaFilename) }
     public static let schemaFilename = "wisp.schema.json"
-    /// What the config's `$schema` key points at — relative, so moving or
-    /// reinstalling the app never breaks it.
+    /// Relative, so moving the app never breaks it.
     public static let schemaReference = "./\(schemaFilename)"
 
     public struct Load {
         public let config: WispConfig
-        /// Unreadable file, or keys that were present but malformed. Shown
-        /// in the footer rather than swallowed.
+        /// An unreadable file or malformed keys, for the footer.
         public let error: String?
     }
 
-    /// Reads the config, seeding it with `defaults` on first run. A malformed
-    /// file falls back to defaults rather than leaving the app inert.
+    /// Seeds the file on first run. A malformed file falls back to defaults.
     public static func loadOrSeed(defaults: WispConfig = WispConfig()) -> Load {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             do {
@@ -55,9 +48,7 @@ public enum ConfigStore {
             let diagnostics = ConfigDiagnostics()
             let decoder = JSONDecoder()
             decoder.userInfo[.configDiagnostics] = diagnostics
-            // JSON5 is a strict superset of JSONC — comments and trailing
-            // commas both parse — so wisp.jsonc needs no hand-rolled
-            // stripper.
+            // JSON5 also covers JSONC's comments and trailing commas.
             decoder.allowsJSON5 = true
             return Load(
                 config: try decoder.decode(WispConfig.self, from: data),
@@ -69,9 +60,7 @@ public enum ConfigStore {
         }
     }
 
-    /// Copies the bundled schema into the config directory, only when the
-    /// bytes differ: the directory is watched for live reload, and a launch
-    /// that rewrote an identical file would look like a config edit.
+    /// Writes only when the bytes differ: the watcher would read a rewrite as an edit.
     public static func installSchema(from source: URL) throws {
         let schema = try Data(contentsOf: source)
         if let current = try? Data(contentsOf: schemaFileURL), current == schema { return }
@@ -79,26 +68,17 @@ public enum ConfigStore {
         try schema.write(to: schemaFileURL, options: .atomic)
     }
 
-    /// Writes the whole document as strict JSON.
-    ///
-    /// Strict, not JSONC, on purpose: `jq` parses strict JSON only, and both
-    /// chezmoi's `modify_` script and the re-add hook run the deployed file
-    /// through `jq`. A comment in the live file makes that merge fall back to
-    /// managed-only values and drop every preserved setting.
+    /// Strict JSON: chezmoi's `modify_` script and re-add hook run the file through `jq`, and a
+    /// comment would make that merge drop every preserved setting.
     public static func write(_ config: WispConfig) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let encoder = JSONEncoder()
-        // Without this, Foundation writes "ctrl+opt+\/" and "~\/Source\/...".
-        // Both are valid JSON, but they're noise to read and invite someone
-        // to think the escaping is required when hand-editing. It never was.
+        // Otherwise Foundation writes "ctrl+opt+\/": valid, but noise to hand-edit.
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         try encoder.encode(SchemaTagged(config: config)).write(to: fileURL, options: .atomic)
     }
 
-    /// `config` plus a `$schema` key. Both encode into the same keyed
-    /// container — Foundation hands back the container already open at
-    /// this path — so `WispConfig` needs no stored property for a value
-    /// that is only ever a constant.
+    /// `config` plus a `$schema` key in the same container, so `WispConfig` stores no constant.
     private struct SchemaTagged: Encodable {
         let config: WispConfig
 
@@ -110,21 +90,14 @@ public enum ConfigStore {
         func encode(to encoder: any Encoder) throws {
             var container = encoder.container(keyedBy: Keys.self)
             try container.encode(schemaReference, forKey: .schema)
-            // An unsaved position is written as `null` rather than left out,
-            // so saving one later is an in-place edit of this key instead of
-            // a fallback rewrite of the whole file.
+            // A `null` position makes the first save an in-place edit, not a full rewrite.
             if config.position == nil { try container.encodeNil(forKey: .position) }
             try config.encode(to: encoder)
         }
     }
 
-    /// Rewrites a single value in place, leaving the rest of the file's text —
-    /// key order, indentation, and any comment the user added — untouched.
-    ///
-    /// Falls back to a full strict-JSON encode of `config` when the file is
-    /// missing or the key isn't in it (a setting added since the file was
-    /// written, say). `config` must already carry the new value, so both
-    /// paths land in the same place.
+    /// Rewrites one value in place, keeping the file's order, indentation, and comments. Falls
+    /// back to a full encode when the key is missing, so `config` must carry the new value.
     public static func update(
         _ path: [String], to value: some Encodable, in config: WispConfig
     ) throws {
@@ -139,9 +112,7 @@ public enum ConfigStore {
         try rewritten.write(to: fileURL, atomically: true, encoding: .utf8)
     }
 
-    /// One value as the JSON text that stands for it. Uses the fragment
-    /// encoder so a bare string or number comes back without being wrapped
-    /// in an object first.
+    /// One value as JSON text; a bare string or number comes back unwrapped.
     static func jsonLiteral(for value: some Encodable) -> String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]

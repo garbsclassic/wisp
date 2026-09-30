@@ -1,12 +1,6 @@
 import ServiceManagement
 
-/// Thin wrapper over `SMAppService.mainApp`. The system tracks the
-/// registered/unregistered state itself, so we just read & toggle.
-///
-/// Note: SMAppService needs a properly bundled .app to register. Running
-/// via `swift run` will fail because the executable isn't in a bundle the
-/// system recognizes — that's expected. The .app from scripts/build.sh
-/// works.
+/// Registering needs the bundled .app from scripts/build.sh; under `swift run` it fails.
 public enum LaunchAtLogin {
     public static var isEnabled: Bool {
         SMAppService.mainApp.status == .enabled
@@ -22,8 +16,7 @@ public enum LaunchAtLogin {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            // No in-app surface for this — the menu checkmark just won't
-            // flip on the next read. Logged so dev mode is debuggable.
+            // No UI for this: the menu's checkmark just doesn't flip.
             print("LaunchAtLogin: \(enabled ? "register" : "unregister") failed: \(error)")
         }
     }
