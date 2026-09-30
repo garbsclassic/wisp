@@ -111,21 +111,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Swaps the summon chord for `chord`. When Carbon rejects it — usually
     /// because another app or macOS owns it — the previous one is put back,
-    /// so the user isn't left without any.
+    /// once, so the user isn't left without any.
     @discardableResult
     private func registerSummon(_ chord: KeyChord) -> Bool {
-        let registered = hotKey.register(
+        if register(chord) {
+            summon = chord
+            return true
+        }
+        if let previous = summon, !register(previous) { summon = nil }
+        return false
+    }
+
+    private func register(_ chord: KeyChord) -> Bool {
+        hotKey.register(
             keyCode: chord.keyCode, modifiers: chord.carbonModifiers,
             onPress: { [weak self] in
                 self?.panelController?.handleChordDown(modifiers: chord.modifierFlags)
             },
             onRelease: { [weak self] in self?.panelController?.handleChordUp() })
-        if registered {
-            summon = chord
-        } else if let summon {
-            registerSummon(summon)
-        }
-        return registered
     }
 
     /// The one place a keymap action turns into work. `KeyBindingMonitor`

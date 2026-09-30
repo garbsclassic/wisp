@@ -170,8 +170,11 @@ struct MinimalTextEditor: NSViewRepresentable {
         guard let storage = textView.textStorage else { return }
         let full = NSRange(location: 0, length: storage.length)
         let palette = Palette.for(style.theme)
+        let range = findHighlightRange
+        let hasMatch = range.length > 0 && NSMaxRange(range) <= full.length
+        // Closed before the scroll below, which lays out glyphs — TextKit
+        // throws if that happens while the storage is mid-edit.
         storage.beginEditing()
-        defer { storage.endEditing() }
         // Use a real storage background attribute (not a temporary layout
         // attribute): storage mutations always trigger a redraw, so the
         // highlight clears deterministically. It is never written to disk —
@@ -186,11 +189,12 @@ struct MinimalTextEditor: NSViewRepresentable {
             Self.styleHighlights(
                 in: storage, palette: palette, masked: marks.masking(storage.string) as NSString)
         }
+        if hasMatch {
+            storage.addAttribute(.backgroundColor, value: palette.findHighlight, range: range)
+        }
+        storage.endEditing()
 
-        let range = findHighlightRange
-        guard range.length > 0, NSMaxRange(range) <= full.length else { return }
-        storage.addAttribute(.backgroundColor, value: palette.findHighlight, range: range)
-        if scroll { textView.scrollRangeToVisible(range) }
+        if hasMatch, scroll { textView.scrollRangeToVisible(range) }
     }
 
     /// Everything the body is drawn with: the text view's colors, the layout
@@ -839,8 +843,22 @@ struct MinimalTextEditor: NSViewRepresentable {
 }
 
 extension NSRegularExpression {
-    /// Every match's whole range, left to right and non-overlapping.
+    /// Every match's whole range, left to right and non-overlapping, except
+    /// one whose delimiters are only part of a character a reader sees — the
+    /// `*` of a `*️⃣` keycap, or a `*` under a combining accent. The patterns
+    /// match UTF-16 units, where a delimiter has to be a whole character.
+    /// Each pattern's one group is the content between its delimiters.
     fileprivate func ranges(in text: NSString) -> [NSRange] {
-        matches(in: text as String, range: NSRange(location: 0, length: text.length)).map(\.range)
+        matches(in: text as String, range: NSRange(location: 0, length: text.length))
+            .filter { match in
+                let content = match.range(at: 1)
+                let delimiters =
+                    Array(match.range.location..<content.location)
+                    + Array(NSMaxRange(content)..<NSMaxRange(match.range))
+                return delimiters.allSatisfy {
+                    text.rangeOfComposedCharacterSequence(at: $0).length == 1
+                }
+            }
+            .map(\.range)
     }
 }
