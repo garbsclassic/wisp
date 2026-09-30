@@ -3,8 +3,6 @@ import Testing
 
 @testable import WispCore
 
-/// Applies an edit the way the text view does, so a test can assert on the
-/// resulting document rather than on three ranges.
 private func apply(_ edit: LineEdits.Edit, to text: String) -> String {
     let mutable = NSMutableString(string: text)
     mutable.replaceCharacters(in: edit.range, with: edit.replacement)
@@ -24,10 +22,9 @@ struct DuplicateTests {
     @Test("The cursor rides onto the copy, keeping its column")
     func cursorFollowsTheCopy() {
         let text = "alpha\nbeta\ngamma"
-        // Column 2 of "beta", which starts at 6.
         let edit = LineEdits.duplicate(
             in: text as NSString, selection: NSRange(location: 8, length: 0))
-        // "alpha\nbeta\n" is 11 characters; column 2 of the copy is 13.
+        // Column 2 of "beta" is 8 in the original and 13 in the copy.
         #expect(edit.selection == NSRange(location: 13, length: 0))
     }
 
@@ -181,7 +178,7 @@ struct LineClipboardTests {
         let edit = LineEdits.cutLine(
             in: text as NSString, selection: NSRange(location: 8, length: 0))
         #expect(apply(edit, to: text) == "alpha\ngamma")
-        // Column 2 of "gamma", which now starts at 6.
+        // Column 2 of "gamma".
         #expect(edit.selection == NSRange(location: 8, length: 0))
     }
 
@@ -539,8 +536,7 @@ struct BackspaceInIndentTests {
         #expect(edit.selection == NSRange(location: 8, length: 0))
     }
 
-    /// A tab unit over a space indent takes one space: the unit's length is
-    /// the cap, and a tab is one character long.
+    /// The unit's length caps the removal, and a tab is one character.
     @Test("A tab unit over spaces removes one space")
     func tabUnitOverSpaces() throws {
         let text = "    foo"
@@ -582,7 +578,6 @@ struct MoveLinesTests {
         // Column 1 of "two".
         let edit = LineEdits.moveLines(
             in: text as NSString, selection: NSRange(location: 5, length: 0), by: -1)
-        // "two" is now first, so column 1 of it is offset 1.
         #expect(edit.selection == NSRange(location: 1, length: 0))
     }
 

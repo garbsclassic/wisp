@@ -6,8 +6,6 @@ import Testing
 
 @Suite("KeyChord display")
 struct KeyChordDisplayTests {
-    /// Glyph order is fixed at ⌃⌥⇧⌘ regardless of how the modifiers were
-    /// captured, so the same chord always reads the same way.
     @Test("Modifier glyphs render in a fixed order")
     func glyphOrder() {
         let cmdShiftP = KeyChord(
@@ -19,8 +17,6 @@ struct KeyChordDisplayTests {
         #expect(ctrlOptSlash.displayString == "⌃⌥/")
     }
 
-    /// All four at once is a hyperkey, not four modifiers — and `⌃⌥⇧⌘` is
-    /// four fifths of a help-page row before the key even arrives.
     @Test("All four modifiers collapse to the hyperkey glyph")
     func hyperkey() {
         let hyperPeriod = KeyChord(
@@ -29,8 +25,6 @@ struct KeyChordDisplayTests {
         )
         #expect(hyperPeriod.displayString == "❖.")
 
-        // One modifier short is still spelled out — the glyph stands for the
-        // whole set or it means nothing.
         let almost = KeyChord(
             keyCode: UInt32(kVK_ANSI_Period),
             carbonModifiers: UInt32(controlKey | optionKey | shiftKey)

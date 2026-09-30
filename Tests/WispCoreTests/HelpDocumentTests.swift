@@ -5,8 +5,7 @@ import Testing
 
 @Suite("HelpDocument")
 struct HelpDocumentTests {
-    /// Computed, not a stored static: `HelpTextStyle` holds `NSFont`s and so
-    /// isn't `Sendable`, which a shared global would have to be.
+    /// Computed, since `HelpTextStyle` holds `NSFont`s and a stored static must be `Sendable`.
     private static var style: HelpTextStyle {
         HelpTextStyle(
             rowFont: .systemFont(ofSize: 16),
@@ -17,10 +16,7 @@ struct HelpDocumentTests {
         )
     }
 
-    /// The load-bearing invariant: find searches `plainText` and hands the
-    /// resulting ranges straight to the text view, so the two strings have to
-    /// agree character for character or every highlight lands off by however
-    /// far they have drifted.
+    /// Find searches `plainText` and highlights the same ranges in the rendered text.
     @Test("plainText is exactly what the renderer typesets")
     func plainTextMatchesRender() {
         let document = HelpDocument.make(keymap: Keymap())
@@ -39,8 +35,6 @@ struct HelpDocumentTests {
         }
     }
 
-    /// The page reads the live keymap rather than printing the glyphs it was
-    /// drawn with, so a rebind shows up without anyone editing a string.
     @Test("Rows carry the configured chord, including a row that joins several")
     func rowsFollowTheKeymap() {
         let rebound = Keymap([
@@ -54,12 +48,10 @@ struct HelpDocumentTests {
         let format = rows.first { $0.detail == "underline · strikethrough · code" }?.key
         #expect(format?.contains("⌃⇧U") == true)
         #expect(format?.contains("⌃⇧X") == true)
-        // Last in the row, and the row's order is the description's order.
+        // The row lists chords in the description's order.
         #expect(format?.hasSuffix("⌃⇧E") == true)
     }
 
-    /// A key wider than the gutter's right-aligned stop can't end at it, and
-    /// runs over into the detail column instead.
     @Test("Every default row's key fits the key gutter")
     func keysFitTheGutter() {
         let style = Self.style
@@ -70,8 +62,6 @@ struct HelpDocumentTests {
         }
     }
 
-    /// The gutter is carried as a multiple of the row size, so the two
-    /// columns keep their proportions when the text scale moves.
     @Test("The key gutter tracks the row font size")
     func gutterScales() {
         var doubled = Self.style

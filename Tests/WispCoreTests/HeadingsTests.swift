@@ -18,8 +18,7 @@ struct HeadingsTests {
         #expect(h.lineStart == 0)
     }
 
-    /// A `#` with no space is a tag, not a heading, and a heading with no
-    /// title has nothing to navigate to.
+    /// A `#` with no space is a tag, and a heading with no title has nothing to jump to.
     @Test("Malformed headings are skipped", arguments: ["#NoSpace", "# ", "##  "])
     func malformed(text: String) {
         #expect(text.extractHeadings().isEmpty)
@@ -198,7 +197,6 @@ struct HeadingsNavigationTests {
     func betweenTwoHeadings() {
         let text = "# A\nprose\n## B\nmore prose\n### C"
         let headings = text.extractHeadings()
-        // "more prose" starts right after "## B\n".
         let lineStart = ("# A\nprose\n## B\n" as NSString).length
         #expect(headings.heading(before: lineStart)?.name == "B")
         #expect(headings.heading(after: lineStart)?.name == "C")
@@ -229,8 +227,7 @@ struct HeadingsNavigationTests {
         #expect(headings.heading(after: b.lineStart) == nil)
     }
 
-    /// `heading(before:)` from anywhere inside a setext heading, its underline included, skips
-    /// that heading itself and lands on the ATX one above it.
+    /// Both of a setext heading's lines count as its own, so `before` from either skips it.
     @Test("Before, from a setext heading's paragraph, underline, or the line after, and after")
     func aroundASetextHeading() {
         let text = "# A\nPara\n---\nbody"

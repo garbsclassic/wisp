@@ -12,8 +12,7 @@ private func decode(_ json: String, diagnostics: ConfigDiagnostics? = nil) throw
 
 @Suite("Config decoding")
 struct ConfigDecodingTests {
-    /// The property that makes the file hand-editable: adding a setting to
-    /// the app must never invalidate a config someone already wrote.
+    /// Adding a setting must never invalidate a config someone already wrote.
     @Test("An empty object decodes to the defaults")
     func emptyObject() throws {
         #expect(try decode("{}") == WispConfig())
@@ -35,8 +34,6 @@ struct ConfigDecodingTests {
         #expect(config.fonts.notes == FontSet().notes)
     }
 
-    /// A panel object with no size at all can't be honoured, and a key
-    /// that's present but unusable is named rather than silently dropped.
     @Test("A sizeless panel object is reported, not silently defaulted")
     func panelFrameWithoutSize() throws {
         let diagnostics = ConfigDiagnostics()
@@ -48,8 +45,6 @@ struct ConfigDecodingTests {
 
 @Suite("Config diagnostics")
 struct ConfigDiagnosticsTests {
-    /// A key that is present but the wrong shape looks like it's doing
-    /// something and isn't — so it gets named instead of silently defaulting.
     @Test("A malformed key is named and its default still applies")
     func malformedKey() throws {
         let diagnostics = ConfigDiagnostics()
@@ -59,7 +54,6 @@ struct ConfigDiagnosticsTests {
         #expect(diagnostics.summary == "Ignored unreadable config key: saveIndicator")
     }
 
-    /// A bare "summon" would leave you hunting for which section it's in.
     @Test("A nested malformed key is reported with its path")
     func nestedPath() throws {
         let diagnostics = ConfigDiagnostics()
@@ -92,8 +86,6 @@ struct ConfigDiagnosticsTests {
 
 @Suite("Config derived values")
 struct ConfigDerivedTests {
-    /// Clamping happens on the way out, not on the way in: the file keeps
-    /// what was typed, so editing it back is all it takes to recover.
     @Test(
         "Type scale is bounded so a typo can't make the app unusable",
         arguments: [(1.0, 1.0), (0.1, 0.6), (99.0, 2.5), (2.5, 2.5), (0.6, 0.6)]
@@ -102,8 +94,6 @@ struct ConfigDerivedTests {
         #expect(WispConfig(fontScale: raw).clampedFontScale == clamped)
     }
 
-    /// An unparseable chord would otherwise leave the app with no way to open
-    /// at all, so the default stands in and the footer says why.
     @Test("A broken summon chord falls back to the default and is flagged")
     func brokenChord() {
         let config = WispConfig(keymap: Keymap([.summon: ChordSet(["ctrl+opt+nosuchkey"])]))
@@ -152,8 +142,6 @@ struct IndentConfigTests {
 
     @Test("An absurd size is bounded on the way out, not on the way in")
     func bounded() {
-        // The written value stays as typed so it is recoverable by editing
-        // the file back; only what the Tab key inserts is clamped.
         #expect(Indent(style: .spaces, size: 400).size == 400)
         #expect(Indent(style: .spaces, size: 400).unit.count == 16)
         #expect(Indent(style: .spaces, size: 0).unit == " ")

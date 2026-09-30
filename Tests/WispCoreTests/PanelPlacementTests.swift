@@ -19,8 +19,6 @@ struct DefaultTopLeftTests {
         #expect(topLeft.y == topLeft.y.rounded())
     }
 
-    /// The origin is relative to the screen, not the global coordinate
-    /// space — a second display to the right isn't a 1440-point offset.
     @Test("A screen with a non-zero origin is placed against its own bounds")
     func nonZeroOrigin() {
         let second = CGRect(x: 1440, y: 300, width: 1920, height: 1080)
@@ -29,8 +27,6 @@ struct DefaultTopLeftTests {
         #expect(topLeft.y == (second.maxY - second.height * PanelPlacement.topInset).rounded())
     }
 
-    /// A panel larger than the screen still has to arrive whole and
-    /// grabbable, rather than hanging off an edge.
     @Test("A size bigger than the screen is fitted onto it")
     func fittedToScreen() {
         let small = CGRect(x: 0, y: 0, width: 600, height: 400)
@@ -54,8 +50,6 @@ struct TopLeftTests {
         #expect(topLeft == PanelPlacement.defaultTopLeft(for: size, on: primary))
     }
 
-    /// Not following: a reachable saved point wins wherever it is, even when
-    /// that's a screen other than the target.
     @Test("A reachable saved point that isn't following is returned unchanged, even off-target")
     func reachableNotFollowing() {
         let saved = CGPoint(x: 1600, y: 900)
@@ -65,8 +59,6 @@ struct TopLeftTests {
         #expect(topLeft == saved)
     }
 
-    /// The display the point was saved on is no longer in `screens` — as if
-    /// unplugged — so nothing on the current setup overlaps it enough.
     @Test("An unreachable saved point on an unplugged display gives the default on the target")
     func unpluggedDisplay() {
         let saved = CGPoint(x: 1600, y: 900)
@@ -75,8 +67,7 @@ struct TopLeftTests {
         #expect(topLeft == PanelPlacement.defaultTopLeft(for: size, on: primary))
     }
 
-    /// `monitor: pointer` carries a reachable saved point to the target,
-    /// relative to the screen it was actually saved on.
+    /// `followsTarget` is `monitor: pointer`.
     @Test("followsTarget carries a reachable point to the target, relative to its source screen")
     func followsTarget() {
         let saved = CGPoint(x: 400, y: 800)
@@ -100,24 +91,18 @@ struct CarriedTests {
         #expect(carried == destination.topLeft)
     }
 
-    /// A quarter of the way across, three quarters down the free space on
-    /// one display lands at the same fractions on the next.
     @Test("The relative position within the free space is kept")
     func relativePosition() {
         let size = CGSize(width: 800, height: 500)
         let source = CGRect(x: 0, y: 0, width: 1000, height: 900)
         let destination = CGRect(x: 0, y: 0, width: 2000, height: 1800)
-        // Slack is 200 wide, 400 tall on the source: a quarter across, three
-        // quarters down lands exactly on 50 and 600.
+        // Source slack is 200 × 400, so (50, 600) is a quarter across, three quarters down.
         let point = CGPoint(x: 50, y: 600)
         let carried = PanelPlacement.carried(point, size: size, from: source, to: destination)
-        // Destination slack is 1200 wide, 1300 tall: the same quarter and
-        // three-quarters land on 300 and 825.
+        // Destination slack is 1200 × 1300: the same fractions land on (300, 825).
         #expect(carried == CGPoint(x: 300, y: 825))
     }
 
-    /// A panel exactly as wide (and tall) as its screen has no free space to
-    /// be relative within; the centre is as good an answer as any.
     @Test("Zero slack gives the ratio 0.5")
     func zeroSlackGivesHalf() {
         let size = CGSize(width: 1440, height: 900)
@@ -209,8 +194,6 @@ struct ScreenUnderTests {
         #expect(PanelPlacement.screen(under: offEverything, in: [Self.laptop]) == nil)
     }
 
-    /// Under `monitor: primary` a saved position is used wherever it is, so
-    /// a panel sized per screen has to be sized for that screen.
     @Test("A reachable saved position's home is the screen it's on, when not following")
     func homeIsWhereTheSavedPositionIs() {
         let saved = CGPoint(x: 100, y: 900)

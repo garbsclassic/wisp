@@ -5,8 +5,6 @@ import Testing
 
 @Suite("SmartPaste: format")
 struct SmartPasteFormatTests {
-    /// Columns narrower than three characters are still padded to three, so
-    /// the divider never shrinks below a readable width.
     @Test("A tab-separated grid becomes a pipe table, columns padded to a minimum of three")
     func tableFromTabs() {
         #expect(
@@ -28,8 +26,6 @@ struct SmartPasteFormatTests {
                 == "| a\\|b | c   |\n| ---- | --- |\n| d    | e   |")
     }
 
-    /// A ragged row isn't a table, but a tab-separated line is still short
-    /// enough plain text, so it falls through to the list check instead.
     @Test("A ragged row falls through to the list check rather than nil")
     func raggedRowFallsThroughToList() {
         #expect(SmartPaste.format("a\tb\nc\td\te\n") == "- a\tb\n- c\td\te")
@@ -109,8 +105,7 @@ struct SmartPasteFormatTests {
                 == "| a   | b   |\n| --- | --- |\n| c   | d   |")
     }
 
-    /// No single line here trips `isPlainItem`'s own checks, but the lines read as Markdown
-    /// together, so bulleting them would double up their own syntax.
+    /// Each line passes `isPlainItem` alone; together they read as Markdown.
     @Test(
         "A paste that is already Markdown as a whole is left untouched, not bulleted",
         arguments: [
@@ -136,8 +131,6 @@ struct SmartPasteIsPlainItemTests {
 
 @Suite("SmartPaste: splitLines")
 struct SmartPasteSplitLinesTests {
-    /// The lone line an empty string produces is itself whitespace-only, so
-    /// the trailing-blank trim removes it too, down to an empty array.
     @Test("An empty string trims away to no lines at all")
     func emptyString() {
         #expect(SmartPaste.splitLines("") == [])

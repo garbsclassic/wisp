@@ -179,8 +179,7 @@ struct MarkdownBlocksSetextAfterFenceTests {
 
 @Suite("MarkdownBlocks: runs of setext underlines")
 struct MarkdownBlocksSetextRunTests {
-    /// Guards against the old per-line walk, which was exponential on a run of `===` and took
-    /// minutes at 30 lines.
+    /// The time limit catches a parser that goes exponential on a run of `===`.
     @Test("Forty lines of `==========` give twenty level-1 headings", .timeLimit(.minutes(1)))
     func fortyEqualsLinesGiveTwentyHeadings() {
         let line = String(repeating: "=", count: 10)
@@ -193,8 +192,7 @@ struct MarkdownBlocksSetextRunTests {
 
 @Suite("MarkdownBlocks: scale")
 struct MarkdownBlocksScaleTests {
-    /// A correctness check, not a timing assertion — the time limit only guards against a
-    /// regression back to the old quadratic-or-worse per-line scan.
+    /// The time limit catches a parser that goes quadratic in the note's length.
     @Test("A ~3000-line note of headings, lists, fences, and rules gives the expected count",
         .timeLimit(.minutes(1)))
     func largeNoteHeadingCount() {

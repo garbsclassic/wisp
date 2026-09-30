@@ -4,9 +4,7 @@ import Testing
 
 @Suite("SummonState")
 struct SummonStateTests {
-    /// Down, then up before the hold has elapsed, pins — whichever way the
-    /// chord's modifiers happen to sit at that point, since `chordUp` from
-    /// `.summoning` doesn't look at them.
+    /// `chordUp` from `.summoning` ignores the modifiers, so both values pin.
     @Test("A tap — down, then up before the hold — pins", arguments: [false, true])
     func tapPins(modifiersHeld: Bool) {
         let summoning = SummonState.hidden.next(on: .chordDown, peeksImmediately: false)
@@ -46,9 +44,7 @@ struct SummonStateTests {
         #expect(SummonState.peeking.next(on: .modifiersReleased, peeksImmediately: false) == .hidden)
     }
 
-    /// `peeksImmediately` is `peekHold: 0`: every summon is a peek, so the
-    /// chord can never pin — except from `.pinned`, where a fresh chordDown
-    /// always hides first.
+    /// `peeksImmediately` is `peekHold: 0`. `.pinned` is left out: chordDown hides it.
     @Test(
         "peeksImmediately sends chordDown straight to peeking",
         arguments: [SummonState.hidden, .summoning, .peeking]

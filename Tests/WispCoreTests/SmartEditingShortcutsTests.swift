@@ -3,8 +3,6 @@ import Testing
 
 @testable import WispCore
 
-/// Applies an edit the way the text view does, so a test can assert on the
-/// resulting document and caret position rather than on three ranges.
 private func apply(_ edit: LineEdits.Edit, to text: String) -> (String, Int) {
     let mutable = NSMutableString(string: text)
     mutable.replaceCharacters(in: edit.range, with: edit.replacement)
@@ -13,9 +11,7 @@ private func apply(_ edit: LineEdits.Edit, to text: String) -> (String, Int) {
 
 @Suite("SmartEditing: em dash on the second `-`")
 struct EmDashEditTests {
-    /// Types the second `-` at `cursor`, as the keystroke does, then asks
-    /// for the edit — so a test reads as the text before the key and the
-    /// text after it.
+    /// Fixtures are the text before the second `-` is typed at `cursor`.
     private func typed(_ text: String, cursor: Int) -> String {
         let typed = NSMutableString(string: text)
         typed.insert("-", at: cursor)
@@ -78,14 +74,14 @@ struct EmDashEditTests {
     @Test("A dash inside a fenced code block doesn't convert")
     func insideFencedCode() {
         let text = "```\na-\n```"
-        // The dash sits right after "a" on the fenced block's second line.
+        // After the "a-" inside the fence.
         #expect(edit(text, cursor: 6) == nil)
     }
 
     @Test("A dash inside frontmatter doesn't convert")
     func insideFrontmatter() {
         let text = "---\ntitle: a-\n---"
-        // Right after the "a-" on the frontmatter's second line.
+        // After the "a-" inside the frontmatter.
         #expect(edit(text, cursor: 13) == nil)
     }
 
@@ -118,7 +114,7 @@ struct EmDashEditTests {
     @Test("A dash in a table row doesn't convert")
     func inTableRow() {
         let text = "| a | b |\n| - | - |\n| a | b-"
-        // Right after "b" on the table's data row.
+        // After the "b-" on the data row.
         #expect(edit(text, cursor: text.count) == nil)
     }
 }
@@ -288,8 +284,7 @@ struct RuleRevertTests {
 
 @Suite("SmartEditing: rule on the third dash")
 struct RuleOnThirdDashTests {
-    /// `|` marks the caret, which sits just after the `--` already typed: the third `-` has not
-    /// landed yet.
+    /// `|` marks the caret, after the `--` already typed and before the third `-`.
     private func edit(_ marked: String) -> LineEdits.Edit? {
         let parts = marked.components(separatedBy: "|")
         return SmartEditing.ruleOnThirdDash(

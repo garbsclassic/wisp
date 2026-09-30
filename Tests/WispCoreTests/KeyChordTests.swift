@@ -12,7 +12,6 @@ struct KeyChordParseTests {
         #expect(chord.carbonModifiers == UInt32(controlKey | optionKey))
     }
 
-    /// Order and spacing are the user's business, not the parser's.
     @Test("Modifier order and spacing don't matter")
     func orderInsensitive() throws {
         let a = try #require(KeyChord.parse("ctrl+opt+."))
@@ -35,8 +34,6 @@ struct KeyChordParseTests {
         #expect(KeyChord.parse(text) == nil)
     }
 
-    /// `hyper` and the glyph both spell "all four modifiers at once", so a
-    /// remapped Caps Lock is one token in the config rather than four.
     @Test("hyper and ❖ expand to all four modifiers", arguments: ["hyper+.", "❖+."])
     func hyper(text: String) throws {
         let chord = try #require(KeyChord.parse(text))
@@ -61,8 +58,6 @@ struct KeyChordParseTests {
 
 @Suite("KeyChord rendering")
 struct KeyChordRenderTests {
-    /// The shortcut-capture overlay hands back Carbon integers, and what has
-    /// to land in the config is text the parser will accept again.
     @Test(
         "A captured chord round-trips through the config's own string form",
         arguments: ["ctrl+opt+.", "cmd+shift+p", "opt+space", "f5", "cmd+opt+left"]
@@ -77,8 +72,6 @@ struct KeyChordRenderTests {
         #expect(reparsed.carbonModifiers == parsed.carbonModifiers)
     }
 
-    /// Every code round-trips to *one* spelling, so the same chord captured
-    /// twice never writes two different strings into the file.
     @Test("Rendering picks the canonical spelling, not an alias")
     func canonicalSpelling() {
         #expect(

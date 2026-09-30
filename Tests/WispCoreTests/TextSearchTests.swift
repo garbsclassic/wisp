@@ -29,8 +29,6 @@ struct TextSearchTests {
         #expect(TextSearch.matches(in: "Hello HELLO hello", query: "hello").count == 3)
     }
 
-    /// Overlap is where a naive scanner either loops forever or
-    /// double-counts: "aa" in "aaaa" is two matches, at 0 and 2.
     @Test("Overlapping patterns advance past each match")
     func overlapping() {
         #expect(TextSearch.matches(in: "aaaa", query: "aa").map(\.location) == [0, 2])

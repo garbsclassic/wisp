@@ -17,9 +17,7 @@ struct StorageLocationTests {
         )
     }
 
-    /// Colons are legal in HFS+ display names but not in the POSIX path
-    /// the backup is actually written through, so the timestamp must not
-    /// carry any.
+    /// Finder shows a colon in a file name as `/`.
     @Test("A backup name is prefixed, suffixed, and colon-free")
     func backupFilename() {
         let name = StorageLocation.backupFilename(at: Date(timeIntervalSince1970: 1_700_000_000))

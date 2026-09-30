@@ -35,7 +35,6 @@ struct CaretPositionTests {
 
     @Test("An emoji before the caret counts as one column, not one per UTF-16 unit")
     func emojiCountsAsOneColumn() {
-        // 🎉 is two UTF-16 code units but a single Character.
         let position = CaretPosition(in: "🎉x", at: (("🎉x" as NSString).length))
         #expect(position.line == 1)
         #expect(position.column == 3)

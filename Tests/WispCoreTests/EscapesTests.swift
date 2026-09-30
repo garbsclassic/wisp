@@ -8,8 +8,6 @@ struct EscapesScanningTests {
     @Test("Offsets are absolute across the whole text, not reset per line")
     func offsetsAreAbsoluteAcrossLines() {
         let text = "First line.\nSecond \\*line* here." as NSString
-        // Locate the pair rather than hand-counting, so the test can't drift
-        // from the fixture if the surrounding text ever changes.
         let backslash = text.range(of: "\\*").location
         let marks = Escapes.scan(text)
         #expect(marks.backslashes == [backslash])
@@ -31,7 +29,7 @@ struct EscapesScanningTests {
         arguments: [
             "\\a",
             "\\ ",
-            "\\\n",  // a real newline character, not the two-character escape sequence
+            "\\\n",  // a backslash, then a real newline
         ]
     )
     func backslashBeforeNonEscapableCharacterIsInert(text: String) {
@@ -41,8 +39,6 @@ struct EscapesScanningTests {
 
 @Suite("Escapes: consecutive backslashes")
 struct EscapesConsecutiveBackslashesTests {
-    /// The first pair consumes itself entirely, so the third backslash is
-    /// free to go on and escape the backtick.
     @Test("A third backslash after a consumed pair escapes the following character")
     func thirdBackslashEscapesAfterPairIsConsumed() {
         let text = String(repeating: "\\", count: 3) + "`"
@@ -70,8 +66,6 @@ struct EscapesEdgeCaseTests {
     @Test("Offsets count UTF-16 units, not Characters, across a surrogate pair")
     func offsetsCountUTF16UnitsNotCharacters() {
         let text = "🚀\\`"
-        // The emoji is one Character but two UTF-16 units; a Character-based
-        // index would put the escape at offset 1 instead of 2.
         #expect(text.count == 3)
         let marks = Escapes.scan(text)
         #expect(marks.backslashes == [2])
@@ -95,9 +89,7 @@ struct EscapesMaskingTests {
         #expect((masked as NSString).range(of: "~c~") == (text as NSString).range(of: "~c~"))
     }
 
-    /// The reason masking exists: a scanner that found `~a\~` and threw it
-    /// away had eaten the opener that ` b~` needed.
-    @Test("An escaped closer no longer swallows the run that starts inside it")
+    @Test("An escaped closer doesn't swallow the run that starts inside it")
     func escapedCloserDoesNotSwallow() {
         let text = "~a\\~ b~ c"
         let masked = Escapes.scan(text).masking(text)

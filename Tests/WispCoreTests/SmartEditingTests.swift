@@ -5,10 +5,8 @@ import Testing
 
 @Suite("SmartEditing: horizontal rule")
 struct HorizontalRuleTests {
-    /// CommonMark's thematic break shape: three or more of one repeated marker character
-    /// (`-`, `*`, or `_`), spaces or tabs allowed between them. `───` (U+2500, box drawing) used
-    /// to be accepted as a legacy upstream form, but Obsidian renders it as text, so it no longer
-    /// qualifies — nor does a dash run that trails off into box-drawing characters.
+    /// CommonMark's thematic break: three or more of one of `-`, `*`, `_`, with spaces or tabs
+    /// between. Box-drawing `───` is text, as Obsidian renders it.
     @Test(
         "A rendered rule line is three or more of one repeated marker character",
         arguments: [
@@ -64,7 +62,6 @@ struct HorizontalRuleTests {
         return SmartEditing.isSetextUnderline(lineRange: line, in: ns)
     }
 
-    /// Every fixture below puts the `---` on the text's last line, with no trailing newline.
     private func isRuleAtEnd(_ text: String) -> Bool {
         isRule(text, at: (text as NSString).length - 1)
     }
@@ -248,8 +245,7 @@ struct ListMarkerTests {
         #expect(SmartEditing.nextListMarker(for: line) == marker)
     }
 
-    /// An empty item is the signal to leave the list, so it returns "" —
-    /// distinct from nil, which means "this was never a list".
+    /// "" signals leaving the list; nil means the line was never a list item.
     @Test("An empty item yields the exit signal, not a marker")
     func emptyItemExits() {
         #expect(SmartEditing.nextListMarker(for: "- ") == "")
@@ -366,7 +362,7 @@ struct ListItemTests {
         #expect(SmartEditing.bulletGlyph(depth: 2) == "▪")
         #expect(SmartEditing.bulletGlyph(depth: 3) == "•")
         #expect(SmartEditing.bulletGlyph(depth: 7) == "◦")
-        // Never traps, however the depth was arrived at.
+        // A negative depth doesn't trap.
         #expect(SmartEditing.bulletGlyph(depth: -1) == "▪")
     }
 }
@@ -380,17 +376,16 @@ struct HomeTargetTests {
     @Test(
         "Home lands on content start from wherever the cursor sits ahead of it",
         arguments: [
-            // (line, cursor, expected content start)
-            ("- item", 4, 2),  // mid-line
-            ("- item", 0, 2),  // column 0
-            ("- item", 1, 2),  // inside the marker's trailing whitespace
-            ("1. item", 5, 3),  // ordered, mid-line
-            ("1. item", 0, 3),  // ordered, column 0
-            ("A. item", 0, 3),  // alphabetic ordered marker
-            ("a. item", 0, 3),  // lowercase alphabetic ordered marker
-            ("  - item", 6, 4),  // indented bullet, mid-line
-            ("  - item", 0, 4),  // indented bullet, column 0 (before the indent)
-            ("  - item", 2, 4),  // cursor sitting on the marker character itself
+            ("- item", 4, 2),
+            ("- item", 0, 2),
+            ("- item", 1, 2),  // after the marker
+            ("1. item", 5, 3),
+            ("1. item", 0, 3),
+            ("A. item", 0, 3),
+            ("a. item", 0, 3),
+            ("  - item", 6, 4),
+            ("  - item", 0, 4),
+            ("  - item", 2, 4),  // on the marker
         ] as [(String, Int, Int)]
     )
     func toContentStart(line: String, cursor: Int, expected: Int) {

@@ -5,8 +5,7 @@ import Testing
 
 @Suite("JSONTextEdit")
 struct JSONTextEditTests {
-    /// The whole reason this exists: a UI-driven setting change must not
-    /// reflow the file, or `chezmoi diff` fills with churn nobody made.
+    /// A UI-driven change that reflowed the file would leave `chezmoi diff` dirty.
     @Test("Only the target value changes — order, indentation, and comments survive")
     func surgical() throws {
         let before = """
@@ -30,8 +29,6 @@ struct JSONTextEditTests {
         #expect(after == #"{ "keymap": { "summon": "cmd+j" } }"#)
     }
 
-    /// A key that also appears one level down must not shadow the one being
-    /// addressed.
     @Test("A same-named key in a nested object doesn't shadow the outer one")
     func noShadowing() throws {
         let before = #"{ "fonts": { "ui": "A" }, "ui": "B" }"#
@@ -60,8 +57,7 @@ struct JSONTextEditTests {
         #expect(after.contains("/* on */ false"))
     }
 
-    /// Nil is the caller's cue to fall back to a full encode, so an absent
-    /// key has to be distinguishable from a successful no-op.
+    /// Nil tells the caller to fall back to a full encode.
     @Test("An absent key yields nil", arguments: [["nope"], ["keymap", "nope"], ["theme", "nope"]])
     func absentKey(path: [String]) {
         let text = #"{ "theme": "dark", "keymap": { "summon": "cmd+j" } }"#
@@ -69,8 +65,7 @@ struct JSONTextEditTests {
     }
 }
 
-/// These touch the filesystem, so they run one at a time against a temporary
-/// `XDG_CONFIG_HOME` — never the real `~/.config/wisp`.
+/// Runs against a temporary `XDG_CONFIG_HOME`, never the real `~/.config/wisp`.
 @Suite("ConfigStore", .serialized)
 final class ConfigStoreTests {
     private let previousXDG = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"]
@@ -105,13 +100,12 @@ final class ConfigStoreTests {
         #expect(load.config == WispConfig())
         #expect(FileManager.default.fileExists(atPath: ConfigStore.fileURL.path))
 
-        // Second run reads what was written.
         let second = ConfigStore.loadOrSeed()
         #expect(second.config == load.config)
     }
 
-    /// `jq` parses strict JSON only, and both chezmoi's modify_ script and
-    /// the re-add hook run the deployed file through it.
+    /// chezmoi's modify_ script and re-add hook pipe the file through `jq`, which takes
+    /// strict JSON only.
     @Test("The seeded file is strict JSON, unescaped and stably ordered")
     func seededFileIsStrictJSON() throws {
         _ = ConfigStore.loadOrSeed()
@@ -135,7 +129,6 @@ final class ConfigStoreTests {
         #expect(ConfigStore.loadOrSeed().config.theme == .dark)
     }
 
-    /// A hand-edited file is the case the rewriter exists for.
     @Test("A hand-edited file keeps its comments through an update")
     func updatePreservesComments() throws {
         try FileManager.default.createDirectory(
@@ -158,8 +151,6 @@ final class ConfigStoreTests {
         #expect(ConfigStore.loadOrSeed().config.theme == .light)
     }
 
-    /// A setting added since the file was written has no key to rewrite, so
-    /// the whole document is re-encoded instead of the change being dropped.
     @Test("An update to an absent key falls back to a full encode")
     func updateFallsBack() throws {
         try FileManager.default.createDirectory(
@@ -187,8 +178,7 @@ final class ConfigStoreTests {
         #expect(load.error?.contains("unreadable") == true)
     }
 
-    /// The `$schema` key is an editor hint, not a config value — the decoder
-    /// has to ignore it rather than reporting it as a malformed key.
+    /// `$schema` is an editor hint, so loading must not report it as malformed.
     @Test("write emits $schema first, and loadOrSeed round-trips through it")
     func schemaKeyRoundTrips() throws {
         var config = WispConfig()
@@ -198,8 +188,7 @@ final class ConfigStoreTests {
         let text = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
         let object = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any]
         #expect(object?["$schema"] as? String == "./wisp.schema.json")
-        // sortedKeys puts "$schema" first among sibling keys, since "$" sorts
-        // before every letter — so its opening quote is the file's first.
+        // "$" sorts before every letter, so "$schema" is the first key written.
         #expect(text.range(of: "\"$schema\"")?.lowerBound == text.range(of: "\"")?.lowerBound)
 
         let load = ConfigStore.loadOrSeed()
@@ -207,9 +196,7 @@ final class ConfigStoreTests {
         #expect(load.config == config)
     }
 
-    /// A full write spells an unsaved position as `null`, so the first drag
-    /// replaces that value in place instead of falling back to a rewrite of
-    /// the whole file — which would drop a comment added since.
+    /// A full rewrite on the first drag would drop any comment added since.
     @Test("A written config carries position: null, and the first save edits it in place")
     func firstPositionSaveIsInPlace() throws {
         var config = WispConfig()
@@ -227,8 +214,7 @@ final class ConfigStoreTests {
         #expect(ConfigStore.loadOrSeed().config.position == PanelPosition(x: 12, y: 34))
     }
 
-    /// The directory is watched for live reload, so a launch that rewrote an
-    /// identical file would look like a config edit nobody made.
+    /// The directory is watched for live reload, so a needless rewrite reads as an edit.
     @Test("installSchema doesn't rewrite the file when the bytes already match")
     func installSchemaSkipsIdenticalBytes() throws {
         let source = root.appendingPathComponent("source.schema.json")
@@ -261,9 +247,8 @@ final class ConfigStoreTests {
     }
 }
 
-/// Guards against the schema and the encoder drifting apart: nothing else
-/// fails if `Resources/wisp.schema.json` stops matching what `WispConfig`
-/// actually encodes.
+/// Nothing else fails when `Resources/wisp.schema.json` drifts from what `WispConfig`
+/// encodes.
 @Suite("Schema sync")
 struct SchemaSyncTests {
     private static var schemaURL: URL {
@@ -294,10 +279,7 @@ struct SchemaSyncTests {
     func topLevelKeysMatchSchema() throws {
         let written = try Self.encodedKeys(of: WispConfig())
         let schemaKeys = try Self.schemaProperties(at: [])
-        // "panel" and "position" are absent from a default encode (`nil`
-        // omits the key), and "$schema" is only ever written by
-        // `SchemaTagged`, not by `WispConfig` itself — all three are schema
-        // properties nonetheless.
+        // Nil omits "panel" and "position", and "$schema" comes from `SchemaTagged`.
         #expect(schemaKeys == written.union(["panel", "position", "$schema"]))
     }
 

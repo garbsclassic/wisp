@@ -3,13 +3,13 @@ import Testing
 
 @testable import WispCore
 
-/// Relative luminance, for the "is this lighter than that" checks.
 private func luminance(_ c: NSColor) -> CGFloat {
     guard let rgb = c.usingColorSpace(.sRGB) else { return 0 }
     return 0.2126 * rgb.redComponent + 0.7152 * rgb.greenComponent + 0.0722 * rgb.blueComponent
 }
 
-/// Same hue, ignoring alpha — for "is this a wash of that".
+/// Equal apart from alpha. `NSColor ==` compares across color spaces, and is false rather
+/// than trapping on a semantic color.
 private func sameHue(_ a: NSColor, _ b: NSColor) -> Bool {
     a.withAlphaComponent(1) == b.withAlphaComponent(1)
 }
@@ -43,9 +43,7 @@ struct MetricsTests {
     func stepping() {
         var scale = 1.0
         for _ in 0..<3 { scale = Metrics.steppedFontScale(scale, by: 1) }
-        // The point of rounding onto the grid: 1.0 + 0.1 + 0.1 + 0.1 in
-        // binary floating point is 1.3000000000000003, and this value gets
-        // written into a config a person reads.
+        // Unrounded, three steps give 1.3000000000000003, which lands in the config file.
         #expect(scale == 1.3)
         #expect(Metrics.steppedFontScale(scale, by: -3) == 1.0)
     }
@@ -74,38 +72,36 @@ struct MetricsTests {
     }
 }
 
-/// These assert the *relationships* the design depends on, not the hex
-/// literals — restating a literal two files from where it's declared
-/// catches nothing and turns every retune into a two-file edit.
-///
-/// `NSColor`'s own `==` is used deliberately: it compares across color
-/// spaces, where component-wise comparison would call a device-RGB and an
-/// sRGB color equal, and it returns false on a semantic color instead of
-/// trapping.
+/// The relationships the design depends on, not the hex literals.
 @Suite("Palette tokens")
 struct PaletteTests {
     let dark = Palette.for(.dark)
     let light = Palette.for(.light)
 
-    /// Chips are raised, so they read lighter than the paper behind them.
-    /// Inverting this makes a find bar look like a recess.
+    /// Device RGB paints the same literal differently on a P3 panel than on an sRGB one.
+    @Test("Every token is sRGB, not device RGB", arguments: Theme.allCases)
+    func colorSpace(theme: Theme) {
+        let palette = Mirror(reflecting: Palette.for(theme)).children.flatMap { child in
+            let colors = child.value as? [NSColor] ?? [child.value as? NSColor].compactMap { $0 }
+            return colors.map { (child.label ?? "?", $0) }
+        }
+        #expect(!palette.isEmpty)
+        for (name, color) in palette + [("tintColor", Chrome.for(theme).tintColor)] {
+            #expect(color.colorSpace == .sRGB, "\(name) is \(color.colorSpace)")
+        }
+    }
+
     @Test("Surfaces read lighter than the panel behind them")
     func surfaceIsRaised() {
         #expect(luminance(dark.surface) > luminance(dark.panel))
         #expect(luminance(light.surface) > luminance(light.panel))
     }
 
-    /// The light panel is a translucent tint over vibrancy; `panel` has to
-    /// record what that composites to, or modal backdrops step over the
-    /// live panel instead of matching it.
     @Test("The light panel token matches the chrome tint it composites from")
     func lightPanelMatchesChrome() {
         #expect(luminance(light.panel) >= luminance(Chrome.for(.light).tintColor))
     }
 
-    /// Selection is an accent wash; the find match is deliberately a
-    /// different hue, so the current match stays tellable from a selection
-    /// sitting next to it.
     @Test("Selection washes the accent, the find match does not", arguments: [Theme.dark, .light])
     func selectionAndFind(theme: Theme) {
         let p = Palette.for(theme)
@@ -115,8 +111,6 @@ struct PaletteTests {
         #expect(p.findHighlight.alphaComponent < 1)
     }
 
-    /// Rules and borders sit on vibrancy whose luminance tracks the
-    /// desktop, so they have to be alpha rather than opaque.
     @Test("Rules and borders are translucent", arguments: [Theme.dark, .light])
     func hairlines(theme: Theme) {
         let p = Palette.for(theme)
@@ -140,8 +134,6 @@ struct PaletteTests {
 
 @Suite("Chrome")
 struct ChromeTests {
-    /// An opaque tint would paint over the vibrancy view and kill the blur
-    /// entirely — the bug this pins down.
     @Test("Both tints stay translucent so vibrancy shows through")
     func translucentTint() {
         #expect(Chrome.for(.light).tintColor.alphaComponent < 1)

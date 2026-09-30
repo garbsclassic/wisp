@@ -44,7 +44,6 @@ struct KeymapTests {
         let config = try decode(#"{ "keymap": { "bold": "cmd+nosuchkey" } }"#)
         #expect(config.keymap.parsed(.bold) == nil)
         #expect(config.keymap.unparseableActions == [.bold])
-        // Only that one — the rest are untouched.
         #expect(config.keymap.parsed(.italic) != nil)
     }
 
@@ -53,8 +52,7 @@ struct KeymapTests {
         let data = try JSONEncoder().encode(Keymap())
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         #expect(object?.count == KeymapAction.allCases.count)
-        // Single chords encode as a bare string; only an alias list becomes
-        // an array, so a seeded file has no one-element arrays in it.
+        // A single chord encodes as a bare string, an alias list as an array.
         #expect(object?["bold"] as? String == "cmd+b")
         #expect(object?["help"] as? [String] == ["f1", "cmd+/"])
     }

@@ -3,8 +3,7 @@ import Testing
 
 @testable import WispCore
 
-/// A fixed calendar and locale so the boundary between each bucket is exact rather than
-/// dependent on whoever runs the suite. January dates avoid DST, which New York observes.
+/// A fixed calendar and locale so buckets don't depend on the machine; January avoids DST.
 @Suite("RelativeTime.coarse")
 struct RelativeTimeTests {
     private let calendar: Calendar = {
@@ -71,8 +70,6 @@ struct RelativeTimeTests {
         #expect(coarse(now.addingTimeInterval(-86_400), now: now) == "yesterday")
     }
 
-    /// Elapsed time drives the hour bucket, not the calendar day: 23:00 yesterday to 01:00
-    /// today crosses midnight but is only two hours, and reads accordingly.
     @Test("23:00 yesterday to 01:00 today reads as 2 hr ago, not a day-based bucket")
     func crossesMidnightWithinTwoHours() {
         let now = date(2026, 1, 15, 1, 0, 0)
