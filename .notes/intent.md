@@ -48,10 +48,6 @@ oversight: two spaces of Inter is eight points, which does not read as a nesting
 is about the width of `• `, which is the step Apple Notes uses. `headIndent` and the continuation-
 line indent both include the doubling, so wrapped and continuation lines land on the item's text.
 
-## Reset Position's ⌥⌘0 works on the panel here, but only in Clef's open menu
-
-⌥⌘0 is scoped to the focused panel here. Clef's HUD never takes focus, so the same chord there would have to be claimed globally from the app underneath; Clef scopes it to its status menu instead.
-
 ## `--` stays literal at the start of a line
 
 `emDashEdit` refuses a `--` with only whitespace before it. At the start of a line `---` is on its way to a rule, and converting the first two dashes would flash an em dash and need a take-back to get there.

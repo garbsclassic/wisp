@@ -24,7 +24,7 @@ public enum SummonState: Equatable, Sendable {
         case holdElapsed
         /// A peek's modifiers lifted after its key already had.
         case modifiersReleased
-        /// The status item's right-click, and anything else that opens the
+        /// The status item's left click, and anything else that opens the
         /// panel without a chord to time.
         case togglePin
         case dismiss

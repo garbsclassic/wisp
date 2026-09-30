@@ -1,8 +1,8 @@
 import AppKit
 import WispCore
 
-/// Owns the single status-bar item. A left click opens the menu, a right
-/// click pins the panel, or dismisses the pin that's up. The menu
+/// Owns the single status-bar item. A left click pins the panel, or
+/// dismisses the pin that's up; a right click opens the menu. The menu
 /// refreshes its dynamic state — Launch at Login checkmark, Reset
 /// Scratchpad Folder visibility — in menuNeedsUpdate rather than being
 /// rebuilt each time.
@@ -54,9 +54,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             button.image = image
             button.target = self
             button.action = #selector(handleClick)
-            // Up rather than down: a right-mouse-down would otherwise
-            // open the menu on its own, before the action ever ran.
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            // Left on the up, as a toggle; right on the down, as a native
+            // context menu opens. The same split as Clef's.
+            button.sendAction(on: [.leftMouseUp, .rightMouseDown])
         }
 
         menu.delegate = self
@@ -110,11 +110,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(quit)
     }
 
-    /// Splits the click by button. The menu is assigned only for as long
-    /// as it takes to open: a permanently assigned one is what makes
-    /// AppKit open it on *every* click, and takes the right button away.
+    /// Splits the click by button, control-click counting as a right click
+    /// for a trackpad. The menu is assigned only for as long as it takes to
+    /// open: a permanently assigned one is what makes AppKit open it on
+    /// *every* click, and takes the left button away.
     @objc private func handleClick() {
-        if NSApp.currentEvent?.type == .rightMouseUp {
+        let event = NSApp.currentEvent
+        let isSecondary =
+            event?.type == .rightMouseDown || event?.modifierFlags.contains(.control) == true
+        guard isSecondary else {
             perform(.summon)
             return
         }
