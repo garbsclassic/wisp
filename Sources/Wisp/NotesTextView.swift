@@ -78,8 +78,9 @@ final class NotesTextView: NSTextView {
 
         textView.storageObserver = NotificationCenter.default.addObserver(
             forName: NSTextStorage.didProcessEditingNotification, object: storage, queue: nil
-        ) { [weak textView, weak storage] _ in
-            guard storage?.editedMask.contains(.editedCharacters) == true else { return }
+        ) { [weak textView] note in
+            guard let edited = note.object as? NSTextStorage,
+                  edited.editedMask.contains(.editedCharacters) else { return }
             MainActor.assumeIsolated { textView?.codeRanges = nil }
         }
 
