@@ -118,12 +118,7 @@ private final class HelpStickyHeader: NSView {
 
     func configure(title: String, style: HelpTextStyle) {
         label.attributedStringValue = NSAttributedString(
-            string: title.uppercased(),
-            attributes: [
-                .font: style.sectionFont,
-                .foregroundColor: style.sectionColor,
-                .kern: style.sectionFont.pointSize * Metrics.helpSectionTracking,
-            ])
+            string: title.uppercased(), attributes: style.sectionTitleAttributes)
     }
 
     /// Padding, label, padding — the same block the in-flow header occupies,

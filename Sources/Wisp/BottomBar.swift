@@ -72,12 +72,10 @@ struct FooterBar: View {
                 action: onHelpClick)
             glyphButton("xmark", help: "Close   ⎋", action: onDismiss)
         }
-        .font(Typography.ui(Metrics.chromeSize))
-        .foregroundStyle(Color(palette.muted))
         .padding(.horizontal, Metrics.chromeInsetX)
         .padding(.vertical, Metrics.chromeInsetY)
         .frame(maxWidth: .infinity)
-        .background(Color(palette.chrome))
+        .chromeBar()
     }
 
     /// `−  100%  +`, one control: the steps sit tight against the size they

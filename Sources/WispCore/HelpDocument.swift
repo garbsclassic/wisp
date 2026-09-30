@@ -115,6 +115,16 @@ public struct HelpTextStyle: Equatable {
     public var detailColor: NSColor
     public var sectionColor: NSColor
 
+    /// A section title's look, shared with the sticky header that pins a
+    /// copy of it, so the copy lands exactly on top of the real one.
+    public var sectionTitleAttributes: [NSAttributedString.Key: Any] {
+        [
+            .font: sectionFont,
+            .foregroundColor: sectionColor,
+            .kern: sectionFont.pointSize * Metrics.helpSectionTracking,
+        ]
+    }
+
     public init(
         rowFont: NSFont, sectionFont: NSFont,
         keyColor: NSColor, detailColor: NSColor, sectionColor: NSColor
@@ -164,15 +174,9 @@ extension HelpDocument {
         for (index, section) in sections.enumerated() {
             let title = section.title.uppercased()
             let start = output.length
-            output.append(
-                NSAttributedString(
-                    string: title + "\n",
-                    attributes: [
-                        .font: style.sectionFont,
-                        .foregroundColor: style.sectionColor,
-                        .kern: style.sectionFont.pointSize * Metrics.helpSectionTracking,
-                        .paragraphStyle: Self.sectionParagraphStyle(isFirst: index == 0),
-                    ]))
+            var attributes = style.sectionTitleAttributes
+            attributes[.paragraphStyle] = Self.sectionParagraphStyle(isFirst: index == 0)
+            output.append(NSAttributedString(string: title + "\n", attributes: attributes))
             // The trailing newline belongs to the paragraph, not the title —
             // a sticky header measuring the line break would sit a fragment
             // low.

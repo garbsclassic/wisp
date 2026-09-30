@@ -46,9 +46,7 @@ struct HeaderBar: View {
             }
             .padding(.leading, Metrics.chromeInsetX)
             .padding(.trailing, trailingInset)
-            .font(Typography.ui(Metrics.chromeSize))
-            .foregroundStyle(Color(palette.muted))
-            .background(Color(palette.chrome))
+            .chromeBar()
         }
     }
 
@@ -73,6 +71,24 @@ struct HeaderBar: View {
                 .help("Jump to “\(label)”")
             }
         }
+    }
+}
+
+extension View {
+    /// The look every bar at the panel's edges shares — the header strip, the
+    /// footer, and the help page's footer: the chrome face in `muted` on the
+    /// `chrome` fill, which reaches as far as the bar's own padding.
+    func chromeBar() -> some View { modifier(ChromeBar()) }
+}
+
+private struct ChromeBar: ViewModifier {
+    @Environment(\.palette) private var palette
+
+    func body(content: Content) -> some View {
+        content
+            .font(Typography.ui(Metrics.chromeSize))
+            .foregroundStyle(Color(palette.muted))
+            .background(Color(palette.chrome))
     }
 }
 

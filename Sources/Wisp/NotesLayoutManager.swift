@@ -159,26 +159,33 @@ final class NotesLayoutManager: NSLayoutManager {
     /// marker out to exactly the glyph's own width, so the reserved box
     /// and the glyph are the same size and there is nothing to center.
     private func drawMarker(_ glyph: String, for item: SmartEditing.ListItem, at origin: NSPoint) {
-        let glyphRange = self.glyphRange(
-            forCharacterRange: item.markerRange, actualCharacterRange: nil)
-        guard glyphRange.length > 0 else { return }
-
-        let fragmentRect = lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
-        let markerRect = boundingRect(forGlyphRange: glyphRange, in: textContainers[0])
-        // `location(forGlyphAt:)` is relative to the fragment's own origin,
-        // and its `y` is the baseline — the one measurement that puts the
-        // bullet on the text's line rather than in the middle of a
-        // 1.45×-leaded box.
-        let baseline = origin.y + fragmentRect.minY
-            + location(forGlyphAt: glyphRange.location).y
-
+        guard let marker = marker(of: item) else { return }
         let glyph = NSAttributedString(
             string: glyph, attributes: [.font: bulletFont, .foregroundColor: bulletColor])
         glyph.draw(at: NSPoint(
-            x: origin.x + markerRect.minX,
+            x: origin.x + marker.rect.minX,
             // The text view is flipped, so `draw(at:)` takes the top-left
             // of the glyph's line box rather than its baseline.
-            y: baseline - bulletFont.ascender))
+            y: origin.y + marker.baseline - bulletFont.ascender))
+    }
+
+    /// Where an item's hidden marker sits, container-relative: the rectangle
+    /// its characters reserve, and the baseline they sit on. Nil when the
+    /// marker isn't laid out.
+    ///
+    /// Bullets and boxes fill the width the marker is kerned to, and an
+    /// ordered marker is the visible text, so the rectangle is the mark's in
+    /// every case. `location(forGlyphAt:)` is relative to the fragment's own
+    /// origin, and its `y` is the baseline — the one measurement that puts a
+    /// mark on the text's line rather than in the middle of a leaded box.
+    private func marker(of item: SmartEditing.ListItem) -> (rect: NSRect, baseline: CGFloat)? {
+        let glyphs = glyphRange(forCharacterRange: item.markerRange, actualCharacterRange: nil)
+        guard glyphs.length > 0 else { return nil }
+        let fragment = lineFragmentRect(forGlyphAt: glyphs.location, effectiveRange: nil)
+        return (
+            boundingRect(forGlyphRange: glyphs, in: textContainers[0]),
+            fragment.minY + location(forGlyphAt: glyphs.location).y
+        )
     }
 
     // MARK: Indent guides
@@ -225,36 +232,19 @@ final class NotesLayoutManager: NSLayoutManager {
 
         guideColor.setFill()
         for level in 0..<depth {
-            let ancestor = ancestors[level]
-            let centre = ancestor.map { markerCentre(of: $0.item) }
-                ?? fallbackMarkerCentre(level: level)
+            let ancestor = ancestors[level].flatMap { marker(of: $0.item) }
+            let centre = ancestor?.rect.midX ?? fallbackMarkerCentre(level: level)
             let top: CGFloat
             if depthAbove > level {
                 top = fragmentTop
             } else if let ancestor {
-                top = origin.y + baseline(of: ancestor.item) + bulletFont.capHeight / 2
+                top = origin.y + ancestor.baseline + bulletFont.capHeight / 2
             } else {
                 top = ascenderTop
             }
             NSRect(x: (origin.x + centre).rounded() - 0.5, y: top, width: 1, height: bottom - top)
                 .fill()
         }
-    }
-
-    /// Container-relative y of the baseline an item's marker sits on.
-    private func baseline(of item: SmartEditing.ListItem) -> CGFloat {
-        let glyph = glyphRange(forCharacterRange: item.markerRange, actualCharacterRange: nil).location
-        return lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY
-            + location(forGlyphAt: glyph).y
-    }
-
-    /// Container-relative x of the middle of an item's marker. Bullets
-    /// and boxes fill the width the marker is kerned to, and an ordered
-    /// marker is the visible text, so the reserved rectangle's middle is
-    /// the mark's middle in every case.
-    private func markerCentre(of item: SmartEditing.ListItem) -> CGFloat {
-        let glyphs = glyphRange(forCharacterRange: item.markerRange, actualCharacterRange: nil)
-        return boundingRect(forGlyphRange: glyphs, in: textContainers[0]).midX
     }
 
     /// Where a bullet at `level` would sit: the leading whitespace is
@@ -289,14 +279,8 @@ final class NotesLayoutManager: NSLayoutManager {
     /// the letters rather than hanging off the baseline; the stroke sits
     /// inside the reserved width, so a box never touches the text after it.
     private func drawChecklistBox(checked: Bool, for item: SmartEditing.ListItem, at origin: NSPoint) {
-        let glyphRange = self.glyphRange(
-            forCharacterRange: item.markerRange, actualCharacterRange: nil)
-        guard glyphRange.length > 0 else { return }
-
-        let fragmentRect = lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
-        let markerRect = boundingRect(forGlyphRange: glyphRange, in: textContainers[0])
-        let baseline = origin.y + fragmentRect.minY
-            + location(forGlyphAt: glyphRange.location).y
+        guard let marker = marker(of: item) else { return }
+        let baseline = origin.y + marker.baseline
 
         let side = Self.checklistBoxSide(for: bulletFont)
         // 1.5pt at the default size, stepping in halves with the scale.
@@ -306,7 +290,7 @@ final class NotesLayoutManager: NSLayoutManager {
         // less the box's reach above the cap-height midpoint.
         let midline = baseline - bulletFont.capHeight / 2
         let box = NSRect(
-            x: origin.x + markerRect.minX + inset, y: midline - side / 2 + inset,
+            x: origin.x + marker.rect.minX + inset, y: midline - side / 2 + inset,
             width: side - stroke, height: side - stroke)
         let radius = (side / 5).rounded()
 

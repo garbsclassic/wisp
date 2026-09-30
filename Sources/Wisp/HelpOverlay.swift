@@ -70,14 +70,12 @@ struct HelpOverlay: View {
         HStack(spacing: 12) {
             content()
         }
-        .font(Typography.ui(Metrics.chromeSize))
-        .foregroundStyle(Color(palette.muted))
         .lineLimit(1)
         .padding(.horizontal, Metrics.chromeInsetX)
         .padding(.vertical, Metrics.chromeInsetY)
         // Leading: a full-width row with no spacer centres itself otherwise.
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(palette.chrome))
+        .chromeBar()
     }
 
     private var hairline: some View {
