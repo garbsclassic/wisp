@@ -311,14 +311,11 @@ public enum SmartEditing {
     /// ↵ on an empty item that is nested: the line, one level shallower.
     /// Each press steps out a level and only the last leaves the list —
     /// the only way ↵ alone can walk a caret back up to its parent. Nil
-    /// for a flush-left item, which is the signal to exit. Mirrors
-    /// `LineEdits.outdent`: one leading tab, or up to a unit of spaces.
+    /// for a flush-left item, which is the signal to exit. The level is
+    /// `LineEdits.outdent`'s: one leading tab, or up to a unit of spaces.
     public static func outdentedEmptyItem(_ line: String, unit: String) -> String? {
-        let indent = leadingIndent(of: line)
-        guard !indent.isEmpty else { return nil }
-        if line.hasPrefix("\t") { return String(line.dropFirst()) }
-        let spaces = line.prefix { $0 == " " }.count
-        return String(line.dropFirst(min(spaces, (unit as NSString).length)))
+        guard !leadingIndent(of: line).isEmpty else { return nil }
+        return String(line.dropFirst(LineEdits.leadingLevel(of: line, unit: unit)))
     }
 
     /// ⇧↵ inside an item's text: a newline plus whitespace out to the

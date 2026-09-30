@@ -182,12 +182,32 @@ public enum LineEdits {
     /// already flush left is left alone, so outdenting a mixed block
     /// doesn't drag the rest out of alignment.
     public static func outdent(in text: NSString, selection: NSRange, unit: String) -> Edit {
-        let width = (unit as NSString).length
-        return rewriteLines(in: text, selection: selection) { line in
-            if line.hasPrefix("\t") { return (inserted: "", removed: 1) }
-            let spaces = line.prefix { $0 == " " }.count
-            return (inserted: "", removed: min(spaces, width))
+        rewriteLines(in: text, selection: selection) { line in
+            (inserted: "", removed: leadingLevel(of: line, unit: unit))
         }
+    }
+
+    /// The length of one indent level at the front of `line`: a leading tab,
+    /// or up to `unit`'s width in spaces.
+    static func leadingLevel(of line: String, unit: String) -> Int {
+        if line.hasPrefix("\t") { return 1 }
+        return min(line.prefix { $0 == " " }.count, (unit as NSString).length)
+    }
+
+    /// The length of one indent level just before `cursor`, looking no
+    /// further back than `floor`: a tab, or up to `unit`'s width in spaces.
+    /// One tab is one level, whatever the configured width says; and only the
+    /// spaces count, so a run of `\t  ` gives up its two spaces without also
+    /// losing the tab.
+    private static func levelBefore(
+        _ cursor: Int, floor: Int, in text: NSString, unit: String
+    ) -> Int {
+        if text.character(at: cursor - 1) == tab { return 1 }
+        var spaces = 0
+        while cursor - spaces - 1 >= floor, text.character(at: cursor - spaces - 1) == space {
+            spaces += 1
+        }
+        return min(spaces, (unit as NSString).length)
     }
 
     /// ⇧⇥ with a bare cursor sitting after whitespace that is *not* the
@@ -214,26 +234,9 @@ public enum LineEdits {
         // *is* the leading indent. Either way this is not our edit.
         guard runStart < cursor, runStart > line.location else { return nil }
 
-        let removed: Int
-        if text.character(at: cursor - 1) == tab {
-            // One tab is one level, whatever the configured width says.
-            removed = 1
-        } else {
-            // Only the spaces immediately before the cursor, so a run of
-            // `\t  ` gives up its two spaces without also losing the tab.
-            var spaces = 0
-            while cursor - spaces - 1 >= runStart,
-                text.character(at: cursor - spaces - 1) == space {
-                spaces += 1
-            }
-            removed = min(spaces, (unit as NSString).length)
-        }
+        let removed = levelBefore(cursor, floor: runStart, in: text, unit: unit)
         guard removed > 0 else { return nil }
-
-        let range = NSRange(location: cursor - removed, length: removed)
-        return Edit(
-            range: range, replacement: "",
-            selection: NSRange(location: range.location, length: 0))
+        return .insert("", replacing: NSRange(location: cursor - removed, length: removed))
     }
 
     /// ⌫ with a bare cursor and nothing but whitespace between it and the
@@ -255,21 +258,8 @@ public enum LineEdits {
             return nil
         }
 
-        let removed: Int
-        if text.character(at: cursor - 1) == tab {
-            removed = 1
-        } else {
-            var spaces = 0
-            while cursor - spaces - 1 >= line.location,
-                text.character(at: cursor - spaces - 1) == space {
-                spaces += 1
-            }
-            removed = min(spaces, (unit as NSString).length)
-        }
-        let range = NSRange(location: cursor - removed, length: removed)
-        return Edit(
-            range: range, replacement: "",
-            selection: NSRange(location: range.location, length: 0))
+        let removed = levelBefore(cursor, floor: line.location, in: text, unit: unit)
+        return .insert("", replacing: NSRange(location: cursor - removed, length: removed))
     }
 
     // MARK: Move and toggle
