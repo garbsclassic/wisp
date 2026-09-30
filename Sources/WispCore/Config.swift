@@ -257,11 +257,8 @@ public struct PanelFrame: Codable, Equatable, Sendable {
     }
 }
 
-/// Everything Wisp persists, and the only place it persists it.
-///
-/// There is deliberately no shadow store beside this: with the updater and
-/// the tour gone, every value that used to live in UserDefaults is a key
-/// here.
+/// Everything Wisp persists, and the only place it persists it: there is
+/// deliberately no shadow store, such as UserDefaults, beside it.
 public struct WispConfig: Codable, Equatable, Sendable {
     /// Light, dark, or follow the system. Richer than Clef's, which has no
     /// system option.

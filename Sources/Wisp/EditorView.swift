@@ -173,11 +173,9 @@ final class EditorModel: ObservableObject {
     }
 
     /// Re-read scratchpad.md from disk if its modification time has
-    /// advanced since we last loaded it. Called on every panel-open so
-    /// changes from another Mac (via iCloud Drive / Dropbox / etc.)
-    /// show up the next time the user summons Wisp. Mid-session writes
-    /// to the file from outside Wisp aren't observed (no file watcher
-    /// — kept intentionally simple).
+    /// advanced since we last loaded it. Called on every panel-open, on
+    /// Refresh, and by the note folder's watcher, so changes from another
+    /// Mac (via iCloud Drive / Dropbox / etc.) show up.
     func reloadFromDiskIfChanged() {
         // Our own write is still in flight and the buffer is ahead of the
         // file; whatever is on disk right now is by definition older.
@@ -224,10 +222,9 @@ final class EditorModel: ObservableObject {
     }
 
     /// Puts the keyboard back where the user was. Every caller means that,
-    /// and while the help page is up that is the page, not the note —
-    /// ⌘= / ⌘0 / ⌘T all call this, and each of them used to quietly hand
-    /// first responder back to the note behind the page, taking ⌘A, ⌘F and
-    /// the scroll keys with it.
+    /// and while the help page is up that is the page, not the note — or
+    /// ⌘= / ⌘0 / ⌘T would hand first responder to the note behind the page,
+    /// taking ⌘A, ⌘F and the scroll keys with it.
     func requestFocus() {
         if showHelp { helpFocusToken &+= 1 } else { focusToken &+= 1 }
     }

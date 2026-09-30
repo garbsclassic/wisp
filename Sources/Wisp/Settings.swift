@@ -6,8 +6,7 @@ import WispCore
 ///
 /// Every setting the UI can change goes through a `set…` here, which updates
 /// the in-memory config and rewrites just that one key in the file. Nothing
-/// else in the app persists anything: with the updater and the tour gone,
-/// `wisp.jsonc` is the whole store.
+/// else in the app persists anything: `wisp.jsonc` is the whole store.
 @MainActor
 final class Settings: ObservableObject {
     @Published private(set) var config: WispConfig

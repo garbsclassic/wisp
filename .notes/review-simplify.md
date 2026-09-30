@@ -26,7 +26,7 @@ Deduplicated across the four reviews, most valuable first.
 - [x] **Reuse** — the help page's sticky header rebuilds the section-title attributes `HelpDocument.render` sets ([HelpBody.swift:119](../Sources/Wisp/HelpBody.swift:119)); the footer, help footer, and header repeat one chrome-bar style ([HelpOverlay.swift:69](../Sources/Wisp/HelpOverlay.swift:69)).
 - [x] **Reuse** — `drawMarker` and `drawChecklistBox` open with the same marker geometry `baseline(of:)` and `markerCentre(of:)` compute ([NotesLayoutManager.swift:162](../Sources/Wisp/NotesLayoutManager.swift:162)).
 - [ ] **Simplification** — small ones: `ChecklistBoxIndex` is a function with a type's name, `Typography.notes` is unused, `resetStorageLocation` only forwards, `HotKeyCaptureOverlay`'s `onSuccess` and `onCancel` are the same closure, `PanelController` pins four views with four copies of the same constraints.
-- [ ] **Comments** — stale comments (no file watcher, UserDefaults theme, `esc` never "escape", `build-app.sh`, `notes/designs`, "no tables", the type-size cycle) and ones narrating earlier approaches.
+- [x] **Comments** — stale comments (no file watcher, UserDefaults theme, `esc` never "escape", `build-app.sh`, `notes/designs`, "no tables", the type-size cycle) and ones narrating earlier approaches.
 
 ## Incidental bugs
 
