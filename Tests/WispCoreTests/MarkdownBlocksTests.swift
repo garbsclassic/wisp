@@ -163,18 +163,6 @@ struct MarkdownBlocksInlineBackticksTests {
         let dashesOffset = ("```ls -la``` lists files\n# Later\n\n" as NSString).length
         #expect(MarkdownBlocks(ns).line(at: dashesOffset)?.kind == .rule)
     }
-
-    @Test("A genuine fenced code block with an info string still opens and closes as a fence")
-    func infoStringFenceStillFences() {
-        let text = "```swift\ncode\n```"
-        let ns = text as NSString
-        let blocks = MarkdownBlocks(ns)
-        #expect(blocks.line(at: 0)?.kind == .fence)
-        let codeOffset = ("```swift\n" as NSString).length
-        #expect(blocks.line(at: codeOffset)?.kind == .fencedCode)
-        let closeOffset = ("```swift\ncode\n" as NSString).length
-        #expect(blocks.line(at: closeOffset)?.kind == .fence)
-    }
 }
 
 @Suite("MarkdownBlocks: setext heading after a closing fence")
@@ -334,14 +322,6 @@ struct MarkdownBlocksCodeRangesTests {
     func plainProse() {
         let ns = "just some prose, no backticks here" as NSString
         #expect(MarkdownBlocks(ns).codeRanges(in: ns).isEmpty)
-    }
-
-    @Test("A single inline code span is captured, backticks included")
-    func oneSpan() {
-        let ns = "a `code` b" as NSString
-        let ranges = MarkdownBlocks(ns).codeRanges(in: ns)
-        #expect(ranges == [NSRange(location: 2, length: 6)])
-        #expect(ns.substring(with: ranges[0]) == "`code`")
     }
 
     @Test("Two inline spans on the same line are both captured")

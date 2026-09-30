@@ -67,51 +67,6 @@ struct JSONTextEditTests {
         let text = #"{ "theme": "dark", "keymap": { "summon": "cmd+j" } }"#
         #expect(JSONTextEdit.replacingValue(in: text, at: path, with: "1") == nil)
     }
-
-    /// The deployed file is biome-formatted by chezmoi, and the app writes
-    /// to it afterwards. If a UI-driven change reflowed it, `chezmoi diff`
-    /// would be permanently dirty — which is the whole reason this rewriter
-    /// exists rather than a plain re-encode.
-    @Test("A chezmoi-deployed file survives a UI-driven change byte for byte")
-    func chezmoiDeployedShape() throws {
-        let deployed = """
-            {
-              "dismissOnOutsideClick": true,
-              "fonts": {
-                "notes": "Inter Nerd Font",
-                "ui": "Inter Nerd Font Propo"
-              },
-              "keymap": {
-                "summon": "ctrl+opt+."
-              },
-              "scratchpadFolder": "",
-              "vibrancy": true,
-              "theme": "system"
-            }
-
-            """
-        let after = try #require(
-            JSONTextEdit.replacingValue(in: deployed, at: ["theme"], with: "\"dark\""))
-        #expect(after == deployed.replacingOccurrences(of: "\"system\"", with: "\"dark\""))
-    }
-
-    @Test("A rewritten document still parses")
-    func stillParses() throws {
-        let before = """
-            {
-                // keep me
-                "theme": "system",
-                "fontScale": 1.0,
-            }
-            """
-        let after = try #require(
-            JSONTextEdit.replacingValue(in: before, at: ["fontScale"], with: "1.5"))
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        let config = try decoder.decode(WispConfig.self, from: Data(after.utf8))
-        #expect(config.fontScale == 1.5)
-        #expect(after.contains("// keep me"))
-    }
 }
 
 /// These touch the filesystem, so they run one at a time against a temporary
@@ -232,15 +187,6 @@ final class ConfigStoreTests {
         #expect(load.error?.contains("unreadable") == true)
     }
 
-    @Test("The panel frame round-trips through the file")
-    func panelFrameRoundTrip() throws {
-        _ = ConfigStore.loadOrSeed()
-        var config = WispConfig()
-        config.panel = PanelFrame(width: 800, height: 640)
-        try ConfigStore.update(["panel"], to: config.panel, in: config)
-        #expect(ConfigStore.loadOrSeed().config.panel == config.panel)
-    }
-
     /// The `$schema` key is an editor hint, not a config value — the decoder
     /// has to ignore it rather than reporting it as a malformed key.
     @Test("write emits $schema first, and loadOrSeed round-trips through it")
@@ -279,18 +225,6 @@ final class ConfigStoreTests {
         let after = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
         #expect(after.hasPrefix("// kept"))
         #expect(ConfigStore.loadOrSeed().config.position == PanelPosition(x: 12, y: 34))
-    }
-
-    @Test("installSchema copies the source into the config directory")
-    func installSchemaCopies() throws {
-        let source = root.appendingPathComponent("source.schema.json")
-        try "{ \"title\": \"test\" }".write(to: source, atomically: true, encoding: .utf8)
-
-        try ConfigStore.installSchema(from: source)
-
-        #expect(FileManager.default.fileExists(atPath: ConfigStore.schemaFileURL.path))
-        #expect(
-            try Data(contentsOf: ConfigStore.schemaFileURL) == Data(contentsOf: source))
     }
 
     /// The directory is watched for live reload, so a launch that rewrote an

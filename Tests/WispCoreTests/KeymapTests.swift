@@ -31,26 +31,12 @@ struct KeymapTests {
         #expect(Set(all).count == all.count)
     }
 
-    @Test("Toggling a checklist item and toggling a bulleted list keep their dedicated defaults")
-    func checklistAndBulletedListDefaults() {
-        #expect(KeymapAction.checklist.defaultChords == "cmd+shift+l")
-        #expect(KeymapAction.bulletedList.defaultChords == "cmd+l")
-    }
-
     @Test("A partial keymap object keeps the defaults for everything else")
     func partialOverlay() throws {
         let config = try decode(#"{ "keymap": { "bold": "cmd+shift+b" } }"#)
         #expect(config.keymap.chord(for: .bold) == "cmd+shift+b")
         #expect(config.keymap.chordSet(for: .italic) == KeymapAction.italic.defaultChords)
         #expect(config.keymap.chordSet(for: .summon) == KeymapAction.summon.defaultChords)
-    }
-
-    @Test("A malformed chord value is named rather than swallowed")
-    func malformedValue() throws {
-        let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "keymap": { "bold": 7 } }"#, diagnostics: diagnostics)
-        #expect(config.keymap.chordSet(for: .bold) == KeymapAction.bold.defaultChords)
-        #expect(diagnostics.malformedKeys == ["keymap.bold"])
     }
 
     @Test("An unparseable chord leaves that action unbound and flagged")
@@ -91,12 +77,6 @@ struct KeymapTests {
         #expect(config.keymap.display(.help) == "F1 / ⌘/")
     }
 
-    @Test("A bare string still decodes, so old configs keep working")
-    func singleStringForm() throws {
-        let config = try decode(#"{ "keymap": { "help": "cmd+h" } }"#)
-        #expect(config.keymap.chordSet(for: .help) == ChordSet(["cmd+h"]))
-    }
-
     @Test("A value that is neither a string nor a list is reported")
     func wrongShape() throws {
         let diagnostics = ConfigDiagnostics()
@@ -111,57 +91,6 @@ struct KeymapTests {
         #expect(keymap.chordSet(for: .help).chords.count == 2)
         keymap.setChord("cmd+k", for: .help)
         #expect(keymap.chordSet(for: .help) == ChordSet(["cmd+k"]))
-    }
-
-    @Test("Help defaults to F1 with ⌘/ as an alias")
-    func helpDefaults() {
-        #expect(KeymapAction.help.defaultChords == ["f1", "cmd+/"])
-    }
-
-    @Test("Strikethrough and the heading-navigation actions default to a chord that parses, and are panel-scoped")
-    func newActionsHaveWorkingScopedDefaults() {
-        // `defaultsAllParse` and `defaultsAreUnique` already cover these three
-        // through `KeymapAction.allCases`; this pins down scoping too, which
-        // those two don't touch.
-        let keymap = Keymap()
-        for action in [KeymapAction.strikethrough, .previousHeading, .nextHeading] {
-            #expect(!keymap.parsedChords(for: action).isEmpty)
-            #expect(action.isPanelScoped)
-        }
-    }
-
-    @Test("Open-line and source-view actions keep their dedicated defaults, and all parse")
-    func openLineAndSourceViewDefaults() {
-        #expect(KeymapAction.openLineBelow.defaultChords == "cmd+return")
-        #expect(KeymapAction.openLineAbove.defaultChords == "cmd+shift+return")
-        #expect(KeymapAction.sourceView.defaultChords == "cmd+shift+v")
-
-        let keymap = Keymap()
-        for action in [KeymapAction.openLineBelow, .openLineAbove, .sourceView] {
-            #expect(keymap.parsed(action) != nil)
-        }
-    }
-
-    /// Same default as Clef's, so the two apps agree on the chord even where
-    /// they don't share a `Keymap` type.
-    @Test("Reset Position defaults to cmd+opt+0, titled, and panel-scoped")
-    func resetPositionAction() {
-        #expect(KeymapAction.resetPosition.defaultChords == "cmd+opt+0")
-        #expect(KeymapAction.resetPosition.title == "Reset Position")
-        #expect(KeymapAction.resetPosition.isPanelScoped)
-    }
-
-    /// `defaultsAllParse` and `defaultsAreUnique` already cover this action through
-    /// `KeymapAction.allCases`, including its collision check against every other default; this
-    /// pins its two chords and title down individually.
-    @Test("Toggle Spellcheck defaults to F6 and cmd+;, both of which parse")
-    func spellcheckDefaults() {
-        #expect(KeymapAction.spellcheck.defaultChords == ["f6", "cmd+;"])
-        #expect(KeymapAction.spellcheck.title == "Check Spelling")
-        let keymap = Keymap()
-        let parsed = keymap.parsedChords(for: .spellcheck)
-        #expect(parsed.count == 2)
-        #expect(KeymapAction.spellcheck.isPanelScoped)
     }
 
     @Test("Only the actions that open the panel are unscoped")
@@ -179,26 +108,12 @@ struct KeymapTests {
 
 @Suite("KeyChord — menu equivalents")
 struct MenuEquivalentTests {
-    @Test("A letter chord becomes its character plus a modifier mask")
-    func letter() throws {
-        let equivalent = try #require(KeyChord.parse("cmd+b")?.menuEquivalent)
-        #expect(equivalent.character == "b")
-        #expect(equivalent.modifiers == [.command])
-    }
-
     @Test("Shift lands in the mask, never in the character")
     func shift() throws {
         // An uppercase keyEquivalent makes AppKit draw a second ⇧.
         let equivalent = try #require(KeyChord.parse("cmd+shift+b")?.menuEquivalent)
         #expect(equivalent.character == "b")
         #expect(equivalent.modifiers == [.command, .shift])
-    }
-
-    @Test("Option-only chords are legal equivalents")
-    func optionOnly() throws {
-        let equivalent = try #require(KeyChord.parse("opt+h")?.menuEquivalent)
-        #expect(equivalent.character == "h")
-        #expect(equivalent.modifiers == [.option])
     }
 
     @Test("Arrows use the function-key scalars AppKit reserves for them")

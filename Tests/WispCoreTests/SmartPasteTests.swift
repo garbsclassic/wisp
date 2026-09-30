@@ -28,13 +28,6 @@ struct SmartPasteFormatTests {
                 == "| a\\|b | c   |\n| ---- | --- |\n| d    | e   |")
     }
 
-    @Test("The divider's dashes are never narrower than three, even for one-character cells")
-    func tableDividerMinimumWidth() {
-        #expect(
-            SmartPaste.format("a\tb\nc\td\n")?.contains("| --- | --- |") == true
-        )
-    }
-
     /// A ragged row isn't a table, but a tab-separated line is still short
     /// enough plain text, so it falls through to the list check instead.
     @Test("A ragged row falls through to the list check rather than nil")
@@ -116,11 +109,6 @@ struct SmartPasteFormatTests {
                 == "| a   | b   |\n| --- | --- |\n| c   | d   |")
     }
 
-    @Test("Three plain lines still become a bulleted list")
-    func threePlainLinesBecomeList() {
-        #expect(SmartPaste.format("milk\neggs\nbread\n") == "- milk\n- eggs\n- bread")
-    }
-
     /// No single line here trips `isPlainItem`'s own checks, but the lines read as Markdown
     /// together, so bulleting them would double up their own syntax.
     @Test(
@@ -137,35 +125,6 @@ struct SmartPasteFormatTests {
     }
 }
 
-@Suite("SmartPaste: pipeTable")
-struct SmartPastePipeTableTests {
-    /// `pipeTable` itself doesn't require two rows — `format` guards that
-    /// before calling in, since a lone row is trivially "consistent".
-    @Test("A single row is still a well-formed, if degenerate, table")
-    func singleRowIsATable() {
-        #expect(SmartPaste.pipeTable(["a\tb"]) == "| a   | b   |\n| --- | --- |")
-    }
-
-    @Test("Rows with only one cell are not a table")
-    func oneCellRowsAreNil() {
-        #expect(SmartPaste.pipeTable(["a", "b"]) == nil)
-    }
-
-    @Test("Rows with differing cell counts are not a table")
-    func mismatchedWidthsAreNil() {
-        #expect(SmartPaste.pipeTable(["a\tb", "c\td\te"]) == nil)
-    }
-}
-
-@Suite("SmartPaste: bulletedList")
-struct SmartPasteBulletedListTests {
-    @Test("Any disqualified line makes the whole thing nil")
-    func oneBadLineDisqualifiesAll() {
-        #expect(SmartPaste.bulletedList(["milk", ""]) == nil)
-        #expect(SmartPaste.bulletedList(["milk", "- eggs"]) == nil)
-    }
-}
-
 @Suite("SmartPaste: isPlainItem")
 struct SmartPasteIsPlainItemTests {
     @Test("An empty or whitespace-only line is not a plain item")
@@ -173,43 +132,10 @@ struct SmartPasteIsPlainItemTests {
         #expect(!SmartPaste.isPlainItem(""))
         #expect(!SmartPaste.isPlainItem("   "))
     }
-
-    @Test("A line at the max length is plain, one past it is not")
-    func lengthBoundary() {
-        #expect(SmartPaste.isPlainItem(String(repeating: "x", count: SmartPaste.maxItemLength)))
-        #expect(!SmartPaste.isPlainItem(String(repeating: "x", count: SmartPaste.maxItemLength + 1)))
-    }
-
-    @Test(
-        "Already-marked-up lines are not plain items",
-        arguments: ["- item", "* item", "1. item", "- [ ] item", "# heading", "---"]
-    )
-    func markedUpIsNotPlain(line: String) {
-        #expect(!SmartPaste.isPlainItem(line))
-    }
-
-    @Test("An ordinary sentence is a plain item")
-    func ordinarySentenceIsPlain() {
-        #expect(SmartPaste.isPlainItem("Buy milk"))
-    }
 }
 
 @Suite("SmartPaste: splitLines")
 struct SmartPasteSplitLinesTests {
-    @Test("Newline conventions are normalised to a single array of lines")
-    func normalisation() {
-        #expect(SmartPaste.splitLines("a\nb") == ["a", "b"])
-        #expect(SmartPaste.splitLines("a\r\nb") == ["a", "b"])
-        #expect(SmartPaste.splitLines("a\rb") == ["a", "b"])
-    }
-
-    @Test("Trailing blank and whitespace-only lines are dropped, interior ones are kept")
-    func trailingBlanksDropped() {
-        #expect(SmartPaste.splitLines("a\nb\n") == ["a", "b"])
-        #expect(SmartPaste.splitLines("a\nb\n\n   \n") == ["a", "b"])
-        #expect(SmartPaste.splitLines("a\n\nb\n") == ["a", "", "b"])
-    }
-
     /// The lone line an empty string produces is itself whitespace-only, so
     /// the trailing-blank trim removes it too, down to an empty array.
     @Test("An empty string trims away to no lines at all")

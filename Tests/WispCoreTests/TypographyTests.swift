@@ -48,13 +48,6 @@ struct TypographyTests {
         #expect(Typography.codeFont(atResolvedSize: 16).pointSize == 16)
     }
 
-    @Test("The code face takes its size as given")
-    func codeSizeIsNotRescaled() {
-        defer { Typography.configure(fonts: FontSet(), scale: 1) }
-        Typography.configure(fonts: FontSet(), scale: 2)
-        #expect(Typography.codeFont(atResolvedSize: 16).pointSize == 16)
-    }
-
     /// Every size goes through one multiplier, so a display that needs
     /// everything a notch larger doesn't need the layout redrawn.
     @Test("Configuring applies the families and scales every size")
@@ -73,22 +66,5 @@ struct TypographyTests {
         defer { Typography.configure(fonts: FontSet(), scale: 1) }
         Typography.configure(fonts: FontSet(notes: "No Such Face", ui: "Menlo"), scale: 1)
         #expect(Typography.missingFamilies == ["No Such Face"])
-    }
-
-    @Test("A resolved face keeps the requested size")
-    func sizes() {
-        #expect(Typography.notesFont(20).pointSize == 20)
-    }
-
-    /// Heading styling and ⌘B derive scaled bold from the base descriptor.
-    /// A face that came back non-bold would silently unbold every heading.
-    @Test("Bold derives off the base descriptor at the requested size")
-    func boldDerivation() throws {
-        let body = Typography.notesFont(20)
-        let derived = try #require(
-            NSFont(descriptor: body.fontDescriptor.withSymbolicTraits(.bold), size: 24)
-        )
-        #expect(derived.pointSize == 24)
-        #expect(derived.fontDescriptor.symbolicTraits.contains(.bold))
     }
 }

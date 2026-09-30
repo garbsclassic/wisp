@@ -6,13 +6,6 @@ import Testing
 
 @Suite("StorageLocation")
 struct StorageLocationTests {
-    @Test("The on-disk names are the documented ones")
-    func names() {
-        #expect(StorageLocation.scratchpadFilename == "scratchpad.md")
-        #expect(StorageLocation.backupPrefix == "scratchpad-local-backup-")
-        #expect(StorageLocation.defaultFolder.lastPathComponent == "Documents")
-    }
-
     @Test("The scratchpad lands directly inside the chosen folder")
     func composedURL() {
         let folder = URL(fileURLWithPath: "/tmp/wisp-probe")

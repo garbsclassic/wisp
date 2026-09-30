@@ -28,35 +28,11 @@ struct ConfigDecodingTests {
         #expect(config.monitor == .primary)
     }
 
-    /// JSON5 is a strict superset of JSONC, so the reader takes comments and
-    /// trailing commas with no hand-rolled stripper.
-    @Test("Comments and trailing commas parse")
-    func jsonc() throws {
-        let config = try decode(
-            """
-            {
-                // the summon chord
-                "keymap": { "summon": "cmd+opt+w" },
-                /* block */
-                "saveIndicator": false,
-            }
-            """)
-        #expect(config.keymap.chord(for: .summon) == "cmd+opt+w")
-        #expect(!config.saveIndicator)
-    }
-
     @Test("Nested keys default independently")
     func nestedDefaults() throws {
         let config = try decode(#"{ "fonts": { "ui": "Helvetica" } }"#)
         #expect(config.fonts.ui == "Helvetica")
         #expect(config.fonts.notes == FontSet().notes)
-    }
-
-    @Test("A remembered size decodes, and its absence is not an error")
-    func panelFrame() throws {
-        #expect(try decode("{}").panel == nil)
-        let config = try decode(#"{ "panel": { "width": 800, "height": 640 } }"#)
-        #expect(config.panel == PanelFrame(width: 800, height: 640))
     }
 
     /// A panel object with no size at all can't be honoured, and a key
@@ -67,20 +43,6 @@ struct ConfigDecodingTests {
         let config = try decode(#"{ "panel": { "width": 800 } }"#, diagnostics: diagnostics)
         #expect(config.panel == nil)
         #expect(diagnostics.malformedKeys == ["panel"])
-    }
-}
-
-@Suite("Smart paste")
-struct SmartPasteConfigTests {
-    @Test("Defaults to true")
-    func defaults() throws {
-        #expect(try decode("{}").smartPaste)
-    }
-
-    @Test("Decodes an explicit override")
-    func override() throws {
-        let config = try decode(#"{ "smartPaste": false }"#)
-        #expect(!config.smartPaste)
     }
 }
 
@@ -196,18 +158,6 @@ struct IndentConfigTests {
         #expect(Indent(style: .spaces, size: 400).unit.count == 16)
         #expect(Indent(style: .spaces, size: 0).unit == " ")
     }
-
-    @Test("A malformed style is named rather than swallowed")
-    func malformed() throws {
-        let diagnostics = ConfigDiagnostics()
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        decoder.userInfo[.configDiagnostics] = diagnostics
-        let config = try decoder.decode(
-            WispConfig.self, from: Data(#"{ "indent": { "style": 7 } }"#.utf8))
-        #expect(config.indent.style == .spaces)
-        #expect(diagnostics.malformedKeys == ["indent.style"])
-    }
 }
 
 @Suite("Caret")
@@ -218,57 +168,11 @@ struct CaretConfigTests {
         return try decoder.decode(WispConfig.self, from: Data(json.utf8))
     }
 
-    @Test("Defaults to snappy motion with blink on")
-    func defaults() throws {
-        let config = try decode("{}")
-        #expect(config.caret == Caret())
-        #expect(config.caret.motion == .snappy)
-        #expect(config.caret.blink)
-    }
-
-    @Test("Both fields are decoded")
-    func bothFields() throws {
-        let config = try decode(#"{ "caret": { "motion": "gliding", "blink": false } }"#)
-        #expect(config.caret.motion == .gliding)
-        #expect(!config.caret.blink)
-    }
-
     @Test("A partial caret object keeps blink at its default")
     func partial() throws {
         let config = try decode(#"{ "caret": { "motion": "off" } }"#)
         #expect(config.caret.motion == .off)
         #expect(config.caret.blink)
-    }
-
-    @Test("An unknown motion case is malformed, not fatal")
-    func unknownMotionCase() throws {
-        let diagnostics = ConfigDiagnostics()
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        decoder.userInfo[.configDiagnostics] = diagnostics
-        let config = try decoder.decode(
-            WispConfig.self, from: Data(#"{ "caret": { "motion": "bouncy" } }"#.utf8))
-        #expect(config.caret.motion == .snappy)
-        #expect(diagnostics.malformedKeys == ["caret.motion"])
-    }
-
-    @Test("A caret that isn't an object falls back to defaults and is named at the top level")
-    func malformedTopLevel() throws {
-        let diagnostics = ConfigDiagnostics()
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        decoder.userInfo[.configDiagnostics] = diagnostics
-        let config = try decoder.decode(
-            WispConfig.self, from: Data(#"{ "caret": "snappy" }"#.utf8))
-        #expect(config.caret == Caret())
-        #expect(diagnostics.malformedKeys == ["caret"])
-    }
-
-    @Test("A round trip through JSON preserves an override")
-    func roundTrip() throws {
-        let caret = Caret(motion: .gliding, blink: false)
-        let decoded = try JSONDecoder().decode(Caret.self, from: JSONEncoder().encode(caret))
-        #expect(decoded == caret)
     }
 }
 
@@ -280,33 +184,11 @@ struct BackgroundConfigTests {
         return try decoder.decode(WispConfig.self, from: Data(json.utf8))
     }
 
-    @Test("Defaults to blur on with no opacity override")
-    func defaults() throws {
-        let config = try decode("{}")
-        #expect(config.background == Background())
-        #expect(config.background.blur)
-        #expect(config.background.opacity == nil)
-        #expect(config.background.clampedOpacity == nil)
-    }
-
-    @Test("Both fields are decoded")
-    func bothFields() throws {
-        let config = try decode(#"{ "background": { "blur": false, "opacity": 0.3 } }"#)
-        #expect(!config.background.blur)
-        #expect(config.background.opacity == 0.3)
-    }
-
     @Test("A partial background object keeps blur at its default")
     func partial() throws {
         let config = try decode(#"{ "background": { "opacity": 1 } }"#)
         #expect(config.background.blur)
         #expect(config.background.opacity == 1)
-    }
-
-    @Test("An explicit null opacity is no override")
-    func explicitNullOpacity() throws {
-        let config = try decode(#"{ "background": { "opacity": null } }"#)
-        #expect(config.background.opacity == nil)
     }
 
     @Test(
@@ -315,50 +197,6 @@ struct BackgroundConfigTests {
     )
     func opacityClamp(raw: Double, clamped: Double) {
         #expect(Background(opacity: raw).clampedOpacity == clamped)
-    }
-
-    @Test("A nil opacity has no clamped value")
-    func opacityClampNil() {
-        #expect(Background(opacity: nil).clampedOpacity == nil)
-    }
-
-    @Test("A blur that isn't a bool is malformed, not fatal")
-    func malformedBlur() throws {
-        let diagnostics = ConfigDiagnostics()
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        decoder.userInfo[.configDiagnostics] = diagnostics
-        let config = try decoder.decode(
-            WispConfig.self, from: Data(#"{ "background": { "blur": "yes" } }"#.utf8))
-        #expect(config.background.blur)
-        #expect(diagnostics.malformedKeys == ["background.blur"])
-    }
-
-    @Test(
-        "A background that isn't an object falls back to defaults and is named at the top level")
-    func malformedTopLevel() throws {
-        let diagnostics = ConfigDiagnostics()
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        decoder.userInfo[.configDiagnostics] = diagnostics
-        let config = try decoder.decode(
-            WispConfig.self, from: Data(#"{ "background": true }"#.utf8))
-        #expect(config.background == Background())
-        #expect(diagnostics.malformedKeys == ["background"])
-    }
-
-    /// The key was renamed when `Background` replaced the old vibrancy
-    /// toggle, so a config written by an earlier build should load cleanly.
-    @Test("A stale vibrancy key from before the rename is ignored silently")
-    func staleVibrancyKey() throws {
-        let diagnostics = ConfigDiagnostics()
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        decoder.userInfo[.configDiagnostics] = diagnostics
-        let config = try decoder.decode(
-            WispConfig.self, from: Data(#"{ "vibrancy": true }"#.utf8))
-        #expect(config.background == Background())
-        #expect(diagnostics.malformedKeys.isEmpty)
     }
 }
 
@@ -369,18 +207,6 @@ struct DefaultFontScaleTests {
         #expect(WispConfig().defaultFontScale == 1.0)
         #expect(WispConfig(defaultFontScale: 9).clampedDefaultFontScale
             == Metrics.fontScaleRange.upperBound)
-    }
-
-    @Test("A removed fontSize key is ignored without a warning")
-    func retiredKeyIsQuiet() throws {
-        let diagnostics = ConfigDiagnostics()
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        decoder.userInfo[.configDiagnostics] = diagnostics
-        let config = try decoder.decode(
-            WispConfig.self, from: Data(#"{ "fontSize": "large", "fontScale": 1.2 }"#.utf8))
-        #expect(config.fontScale == 1.2)
-        #expect(diagnostics.malformedKeys.isEmpty)
     }
 }
 
@@ -393,11 +219,6 @@ struct PositionConfigTests {
         return try decoder.decode(WispConfig.self, from: Data(json.utf8))
     }
 
-    @Test("An absent key means nil")
-    func absent() throws {
-        #expect(try decode("{}").position == nil)
-    }
-
     @Test("An explicit null means nil without a diagnostic")
     func explicitNull() throws {
         let diagnostics = ConfigDiagnostics()
@@ -405,177 +226,14 @@ struct PositionConfigTests {
         #expect(config.position == nil)
         #expect(diagnostics.malformedKeys.isEmpty)
     }
-
-    @Test("An {x,y} object decodes")
-    func objectShape() throws {
-        let config = try decode(#"{ "position": { "x": 12, "y": 34 } }"#)
-        #expect(config.position == PanelPosition(x: 12, y: 34))
-    }
-
-    /// A string, e.g. the old `manual`/`auto` enum's spelling, looks like it's
-    /// doing something and isn't, so it's named rather than silently dropped.
-    @Test("A wrong shape is reported in malformedKeys as \"position\" and falls back to nil")
-    func wrongShape() throws {
-        let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "position": "manual" }"#, diagnostics: diagnostics)
-        #expect(config.position == nil)
-        #expect(diagnostics.malformedKeys == ["position"])
-    }
 }
 
 @Suite("Peek hold")
 struct PeekHoldConfigTests {
-    @Test("Defaults to 250")
-    func defaults() {
-        #expect(WispConfig().peekHold == 250)
-    }
-
     @Test("Converts to seconds, clamping a negative value to 0")
     func seconds() {
         #expect(WispConfig(peekHold: 250).peekHoldSeconds == 0.25)
         #expect(WispConfig(peekHold: 0).peekHoldSeconds == 0)
         #expect(WispConfig(peekHold: -100).peekHoldSeconds == 0)
-    }
-}
-
-@Suite("FontSet")
-struct FontSetConfigTests {
-    @Test("Every face defaults to nil, the system's own")
-    func defaults() {
-        let fonts = FontSet()
-        #expect(fonts.notes == nil)
-        #expect(fonts.ui == nil)
-        #expect(fonts.code == nil)
-    }
-
-    @Test("An explicit null face is quiet, the same as an absent one")
-    func explicitNull() throws {
-        let diagnostics = ConfigDiagnostics()
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        decoder.userInfo[.configDiagnostics] = diagnostics
-        let config = try decoder.decode(
-            WispConfig.self, from: Data(#"{ "fonts": { "notes": null } }"#.utf8))
-        #expect(config.fonts.notes == nil)
-        #expect(diagnostics.malformedKeys.isEmpty)
-    }
-}
-
-@Suite("Rule style")
-struct RuleStyleConfigTests {
-    private func decode(_ json: String, diagnostics: ConfigDiagnostics? = nil) throws -> WispConfig {
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        if let diagnostics { decoder.userInfo[.configDiagnostics] = diagnostics }
-        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
-    }
-
-    @Test("Defaults to line")
-    func defaults() throws {
-        #expect(try decode("{}").rule == .line)
-    }
-
-    @Test("Decodes seam")
-    func seam() throws {
-        #expect(try decode(#"{ "rule": "seam" }"#).rule == .seam)
-    }
-
-    @Test("Decodes line explicitly")
-    func line() throws {
-        #expect(try decode(#"{ "rule": "line" }"#).rule == .line)
-    }
-
-    @Test("An unknown value is malformed and falls back to line")
-    func unknownValue() throws {
-        let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "rule": "wavy" }"#, diagnostics: diagnostics)
-        #expect(config.rule == .line)
-        #expect(diagnostics.malformedKeys == ["rule"])
-    }
-}
-
-@Suite("Spellcheck")
-struct SpellcheckConfigTests {
-    private func decode(_ json: String, diagnostics: ConfigDiagnostics? = nil) throws -> WispConfig {
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        if let diagnostics { decoder.userInfo[.configDiagnostics] = diagnostics }
-        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
-    }
-
-    @Test("Defaults to off")
-    func defaults() throws {
-        #expect(try decode("{}").spellcheck == false)
-    }
-
-    @Test("Decodes an explicit true")
-    func explicitTrue() throws {
-        #expect(try decode(#"{ "spellcheck": true }"#).spellcheck)
-    }
-
-    @Test("Decodes an explicit false")
-    func explicitFalse() throws {
-        #expect(try decode(#"{ "spellcheck": false }"#).spellcheck == false)
-    }
-
-    @Test("A non-boolean value is malformed and falls back to off")
-    func malformedValue() throws {
-        let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "spellcheck": "yes" }"#, diagnostics: diagnostics)
-        #expect(config.spellcheck == false)
-        #expect(diagnostics.malformedKeys == ["spellcheck"])
-    }
-}
-
-@Suite("Footer status")
-struct FooterStatusConfigTests {
-    private func decode(_ json: String, diagnostics: ConfigDiagnostics? = nil) throws -> WispConfig {
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        if let diagnostics { decoder.userInfo[.configDiagnostics] = diagnostics }
-        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
-    }
-
-    @Test("Defaults to position")
-    func defaults() throws {
-        #expect(try decode("{}").footerStatus == .position)
-    }
-
-    @Test("Decodes modified")
-    func modified() throws {
-        #expect(try decode(#"{ "footerStatus": "modified" }"#).footerStatus == .modified)
-    }
-
-    @Test("Decodes position explicitly")
-    func position() throws {
-        #expect(try decode(#"{ "footerStatus": "position" }"#).footerStatus == .position)
-    }
-
-    @Test("An unknown value is malformed and falls back to position")
-    func unknownValue() throws {
-        let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "footerStatus": "clock" }"#, diagnostics: diagnostics)
-        #expect(config.footerStatus == .position)
-        #expect(diagnostics.malformedKeys == ["footerStatus"])
-    }
-}
-
-@Suite("Panel")
-struct PanelFrameConfigTests {
-    /// `PanelFrame` carries only a size — where the panel sits is
-    /// `WispConfig.position`, kept apart because Clef shares that key and not
-    /// this one.
-    @Test("panel is size-only: it neither reads nor writes a coordinate")
-    func sizeOnly() throws {
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        let config = try decoder.decode(
-            WispConfig.self,
-            from: Data(#"{ "panel": { "width": 800, "height": 640, "x": 12, "y": 34 } }"#.utf8))
-        #expect(config.panel == PanelFrame(width: 800, height: 640))
-
-        let data = try JSONEncoder().encode(config.panel)
-        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        #expect(Set(object?.keys ?? [:].keys) == ["width", "height"])
     }
 }

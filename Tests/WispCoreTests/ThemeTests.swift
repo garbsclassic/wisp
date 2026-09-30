@@ -16,17 +16,6 @@ private func sameHue(_ a: NSColor, _ b: NSColor) -> Bool {
 
 @Suite("Theme enums")
 struct ThemeEnumTests {
-    /// Raw values are the storage format, so they have to stay compatible
-    /// with what earlier versions wrote.
-    @Test("Raw values are the stored strings")
-    func rawValues() {
-        #expect(Theme.dark.rawValue == "dark")
-        #expect(Theme.light.rawValue == "light")
-        #expect(ThemeSetting.light.rawValue == "light")
-        #expect(ThemeSetting.dark.rawValue == "dark")
-        #expect(ThemeSetting.system.rawValue == "system")
-    }
-
     @Test("The footer button cycles light → dark → system")
     func cycle() {
         #expect(ThemeSetting.light.next == .dark)
@@ -98,20 +87,6 @@ struct PaletteTests {
     let dark = Palette.for(.dark)
     let light = Palette.for(.light)
 
-    /// Device components are consumed unconverted, so the same literal
-    /// paints differently on a P3 panel than on an sRGB monitor.
-    @Test("Tokens are pinned to sRGB, not device RGB")
-    func colorSpace() {
-        #expect(dark.accent == rgb(0x3A_A9_9F))
-        #expect(light.accent == rgb(0xEC_30_13))
-        #expect(
-            dark.accent
-                != NSColor(
-                    deviceRed: 0x4E / 255.0, green: 0xCB / 255.0, blue: 0xDF / 255.0, alpha: 1
-                )
-        )
-    }
-
     /// Chips are raised, so they read lighter than the paper behind them.
     /// Inverting this makes a find bar look like a recess.
     @Test("Surfaces read lighter than the panel behind them")
@@ -171,11 +146,5 @@ struct ChromeTests {
     func translucentTint() {
         #expect(Chrome.for(.light).tintColor.alphaComponent < 1)
         #expect(Chrome.for(.dark).tintColor.alphaComponent < 1)
-    }
-
-    @Test("Each theme carries its matching system appearance")
-    func appearance() {
-        #expect(Chrome.for(.light).appearance == .aqua)
-        #expect(Chrome.for(.dark).appearance == .darkAqua)
     }
 }

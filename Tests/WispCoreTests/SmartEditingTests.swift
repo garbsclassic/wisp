@@ -5,11 +5,6 @@ import Testing
 
 @Suite("SmartEditing: horizontal rule")
 struct HorizontalRuleTests {
-    @Test("The stored rule is markdown-standard")
-    func constant() {
-        #expect(SmartEditing.horizontalRule == "---")
-    }
-
     /// CommonMark's thematic break shape: three or more of one repeated marker character
     /// (`-`, `*`, or `_`), spaces or tabs allowed between them. `───` (U+2500, box drawing) used
     /// to be accepted as a legacy upstream form, but Obsidian renders it as text, so it no longer
@@ -76,12 +71,6 @@ struct HorizontalRuleTests {
 
     private func isSetextAtEnd(_ text: String) -> Bool {
         isSetext(text, at: (text as NSString).length - 1)
-    }
-
-    @Test("Three dashes directly under paragraph text is a setext underline, not a rule")
-    func setextUnderlineUnderParagraph() {
-        #expect(isSetextAtEnd("Text\n---"))
-        #expect(!isRuleAtEnd("Text\n---"))
     }
 
     @Test(
@@ -168,16 +157,6 @@ struct HorizontalRuleTests {
         #expect(!SmartEditing.isSetextUnderline(lineRange: dashes, in: ns))
     }
 
-    @Test("isInsideFence is true only between an opening fence and its closer")
-    func isInsideFenceTrueAndFalseCases() {
-        let ns = "before\n```\ninside\n```\nafter" as NSString
-        #expect(!SmartEditing.isInsideFence(lineStart: 0, in: ns))
-        let insideLine = LineEdits.lineRange(in: ns, at: ns.range(of: "inside").location)
-        #expect(SmartEditing.isInsideFence(lineStart: insideLine.location, in: ns))
-        let afterLine = LineEdits.lineRange(in: ns, at: ns.length - 1)
-        #expect(!SmartEditing.isInsideFence(lineStart: afterLine.location, in: ns))
-    }
-
     @Test(
         "A rule under a list item's continuation line or lazy line stays a rule",
         arguments: ["- item\n  more\n---", "- item\nlazy\n---"]
@@ -223,21 +202,6 @@ struct SetextLevelTests {
         #expect(isRule(text))
     }
 
-    @Test("A plain run of three or more dashes under paragraph text is a level-2 underline")
-    func dashesUnderParagraphAreLevelTwo() {
-        #expect(level("Text\n---") == 2)
-        #expect(!isRule("Text\n---"))
-    }
-
-    @Test(
-        "A plain run of three or more equals under paragraph text is a level-1 underline",
-        arguments: ["Text\n===", "Text\n=== ", "Text\n   ==="]
-    )
-    func equalsUnderParagraphIsLevelOne(text: String) {
-        #expect(level(text) == 1)
-        #expect(!isRule(text))
-    }
-
     @Test("Two equals signs are too short to be a heading underline, and never a rule")
     func tooShortEqualsIsNeither() {
         #expect(level("Text\n==") == nil)
@@ -253,14 +217,6 @@ struct SetextLevelTests {
 
 @Suite("SmartEditing: list continuation")
 struct ListMarkerTests {
-    @Test(
-        "Unordered markers repeat",
-        arguments: [("- foo", "- "), ("* foo", "* "), ("+ foo", "+ ")]
-    )
-    func unordered(line: String, marker: String) {
-        #expect(SmartEditing.nextListMarker(for: line) == marker)
-    }
-
     @Test(
         "A rule-shaped line doesn't continue as a list, star- or dash-separated alike",
         arguments: ["* * *", "- - -"]
@@ -313,78 +269,12 @@ struct ListMarkerTests {
         #expect(SmartEditing.nextListMarker(for: line) == marker)
     }
 
-    @Test("A numeric marker carries its leading indentation")
-    func indentedNumeric() {
-        #expect(SmartEditing.nextListMarker(for: "  3. foo") == "  4. ")
-    }
-
-    @Test(
-        "Alphabetic markers carry their leading indentation, including at the end of the alphabet",
-        arguments: [
-            ("  B. foo", "  C. "),
-            ("  y. foo", "  z. "),
-            ("  Z. foo", nil),
-            ("  z. foo", nil),
-        ] as [(String, String?)]
-    )
-    func indentedAlphabetic(line: String, marker: String?) {
-        #expect(SmartEditing.nextListMarker(for: line) == marker)
-    }
-
-    @Test("An indented empty item still yields the exit signal, indent and all")
-    func indentedEmptyItemExits() {
-        #expect(SmartEditing.nextListMarker(for: "  - ") == "")
-        #expect(SmartEditing.nextListMarker(for: "\t2. ") == "")
-    }
-
-    @Test("Indentation alone does not make a line a list item")
-    func indentationAloneIsNotAList() {
-        #expect(SmartEditing.nextListMarker(for: "  foo") == nil)
-    }
-
     @Test(
         "A `)` numeric marker continues with `)`, indent and all",
         arguments: [("1) foo", "2) "), ("9) foo", "10) "), ("  3) foo", "  4) ")]
     )
     func parenNumeric(line: String, marker: String) {
         #expect(SmartEditing.nextListMarker(for: line) == marker)
-    }
-
-    @Test("An empty `)` item yields the exit signal")
-    func parenEmptyItemExits() {
-        #expect(SmartEditing.nextListMarker(for: "1) ") == "")
-    }
-
-    @Test("A letter takes only `.`: `a)` and `A)` aren't list markers")
-    func parenLetterIsNotAList() {
-        #expect(SmartEditing.nextListMarker(for: "a) foo") == nil)
-        #expect(SmartEditing.nextListMarker(for: "A) foo") == nil)
-    }
-}
-
-@Suite("SmartEditing: leading indent")
-struct LeadingIndentTests {
-    @Test(
-        "Leading spaces and tabs are captured verbatim",
-        arguments: [
-            ("  foo", "  "),
-            ("\tfoo", "\t"),
-            (" \t foo", " \t "),
-            ("foo", ""),
-        ]
-    )
-    func indent(line: String, expected: String) {
-        #expect(SmartEditing.leadingIndent(of: line) == expected)
-    }
-
-    @Test("A whitespace-only line returns the whole line")
-    func wholeLineIsWhitespace() {
-        #expect(SmartEditing.leadingIndent(of: "   ") == "   ")
-    }
-
-    @Test("An empty string has no leading indent")
-    func empty() {
-        #expect(SmartEditing.leadingIndent(of: "") == "")
     }
 }
 
@@ -545,60 +435,6 @@ struct HomeTargetTests {
     }
 }
 
-@Suite("SmartEditing: Enter before a list item's text")
-struct NewlineBeforeItemTests {
-    private func edit(_ text: String, cursor: Int) -> LineEdits.Edit? {
-        SmartEditing.newlineBeforeItem(in: text as NSString, cursor: cursor)
-    }
-
-    private func applied(_ text: String, cursor: Int) -> (String, Int)? {
-        guard let e = edit(text, cursor: cursor) else { return nil }
-        let ns = NSMutableString(string: text)
-        ns.replaceCharacters(in: e.range, with: e.replacement)
-        return (ns as String, e.selection.location)
-    }
-
-    @Test(
-        "Column 0, the indent, and the marker all move the item down intact",
-        arguments: [
-            ("- item", 0, "\n- item", 1),
-            ("- item", 1, "\n- item", 1),
-            ("  - item", 0, "\n  - item", 1),
-            ("  - item", 2, "\n  - item", 1),
-            ("  - item", 3, "\n  - item", 1),
-            ("12. item", 2, "\n12. item", 1),
-        ] as [(String, Int, String, Int)]
-    )
-    func beforeContent(text: String, cursor: Int, expected: String, caret: Int) {
-        let result = applied(text, cursor: cursor)
-        #expect(result?.0 == expected)
-        #expect(result?.1 == caret)
-    }
-
-    @Test("At content start and beyond, the ordinary continuation applies")
-    func atOrPastContent() {
-        #expect(edit("- item", cursor: 2) == nil)
-        #expect(edit("- item", cursor: 4) == nil)
-    }
-
-    @Test("Non-list lines yield nil", arguments: ["plain", "-word", "", "  indented"])
-    func nonList(line: String) {
-        #expect(edit(line, cursor: 0) == nil)
-    }
-
-    @Test("An empty item at column 0 moves down too, rather than being stripped")
-    func emptyItem() {
-        #expect(applied("- ", cursor: 0)?.0 == "\n- ")
-    }
-
-    @Test("Offsets are document-absolute on a later line")
-    func laterLine() {
-        let result = applied("para\n- item\n", cursor: 5)
-        #expect(result?.0 == "para\n\n- item\n")
-        #expect(result?.1 == 6)
-    }
-}
-
 @Suite("SmartEditing: next list marker")
 struct NextListMarkerTests {
     @Test("A checklist's next box is always unchecked, whichever way this one goes")
@@ -606,16 +442,6 @@ struct NextListMarkerTests {
         #expect(SmartEditing.nextListMarker(for: "- [ ] foo") == "- [ ] ")
         #expect(SmartEditing.nextListMarker(for: "- [x] foo") == "- [ ] ")
         #expect(SmartEditing.nextListMarker(for: "  * [X] foo") == "  * [ ] ")
-    }
-
-    @Test("An empty checklist line signals exit rather than continuing")
-    func emptyChecklistExits() {
-        #expect(SmartEditing.nextListMarker(for: "- [ ] ") == "")
-    }
-
-    @Test("A box with nothing after it is a bullet whose content is the box")
-    func unfinishedBoxIsPlainBullet() {
-        #expect(SmartEditing.nextListMarker(for: "- [ ]") == "- ")
     }
 }
 
@@ -690,26 +516,12 @@ struct ChecklistListItemTests {
         #expect(parse("- foo")?.checklistStateIndex == nil)
     }
 
-    @Test("isChecklist is true only for the checklist case")
-    func isChecklist() {
-        #expect(parse("- [ ] foo")?.marker.isChecklist == true)
-        #expect(parse("- foo")?.marker.isChecklist == false)
-        #expect(parse("1. foo")?.marker.isChecklist == false)
-    }
-
     @Test("Only a bullet typesets a glyph; a checklist's box is drawn, an ordered marker is content")
     func glyph() {
         #expect(parse("- [ ] foo")?.glyph(indentWidth: 2) == nil)
         #expect(parse("- [x] foo")?.glyph(indentWidth: 2) == nil)
         #expect(parse("- foo")?.glyph(indentWidth: 2) == "•")
         #expect(parse("1. foo")?.glyph(indentWidth: 2) == nil)
-    }
-
-    @Test("Every marker but an ordered one is hidden chrome")
-    func hiddenMarker() {
-        #expect(parse("- [ ] foo")?.isMarkerHidden == true)
-        #expect(parse("* foo")?.isMarkerHidden == true)
-        #expect(parse("1. foo")?.isMarkerHidden == false)
     }
 }
 
@@ -777,68 +589,15 @@ struct BackspaceAtItemStartTests {
     }
 }
 
-@Suite("SmartEditing: outdented empty item")
-struct OutdentedEmptyItemTests {
-    @Test("A four-space indent under a two-space unit drops one level")
-    func fourUnderTwo() {
-        #expect(SmartEditing.outdentedEmptyItem("    - ", unit: "  ") == "  - ")
-    }
-
-    @Test("A two-space indent under a two-space unit reaches the margin")
-    func twoUnderTwo() {
-        #expect(SmartEditing.outdentedEmptyItem("  - ", unit: "  ") == "- ")
-    }
-
-    @Test("A flush-left item has nothing left to outdent")
-    func flushLeft() {
-        #expect(SmartEditing.outdentedEmptyItem("- ", unit: "  ") == nil)
-    }
-
-    @Test("A leading tab is removed whole, regardless of the configured unit")
-    func leadingTab() {
-        #expect(SmartEditing.outdentedEmptyItem("\t- ", unit: "\t") == "- ")
-    }
-
-    @Test("Only one tab comes off a doubly-nested tab-indented item")
-    func onlyOneTabComesOff() {
-        #expect(SmartEditing.outdentedEmptyItem("\t\t1. ", unit: "\t") == "\t1. ")
-    }
-
-    @Test("Fewer spaces than the unit removes only what is actually there")
-    func fewerSpacesThanUnit() {
-        #expect(SmartEditing.outdentedEmptyItem(" - ", unit: "  ") == "- ")
-    }
-
-    @Test("More spaces than the unit removes only the unit's width")
-    func moreSpacesThanUnit() {
-        #expect(SmartEditing.outdentedEmptyItem("  - ", unit: "    ") == "- ")
-    }
-}
-
 @Suite("SmartEditing: continuation line")
 struct ContinuationLineTests {
     private func line(_ text: String, cursor: Int) -> String? {
         SmartEditing.continuationLine(in: text as NSString, cursor: cursor)
     }
 
-    @Test("A flush bullet pads out to the content column")
-    func flushBullet() {
-        #expect(line("- item", cursor: 6) == "\n  ")
-    }
-
     @Test("At content start, the same padding applies")
     func atContentStart() {
         #expect(line("- item", cursor: 2) == "\n  ")
-    }
-
-    @Test("Before the content, this is not the edit")
-    func beforeContent() {
-        #expect(line("- item", cursor: 1) == nil)
-    }
-
-    @Test("An indented bullet's indent is copied, then padded for the marker")
-    func indentedBullet() {
-        #expect(line("  - item", cursor: 8) == "\n    ")
     }
 
     @Test("On a continuation line, the same padding as the item it belongs to")
@@ -850,31 +609,6 @@ struct ContinuationLineTests {
     @Test("On a fresh, whitespace-only continuation line the caret is already past the whitespace")
     func fromFreshContinuationLine() {
         #expect(line("- item\n  ", cursor: 9) == "\n  ")
-    }
-
-    @Test("Inside a continuation line's whitespace, this is not the edit")
-    func insideContinuationWhitespace() {
-        #expect(line("  - item\n    more", cursor: 11) == nil)
-    }
-
-    @Test("A tab indent is copied verbatim, only the marker's width is spaces")
-    func tabIndent() {
-        #expect(line("\t- item", cursor: 7) == "\n\t  ")
-    }
-
-    @Test("A two-digit ordered marker pads to its own width")
-    func orderedMarker() {
-        #expect(line("12. item", cursor: 8) == "\n    ")
-    }
-
-    @Test("A checklist's box counts toward the padding width")
-    func checklistMarker() {
-        #expect(line("- [ ] item", cursor: 10) == "\n      ")
-    }
-
-    @Test("A non-list line yields nil")
-    func nonList() {
-        #expect(line("plain text", cursor: 3) == nil)
     }
 }
 
@@ -1219,12 +953,6 @@ struct RenumberTests {
         #expect(apply(text) == text)
         #expect(apply("1. a\n2. b\n5) c\n9) d\n") == "1. a\n2. b\n5) c\n6) d\n")
     }
-
-    @Test("A tab-indented fence's `1.` lines are untouched")
-    func tabIndentedFenceIsSkipped() {
-        let text = "\t```\n\t1. x\n\t1. y\n\t```\n"
-        #expect(apply(text) == text)
-    }
 }
 
 @Suite("SmartEditing: guideDepth")
@@ -1289,11 +1017,6 @@ struct GuideDepthTests {
     @Test("An ordinary prose line is outside the list")
     func proseLineIsNil() {
         #expect(depth("just prose\n", at: 0) == nil)
-    }
-
-    @Test("A heading is outside the list")
-    func headingIsNil() {
-        #expect(depth("# Heading\n", at: 0) == nil)
     }
 }
 

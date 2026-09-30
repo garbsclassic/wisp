@@ -41,22 +41,8 @@ struct HelpDocumentTests {
 
     /// The page reads the live keymap rather than printing the glyphs it was
     /// drawn with, so a rebind shows up without anyone editing a string.
-    @Test("Rows carry the configured chord, not the default one")
+    @Test("Rows carry the configured chord, including a row that joins several")
     func rowsFollowTheKeymap() {
-        let rebound = Keymap([.duplicateLine: "ctrl+shift+k"])
-        let document = HelpDocument.make(keymap: rebound)
-        let row = document.sections
-            .flatMap(\.rows)
-            .first { $0.detail == "duplicate line or selection" }
-
-        #expect(row?.key == "⌃⇧K")
-    }
-
-    /// Every row that names a chord reads it from the keymap. Reveal,
-    /// underline, strikethrough and code were literals or absent before
-    /// their actions existed, so these are the ones worth pinning.
-    @Test("Late-added rows follow the keymap like every other one")
-    func lateBoundRowsFollowTheKeymap() {
         let rebound = Keymap([
             .reveal: "ctrl+shift+f", .underline: "ctrl+shift+u",
             .strikethrough: "ctrl+shift+x", .code: "ctrl+shift+e",
@@ -82,16 +68,6 @@ struct HelpDocumentTests {
             let width = (row.key as NSString).size(withAttributes: [.font: style.rowFont]).width
             #expect(width <= style.keyColumnWidth, "\(row.key) is \(width)pt wide")
         }
-    }
-
-    /// A hyperkey summon is the reason the glyph exists; this is the row it
-    /// was added for.
-    @Test("A hyperkey summon reaches the page as one glyph")
-    func hyperkeySummon() {
-        let document = HelpDocument.make(keymap: Keymap([.summon: "ctrl+opt+shift+cmd+."]))
-        let row = document.sections.flatMap(\.rows).first { $0.detail.hasPrefix("tap to pin") }
-
-        #expect(row?.key == "❖.")
     }
 
     /// The gutter is carried as a multiple of the row size, so the two

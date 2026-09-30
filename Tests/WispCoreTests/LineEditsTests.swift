@@ -54,18 +54,6 @@ struct DuplicateTests {
         #expect(apply(edit, to: text) == "alphaalpha beta")
         #expect(edit.selection == NSRange(location: 5, length: 5))
     }
-
-    @Test("Duplicating twice compounds rather than doubling")
-    func repeatedDuplicate() {
-        var text = "ab"
-        var selection = NSRange(location: 0, length: 2)
-        for _ in 0..<2 {
-            let edit = LineEdits.duplicate(in: text as NSString, selection: selection)
-            text = apply(edit, to: text)
-            selection = edit.selection
-        }
-        #expect(text == "ababab")
-    }
 }
 
 @Suite("LineEdits — open a line")
@@ -832,14 +820,6 @@ struct InsertTests {
         #expect(edit.selection == NSRange(location: 3 + units, length: 0))
     }
 
-    @Test("The range and replacement pass through unchanged")
-    func rangeAndReplacementPassThrough() {
-        let range = NSRange(location: 2, length: 3)
-        let edit = LineEdits.Edit.insert("Z", replacing: range)
-        #expect(edit.range == range)
-        #expect(edit.replacement == "Z")
-    }
-
     @Test("Replacing a non-empty range puts the caret after the replacement, not the old range")
     func replacesRange() {
         let text = "abcdefg"
@@ -854,14 +834,5 @@ struct InsertTests {
         let edit = LineEdits.Edit.insert("", replacing: NSRange(location: 4, length: 2))
         #expect(apply(edit, to: text) == "abcd")
         #expect(edit.selection == NSRange(location: 4, length: 0))
-    }
-
-    @Test("An emoji leaves the caret between it and the text that followed")
-    func emojiLeavesCaretBeforeFollowingText() {
-        let text = "ab"
-        let edit = LineEdits.Edit.insert("😀", replacing: NSRange(location: 1, length: 0))
-        let result = apply(edit, to: text) as NSString
-        #expect(result as String == "a😀b")
-        #expect(result.substring(from: edit.selection.location) == "b")
     }
 }

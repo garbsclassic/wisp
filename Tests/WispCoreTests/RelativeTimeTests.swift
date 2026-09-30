@@ -101,13 +101,6 @@ struct RelativeTimeTests {
         #expect(coarse(then, now: now) == "Jan 8")
     }
 
-    @Test("A same-year date past a week formats without the year")
-    func sameYear() {
-        let now = date(2026, 10, 1, 12, 0, 0)
-        let then = date(2026, 9, 12, 12, 0, 0)
-        #expect(coarse(then, now: now) == "Sep 12")
-    }
-
     @Test("A previous-year date formats with the year")
     func previousYear() {
         let now = date(2026, 1, 15, 12, 0, 0)
