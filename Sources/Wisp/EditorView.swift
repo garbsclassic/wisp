@@ -6,11 +6,13 @@ final class EditorModel: ObservableObject {
     @Published var text: String = "" {
         didSet {
             headings = text.extractHeadings()
+            cachedWordCount = nil
             guard didLoad, !isReloading else { return }
             scheduleSave()
         }
     }
     @Published var headings: [Heading] = []
+    private var cachedWordCount: Int?
     /// The caret's UTF-16 offset, as the text view last reported it.
     @Published var caretOffset = 0
     @Published var focusToken: Int = 0
@@ -451,6 +453,18 @@ final class EditorModel: ObservableObject {
         onThemeChange?(theme)
     }
 
+    /// Counted on first read after an edit rather than on every body pass —
+    /// a caret move re-renders the footer too, and the text hasn't changed.
+    var wordCount: Int {
+        if let cachedWordCount { return cachedWordCount }
+        var count = 0
+        text.enumerateSubstrings(
+            in: text.startIndex..., options: [.byWords, .substringNotRequired]
+        ) { _, _, _, _ in count += 1 }
+        cachedWordCount = count
+        return count
+    }
+
     func refreshPlaceholder() {
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
     }
@@ -543,13 +557,12 @@ struct EditorView: View {
                         // the note would be a stale one.
                         findHighlightRange: model.showHelp
                             ? NSRange(location: 0, length: 0) : model.findHighlightRange,
-                        fontScale: model.fontScale,
-                        indent: model.settings.config.indent,
+                        style: .init(
+                            theme: model.theme, fontScale: model.fontScale,
+                            indent: model.settings.config.indent,
+                            isSourceView: model.isSourceView, rule: model.settings.config.rule),
                         smartPaste: model.settings.config.smartPaste,
                         caret: model.settings.config.caret,
-                        theme: model.theme,
-                        isSourceView: model.isSourceView,
-                        ruleStyle: model.settings.config.rule,
                         spellcheck: model.spellcheck,
                         onToggleSpellcheck: { model.toggleSpellcheck() }
                     )
@@ -572,7 +585,8 @@ struct EditorView: View {
                     // the other one scan the whole note.
                     readout: model.footerStatus == .position
                         ? .position(
-                            CaretPosition(in: model.text, at: model.caretOffset), words: wordCount)
+                            CaretPosition(in: model.text, at: model.caretOffset),
+                            words: model.wordCount)
                         : .modified(model.lastLoadedMTime),
                     onToggleReadout: { model.toggleFooterStatus() },
                     fontScale: model.fontScale,
@@ -662,13 +676,4 @@ struct EditorView: View {
     /// a reader scrolls to rather than jumps to. Styling and the ⌃⇧↑/↓
     /// walk still see every level.
     private var barHeadings: [Heading] { model.headings.filter { $0.level <= 2 } }
-
-    private var wordCount: Int {
-        var count = 0
-        let text = model.text
-        text.enumerateSubstrings(in: text.startIndex..., options: .byWords) { _, _, _, _ in
-            count += 1
-        }
-        return count
-    }
 }

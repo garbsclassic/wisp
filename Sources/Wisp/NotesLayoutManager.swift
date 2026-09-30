@@ -21,7 +21,7 @@ extension NSAttributedString.Key {
 /// resizes for free.
 final class NotesLayoutManager: NSLayoutManager {
     /// Stroke color for horizontal rules, refreshed on every theme flip
-    /// via `applyPalette`.
+    /// by `MinimalTextEditor.restyle`.
     var ruleColor: NSColor = .secondaryLabelColor
     /// Bullets are drawn in the body text color, not the rule color: they
     /// are content, and a muted bullet reads as a disabled item.

@@ -358,24 +358,35 @@ final class NotesTextView: NSTextView {
         if !wasApplying { renumberLists() }
     }
 
-    /// Puts every ordered run back in sequence. Applied back to front so
-    /// earlier ranges stay valid. The caret shifts by whatever changed
-    /// width ahead of it. Re-entered through `didChangeText` while
-    /// applying; the flag makes that a no-op.
-    func renumberLists() {
+    /// Puts every ordered run back in sequence, as one change: a change per
+    /// marker would restyle the whole note once each. Applied back to front
+    /// so earlier ranges stay valid. The caret shifts by whatever changed
+    /// width ahead of it. Re-entered through `didChangeText` while applying;
+    /// the flag makes that a no-op. Returns whether anything changed.
+    ///
+    /// `blocks`, when the caller already classified the text, saves doing
+    /// it again.
+    @discardableResult
+    func renumberLists(blocks: MarkdownBlocks? = nil) -> Bool {
         // Undo restores old markers through `didChangeText` too; putting
         // them back in sequence mid-undo would register onto the redo
         // stack and leave the step a visible no-op.
         guard !isApplyingEdit,
-            undoManager?.isUndoing != true, undoManager?.isRedoing != true
-        else { return }
-        let edits = SmartEditing.renumber(in: string as NSString)
-        guard !edits.isEmpty else { return }
+            undoManager?.isUndoing != true, undoManager?.isRedoing != true,
+            let textStorage
+        else { return false }
+        let edits = SmartEditing.renumber(in: string as NSString, blocks: blocks)
+        guard !edits.isEmpty,
+            shouldChangeText(
+                inRanges: edits.map { NSValue(range: $0.range) },
+                replacementStrings: edits.map(\.replacement))
+        else { return false }
         isApplyingEdit = true
         defer { isApplyingEdit = false }
         var selection = selectedRange()
+        textStorage.beginEditing()
         for edit in edits.reversed() {
-            guard replaceText(in: edit.range, with: edit.replacement) else { continue }
+            textStorage.replaceCharacters(in: edit.range, with: edit.replacement)
             let delta = (edit.replacement as NSString).length - edit.range.length
             if edit.range.location < selection.location {
                 selection.location += delta
@@ -383,7 +394,10 @@ final class NotesTextView: NSTextView {
                 selection.length += delta
             }
         }
+        textStorage.endEditing()
+        didChangeText()
         setSelectedRange(selection)
+        return true
     }
 
     /// ⌫ at the start of an item's text takes the marker off instead of

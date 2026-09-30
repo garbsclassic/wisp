@@ -430,25 +430,20 @@ public enum SmartEditing {
     /// left alone. Also keeps `value + 1` clear of overflow.
     public static let maxCountedDigits = 9
 
-    public static func renumber(in text: NSString) -> [LineEdits.Edit] {
+    public static func renumber(
+        in text: NSString, blocks: MarkdownBlocks? = nil
+    ) -> [LineEdits.Edit] {
         enum Kind { case digits, upper, lower }
         // The delimiter is part of a run's identity: `1.` then `1)` starts a new list, as in
         // CommonMark.
         struct Run { let kind: Kind; let delimiter: unichar; var next: Int }
         var runs: [Int: Run] = [:]
         var edits: [LineEdits.Edit] = []
-        // A `1.` in a code block or in frontmatter is text to keep as written, not a list item.
-        let blocks = MarkdownBlocks(text)
-
-        var lineStart = 0
-        while lineStart < text.length {
-            let line = LineEdits.lineRange(in: text, at: lineStart)
-            defer { lineStart = NSMaxRange(line) }
-            if let kind = blocks.line(at: line.location)?.kind,
-                kind == .fencedCode || kind == .frontmatter
-            {
-                continue
-            }
+        for block in (blocks ?? MarkdownBlocks(text)).lines {
+            // A `1.` in a code block or in frontmatter is text to keep as written, not a list
+            // item.
+            if block.kind == .fencedCode || block.kind == .frontmatter { continue }
+            let line = block.range
 
             guard let item = listItem(lineRange: line, in: text) else {
                 let blankOrFlush =

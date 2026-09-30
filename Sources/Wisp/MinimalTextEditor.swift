@@ -26,31 +26,33 @@ struct MinimalTextEditor: NSViewRepresentable {
     var scrollTarget: Int
     var findHighlightToken: Int
     var findHighlightRange: NSRange
-    /// The live text scale. Compared in `updateNSView` rather than assumed
-    /// constant: the body's font lives in `NSTextStorage` as a resolved
-    /// `NSFont`, so unlike the SwiftUI chrome nothing re-resolves it when
-    /// the scale moves. Before this was the compared value, a scale change
-    /// left the body at its old size until the next keystroke restyled it.
-    var fontScale: Double
-    var indent: Indent
+    var style: BodyStyle
     var smartPaste: Bool
     /// Applied on the text view directly; no restyle, since it changes
     /// nothing in the storage.
     var caret: Caret
-    var theme: Theme
-    /// ⌘↩. Every styling pass is skipped and the body is set in the code
-    /// face, so the screen shows the file. Compared in `updateNSView` like
-    /// `fontScale`, since the resolved attributes live in the storage and
-    /// nothing re-derives them on their own.
-    var isSourceView: Bool
-    /// Compared in `updateNSView` like `isSourceView`: the layout manager
-    /// draws from it, and nothing else asks for a redraw when it changes.
-    var ruleStyle: RuleStyle
     /// Applied on the text view directly, like `caret`.
     var spellcheck: Bool
     /// The text view's own Check Spelling While Typing item routes here, so
     /// the model — and the footer — stay the one source of truth.
     var onToggleSpellcheck: () -> Void
+
+    /// Everything the body's attributes depend on besides the text itself.
+    /// Compared in `updateNSView`, since the resolved attributes live in the
+    /// storage and nothing re-derives them on their own when one moves.
+    struct BodyStyle: Equatable {
+        var theme: Theme
+        /// The live text scale. `Typography` applies it; it is here so a
+        /// change restyles the body, whose fonts are resolved `NSFont`s.
+        var fontScale: Double
+        var indent: Indent
+        /// ⌘↩. Every styling pass is skipped and the body is set in the code
+        /// face, so the screen shows the file.
+        var isSourceView: Bool
+        /// Drawing only: the rule's line and the blank lines around it are
+        /// styled the same either way.
+        var rule: RuleStyle
+    }
 
     func makeNSView(context: Context) -> NSScrollView {
         let (scrollView, textView) = NotesTextView.makeScrollView()
@@ -60,12 +62,10 @@ struct MinimalTextEditor: NSViewRepresentable {
         scrollView.borderType = .noBorder
         scrollView.contentView.drawsBackground = false
 
-        let font = Self.baseFont(isSourceView: isSourceView)
-
         textView.delegate = context.coordinator
         textView.drawsBackground = false
         textView.backgroundColor = .clear
-        textView.font = font
+        textView.font = Self.baseFont(isSourceView: style.isSourceView)
         textView.defaultParagraphStyle = Self.makeParagraphStyle()
         textView.allowsUndo = true
         textView.isRichText = false
@@ -76,55 +76,46 @@ struct MinimalTextEditor: NSViewRepresentable {
         if spellcheck { textView.checkSpellingEverywhere() }
         textView.textContainerInset = .zero
         textView.textContainer?.lineFragmentPadding = 0
-        textView.indentUnit = indent.unit
         textView.smartPaste = smartPaste
         textView.caretStyle = caret
         textView.string = text
 
-        Self.applyPalette(
-            Palette.for(theme), to: textView, font: font, indent: indent,
-            isSourceView: isSourceView, ruleStyle: ruleStyle)
-
-        context.coordinator.lastFontScale = fontScale
-        context.coordinator.lastIndent = indent
-        context.coordinator.lastTheme = theme
-        context.coordinator.lastSourceView = isSourceView
-        context.coordinator.lastRuleStyle = ruleStyle
+        context.coordinator.syncedText = text
+        context.coordinator.style = style
+        Self.restyle(textView, style: style)
         return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NotesTextView else { return }
-        if textView.string != text {
+        let coordinator = context.coordinator
+        // Against the last text either side handed over rather than against
+        // `textView.string`: the two share storage after an edit, which makes
+        // this free, where comparing the bridged storage costs a full scan on
+        // every body pass.
+        if text != coordinator.syncedText {
             // Assigning `.string` throws away every attribute in the
             // storage, so the incoming text arrives unstyled. The layout
             // manager draws rules and bullets from the *text*, but what
-            // hides the characters they stand in for is the styling pass —
-            // without this a note reloaded from disk showed a `-` sitting
-            // under its own bullet, and `---` under its own rule.
+            // hides the characters they stand in for is the styling pass.
             textView.string = text
-            restyle(textView)
+            coordinator.syncedText = text
+            Self.restyle(textView, style: style)
         }
-        // Both change what the storage's attributes have to say, and both
-        // re-run the same full restyle, so they share one branch.
-        if context.coordinator.lastFontScale != fontScale
-            || context.coordinator.lastIndent != indent
-            || context.coordinator.lastSourceView != isSourceView
-        {
-            context.coordinator.lastFontScale = fontScale
-            context.coordinator.lastIndent = indent
-            context.coordinator.lastSourceView = isSourceView
-            textView.indentUnit = indent.unit
-            restyle(textView)
-        }
-        // Drawing only: the rule's line and the blank lines around it are
-        // styled the same either way.
-        if context.coordinator.lastRuleStyle != ruleStyle,
-            let layoutManager = textView.layoutManager as? NotesLayoutManager
-        {
-            context.coordinator.lastRuleStyle = ruleStyle
-            layoutManager.ruleStyle = ruleStyle
-            textView.needsDisplay = true
+        let previous = coordinator.style
+        if previous != style {
+            coordinator.style = style
+            var ruleOnly = previous
+            ruleOnly.rule = style.rule
+            if ruleOnly == style {
+                (textView.layoutManager as? NotesLayoutManager)?.ruleStyle = style.rule
+                textView.needsDisplay = true
+            } else {
+                Self.restyle(textView, style: style)
+                // The match background is a storage attribute the restyle
+                // leaves alone, so repaint it in the incoming theme's color.
+                if previous.theme != style.theme { applyFindHighlight(to: textView, scroll: false) }
+            }
         }
         if textView.caretStyle != caret {
             textView.caretStyle = caret
@@ -134,22 +125,14 @@ struct MinimalTextEditor: NSViewRepresentable {
             if spellcheck { textView.checkSpellingEverywhere() }
         }
         textView.smartPaste = smartPaste
-        if context.coordinator.lastTheme != theme {
-            context.coordinator.lastTheme = theme
-            restyle(textView)
-            // The match background is a storage attribute and applyPalette
-            // merges rather than replaces, so repaint it in the incoming
-            // theme's color instead of leaving the outgoing one behind.
-            applyFindHighlight(to: textView, scroll: false)
-        }
-        if context.coordinator.lastFocusToken != focusToken {
-            context.coordinator.lastFocusToken = focusToken
+        if coordinator.lastFocusToken != focusToken {
+            coordinator.lastFocusToken = focusToken
             DispatchQueue.main.async {
                 textView.window?.makeFirstResponder(textView)
             }
         }
-        if context.coordinator.lastScrollToken != scrollToken {
-            context.coordinator.lastScrollToken = scrollToken
+        if coordinator.lastScrollToken != scrollToken {
+            coordinator.lastScrollToken = scrollToken
             let target = scrollTarget
             DispatchQueue.main.async {
                 let length = (textView.string as NSString).length
@@ -160,16 +143,10 @@ struct MinimalTextEditor: NSViewRepresentable {
                 textView.window?.makeFirstResponder(textView)
             }
         }
-        if context.coordinator.lastFindHighlightToken != findHighlightToken {
-            context.coordinator.lastFindHighlightToken = findHighlightToken
+        if coordinator.lastFindHighlightToken != findHighlightToken {
+            coordinator.lastFindHighlightToken = findHighlightToken
             applyFindHighlight(to: textView, scroll: true)
         }
-    }
-
-    private func restyle(_ textView: NotesTextView) {
-        Self.applyPalette(
-            Palette.for(theme), to: textView, font: Self.baseFont(isSourceView: isSourceView),
-            indent: indent, isSourceView: isSourceView, ruleStyle: ruleStyle)
     }
 
     /// The face the whole body is set in. Raw mode takes the code family,
@@ -192,7 +169,9 @@ struct MinimalTextEditor: NSViewRepresentable {
     private func applyFindHighlight(to textView: NSTextView, scroll: Bool) {
         guard let storage = textView.textStorage else { return }
         let full = NSRange(location: 0, length: storage.length)
-        let palette = Palette.for(theme)
+        let palette = Palette.for(style.theme)
+        storage.beginEditing()
+        defer { storage.endEditing() }
         // Use a real storage background attribute (not a temporary layout
         // attribute): storage mutations always trigger a redraw, so the
         // highlight clears deterministically. It is never written to disk —
@@ -202,9 +181,10 @@ struct MinimalTextEditor: NSViewRepresentable {
         // match goes on top. Without this, opening Find erases every
         // highlight in the note. Not in source view, where there is no
         // `==marked==` to put back — only the match itself is painted.
-        if !isSourceView {
+        if !style.isSourceView {
+            let marks = Escapes.scan(storage.string)
             Self.styleHighlights(
-                in: storage, palette: palette, marks: Escapes.scan(storage.string))
+                in: storage, palette: palette, masked: marks.masking(storage.string) as NSString)
         }
 
         let range = findHighlightRange
@@ -213,15 +193,12 @@ struct MinimalTextEditor: NSViewRepresentable {
         if scroll { textView.scrollRangeToVisible(range) }
     }
 
-    private static func applyPalette(
-        _ palette: Palette,
-        to textView: NotesTextView,
-        font: NSFont,
-        indent: Indent,
-        isSourceView: Bool,
-        ruleStyle: RuleStyle
-    ) {
-        let paragraph = makeParagraphStyle()
+    /// Everything the body is drawn with: the text view's colors, the layout
+    /// manager's marks, and the storage's attributes.
+    static func restyle(_ textView: NotesTextView, style: BodyStyle) {
+        let palette = Palette.for(style.theme)
+        let font = baseFont(isSourceView: style.isSourceView)
+        textView.indentUnit = style.indent.unit
         textView.textColor = palette.text
         textView.insertionPointColor = palette.text
         textView.selectedTextAttributes = [
@@ -230,45 +207,58 @@ struct MinimalTextEditor: NSViewRepresentable {
         textView.typingAttributes = [
             .font: font,
             .foregroundColor: palette.text,
-            .paragraphStyle: paragraph,
+            .paragraphStyle: makeParagraphStyle(),
         ]
         if let lm = textView.layoutManager as? NotesLayoutManager {
             lm.ruleColor = palette.rule
             lm.bulletColor = palette.text
             lm.bulletFont = font
-            lm.indentWidth = indent.width
-            lm.indentUnit = indent.unit
+            lm.indentWidth = style.indent.width
+            lm.indentUnit = style.indent.unit
             lm.guideColor = palette.faint
-            lm.isSourceView = isSourceView
-            lm.ruleStyle = ruleStyle
+            lm.isSourceView = style.isSourceView
+            lm.ruleStyle = style.rule
             lm.seamColor = palette.faint
         }
-        if let storage = textView.textStorage {
-            resetBaseAttributes(
-                in: storage, font: font, color: palette.text, paragraph: paragraph)
-            guard !isSourceView else {
-                // `resetBaseAttributes` leaves `.backgroundColor` alone, since
-                // the find match rides on it and a restyle must not wipe the
-                // match. Nothing repaints `==marked==` in source view, so it has
-                // to go here or an amber wash survives into a mode whose whole
-                // point is that nothing is styled.
-                storage.removeAttribute(
-                    .backgroundColor, range: NSRange(location: 0, length: storage.length))
-                return
-            }
-            restyleContent(in: storage, baseFont: font, indent: indent, palette: palette)
+        if let storage = textView.textStorage { restyleStorage(storage, style: style) }
+    }
+
+    /// The storage's half of `restyle`, and all an edit needs. `blocks`, when
+    /// the caller already classified the text, saves doing it again.
+    static func restyleStorage(
+        _ storage: NSTextStorage, style: BodyStyle, blocks: MarkdownBlocks? = nil
+    ) {
+        let palette = Palette.for(style.theme)
+        let font = baseFont(isSourceView: style.isSourceView)
+        // One `processEditing` for the whole pass, rather than one per
+        // attribute, each invalidating layout on its own.
+        storage.beginEditing()
+        defer { storage.endEditing() }
+        resetBaseAttributes(
+            in: storage, font: font, color: palette.text, paragraph: makeParagraphStyle())
+        guard !style.isSourceView else {
+            // `resetBaseAttributes` leaves `.backgroundColor` alone, since
+            // the find match rides on it and a restyle must not wipe the
+            // match. Nothing repaints `==marked==` in source view, so it has
+            // to go here or an amber wash survives into a mode whose whole
+            // point is that nothing is styled.
+            storage.removeAttribute(
+                .backgroundColor, range: NSRange(location: 0, length: storage.length))
+            return
         }
+        restyleContent(
+            in: storage, baseFont: font, indent: style.indent, palette: palette,
+            blocks: blocks ?? MarkdownBlocks(storage.string as NSString))
     }
 
     /// Wipes the whole storage back to plain body text, so a content pass
     /// can run against a known state.
     ///
-    /// `.kern`, `.underlineStyle`, `.strikethroughStyle`, `.horizontalRule` and `.backgroundColor`
-    /// are *removed* rather than overwritten: none has a base value to reset to, and each is set
-    /// on ranges that move as the text is edited — a marker's kern would
-    /// otherwise stay on whatever character ends up at that offset, and a
-    /// `==` highlight or a `<u>` rule would outlive the markers that asked
-    /// for it.
+    /// `.kern`, `.underlineStyle`, `.strikethroughStyle`, and `.horizontalRule` are *removed*
+    /// rather than overwritten: none has a base value to reset to, and each is set on ranges that
+    /// move as the text is edited — a marker's kern would otherwise stay on whatever character
+    /// ends up at that offset, and a `<u>` rule would outlive the markers that asked for it.
+    /// `.backgroundColor` stays, since the find match rides on it.
     static func resetBaseAttributes(
         in storage: NSTextStorage, font: NSFont, color: NSColor, paragraph: NSParagraphStyle
     ) {
@@ -292,13 +282,14 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// Headings come from the storage's own `MarkdownBlocks` rather than
     /// from `EditorModel.headings`, so the styling always describes the text
     /// it is applied to.
-    static func restyleContent(
-        in storage: NSTextStorage, baseFont: NSFont, indent: Indent, palette: Palette
+    private static func restyleContent(
+        in storage: NSTextStorage, baseFont: NSFont, indent: Indent, palette: Palette,
+        blocks: MarkdownBlocks
     ) {
-        let marks = Escapes.scan(storage.string)
         let ns = storage.string as NSString
-        let blocks = MarkdownBlocks(ns)
-        styleLists(in: storage, baseFont: baseFont, indent: indent, palette: palette)
+        let marks = Escapes.scan(ns)
+        let widths = Widths(font: baseFont)
+        styleLists(in: storage, widths: widths, indent: indent, palette: palette)
         styleHeadings(
             in: storage, baseFont: baseFont, palette: palette, headings: blocks.headings(in: ns))
         styleInlineMarkup(in: storage, baseFont: baseFont, palette: palette, marks: marks)
@@ -314,8 +305,12 @@ struct MinimalTextEditor: NSViewRepresentable {
     private static func styleHeadings(
         in storage: NSTextStorage, baseFont: NSFont, palette: Palette, headings: [Heading]
     ) {
+        // One font per level: a note repeats a handful of levels, and each is a descriptor
+        // lookup.
+        var fonts: [Int: NSFont] = [:]
         for heading in headings {
-            let font = headingFont(level: heading.level, baseFont: baseFont)
+            let font = fonts[heading.level] ?? headingFont(level: heading.level, baseFont: baseFont)
+            fonts[heading.level] = font
             let color = palette.headings[heading.level - 1]
             let styleRange = NSRange(
                 location: heading.lineStart, length: heading.end - heading.lineStart)
@@ -344,7 +339,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// what ⇧↵ writes — is pulled to that same column. Inter is
     /// proportional, so the spaces on their own land a hair off it.
     private static func styleLists(
-        in storage: NSTextStorage, baseFont: NSFont, indent: Indent, palette: Palette
+        in storage: NSTextStorage, widths: Widths, indent: Indent, palette: Palette
     ) {
         let ns = storage.string as NSString
         let total = ns.length
@@ -359,7 +354,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                         lineRange: lineRange, in: ns, of: previous.item, itemLine: previous.line)
                 {
                     styleContinuation(
-                        lineRange: lineRange, in: storage, baseFont: baseFont,
+                        lineRange: lineRange, in: storage, widths: widths,
                         contentOffset: previous.contentOffset,
                         color: previous.item.marker == .checklist(checked: true) ? palette.muted : nil)
                 } else {
@@ -373,15 +368,12 @@ struct MinimalTextEditor: NSViewRepresentable {
             // its spaces alone would take it — a two-space unit in Inter is
             // eight points, which is not a visible nesting step. Everything
             // measured from here has to include it.
-            let indentOffset = width(
-                of: ns.substring(with: NSRange(
-                    location: lineRange.location, length: item.indentWidth)),
-                font: baseFont)
-            var contentOffset = indentOffset + width(
-                of: ns.substring(with: NSRange(
+            let indentOffset = widths.of(
+                ns.substring(with: NSRange(location: lineRange.location, length: item.indentWidth)))
+            var contentOffset = indentOffset + widths.of(
+                ns.substring(with: NSRange(
                     location: lineRange.location,
-                    length: item.contentStart - lineRange.location)),
-                font: baseFont)
+                    length: item.contentStart - lineRange.location)))
 
             if item.isMarkerHidden {
                 storage.addAttribute(
@@ -397,10 +389,9 @@ struct MinimalTextEditor: NSViewRepresentable {
                 // A checklist reserves the drawn box's side, the same whether
                 // ticked or not, so checking one doesn't shift its text.
                 let glyphWidth =
-                    item.glyph(indentWidth: indent.width).map { width(of: $0, font: baseFont) }
-                    ?? NotesLayoutManager.checklistBoxSide(for: baseFont)
-                let markerWidth = width(
-                    of: ns.substring(with: item.markerRange), font: baseFont)
+                    item.glyph(indentWidth: indent.width).map(widths.of)
+                    ?? NotesLayoutManager.checklistBoxSide(for: widths.font)
+                let markerWidth = widths.of(ns.substring(with: item.markerRange))
                 let kern = glyphWidth - markerWidth
                 storage.addAttribute(
                     .kern, value: kern / CGFloat(item.markerRange.length), range: item.markerRange)
@@ -430,7 +421,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// sits *left* of where six spaces end — the hidden `- [ ]` is kerned
     /// to a glyph narrower than itself — and an indent can't go negative.
     private static func styleContinuation(
-        lineRange: NSRange, in storage: NSTextStorage, baseFont: NSFont, contentOffset: CGFloat,
+        lineRange: NSRange, in storage: NSTextStorage, widths: Widths, contentOffset: CGFloat,
         color: NSColor?
     ) {
         if let color { storage.addAttribute(.foregroundColor, value: color, range: lineRange) }
@@ -441,8 +432,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         {
             let character = ns.substring(with: NSRange(location: index, length: 1))
             storage.addAttribute(
-                .kern, value: -width(of: character, font: baseFont),
-                range: NSRange(location: index, length: 1))
+                .kern, value: -widths.of(character), range: NSRange(location: index, length: 1))
             index += 1
         }
         let paragraph = makeParagraphStyle()
@@ -451,9 +441,21 @@ struct MinimalTextEditor: NSViewRepresentable {
         storage.addAttribute(.paragraphStyle, value: paragraph, range: lineRange)
     }
 
-    private static func width(of text: String, font: NSFont) -> CGFloat {
-        guard !text.isEmpty else { return 0 }
-        return NSAttributedString(string: text, attributes: [.font: font]).size().width
+    /// Advance widths in one font, remembered for one pass: every list line
+    /// measures its indent and marker, and a note repeats the same few.
+    private final class Widths {
+        let font: NSFont
+        private var cache: [String: CGFloat] = [:]
+
+        init(font: NSFont) { self.font = font }
+
+        func of(_ text: String) -> CGFloat {
+            guard !text.isEmpty else { return 0 }
+            if let width = cache[text] { return width }
+            let width = NSAttributedString(string: text, attributes: [.font: font]).size().width
+            cache[text] = width
+            return width
+        }
     }
 
     /// Render markdown emphasis with font traits, and `==marked==` with a
@@ -469,44 +471,39 @@ struct MinimalTextEditor: NSViewRepresentable {
         // Every pass scans the text with its escaped characters blanked, so
         // an escaped marker can neither open a run nor close one. Ranges
         // carry straight over to the storage — see `Escapes.Marks.masking`.
-        let text = marks.masking(storage.string)
+        let text = marks.masking(storage.string) as NSString
 
-        for match in text.matches(of: /\*\*([^*\n]+)\*\*/) {
-            applyTrait(.bold, over: match.range, in: storage, text: text, baseFont: baseFont)
+        for range in Inline.bold.ranges(in: text) {
+            applyTrait(.bold, over: range, in: storage, baseFont: baseFont)
         }
-        for match in text.matches(of: /__([^_\n]+)__/)
-        where isFreestanding(match.range, in: text) {
-            applyTrait(.bold, over: match.range, in: storage, text: text, baseFont: baseFont)
+        for range in Inline.boldUnderscores.ranges(in: text) where isFreestanding(range, in: text) {
+            applyTrait(.bold, over: range, in: storage, baseFont: baseFont)
         }
         // Italic: a single marker, skipping any match that touches another
         // of the same marker on either side — that would mean the match is
-        // the inside of a bold run. Swift Regex literals have no lookbehind,
-        // so this filters after matching instead.
-        for match in text.matches(of: /\*([^*\n]+)\*/)
-        where !isAdjacent(to: "*", match.range, in: text) {
-            applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
+        // the inside of a bold run.
+        for range in Inline.italic.ranges(in: text) where !isAdjacent(to: "*", range, in: text) {
+            applyTrait(.italic, over: range, in: storage, baseFont: baseFont)
         }
-        for match in text.matches(of: /_([^_\n]+)_/)
-        where !isAdjacent(to: "_", match.range, in: text) && isFreestanding(match.range, in: text) {
-            applyTrait(.italic, over: match.range, in: storage, text: text, baseFont: baseFont)
+        for range in Inline.italicUnderscores.ranges(in: text)
+        where !isAdjacent(to: "_", range, in: text) && isFreestanding(range, in: text) {
+            applyTrait(.italic, over: range, in: storage, baseFont: baseFont)
         }
         // `` `code` ``: a whole different family, so it replaces the font
         // rather than merging a trait into it. Sized off whatever is already
         // at that offset, which is what lets a span inside a heading keep
         // the heading's size. Triple-backtick fences are left alone —
         // `[^`\n]+` can't match across the second backtick of a fence.
-        for match in text.matches(of: /`([^`\n]+)`/) {
-            let range = NSRange(match.range, in: text)
+        for range in Inline.code.ranges(in: text) {
             let size = currentFont(in: storage, at: range.location, fallback: baseFont).pointSize
             storage.addAttribute(
                 .font, value: Typography.codeFont(atResolvedSize: size), range: range)
         }
         // `<u>…</u>`: an attribute rather than a symbolic trait, so it
         // can't go through `applyTrait` with the others.
-        for match in text.matches(of: /<u>([^<\n]+)<\/u>/) {
+        for range in Inline.underline.ranges(in: text) {
             storage.addAttribute(
-                .underlineStyle, value: NSUnderlineStyle.single.rawValue,
-                range: NSRange(match.range, in: text))
+                .underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
         }
         // `~~struck~~`, and `~struck~` too: GFM allows either, and a single
         // tilde is what Notion accepts when typing. The doubled runs are
@@ -515,20 +512,18 @@ struct MinimalTextEditor: NSViewRepresentable {
         // still been consumed, so `~~a~~ and ~b~` lost `~b~` to a rejected
         // `~ and ~`. Blanking keeps every offset where it was.
         let masked = NSMutableString(string: text)
-        for match in text.matches(of: /~~([^~\n]+)~~/) {
-            let range = NSRange(match.range, in: text)
+        for range in Inline.doubleTildes.ranges(in: text) {
             storage.addAttribute(
                 .strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
             masked.replaceCharacters(in: range, with: String(repeating: " ", count: range.length))
         }
-        let maskedText = masked as String
-        for match in maskedText.matches(of: /~([^~\n]+)~/)
-        where !isAdjacent(to: "~", match.range, in: maskedText) {
+        let singles = masked.copy() as! NSString
+        for range in Inline.singleTildes.ranges(in: singles)
+        where !isAdjacent(to: "~", range, in: singles) {
             storage.addAttribute(
-                .strikethroughStyle, value: NSUnderlineStyle.single.rawValue,
-                range: NSRange(match.range, in: maskedText))
+                .strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
         }
-        styleHighlights(in: storage, palette: palette, marks: marks)
+        styleHighlights(in: storage, palette: palette, masked: text)
 
         // Last, so nothing above can repaint over it. A backslash that
         // escaped something is syntax rather than content, and reads as such
@@ -541,20 +536,34 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
     }
 
-    /// `==marked==` runs, painted with a background.
+    /// `==marked==` runs, painted with a background, over text already
+    /// masked by `Escapes.Marks.masking`.
     ///
     /// Separate from the rest of the inline pass because the find bar has
     /// to be able to re-run just this: both features want
     /// `.backgroundColor` and there is no second background attribute to
     /// keep them apart.
-    static func styleHighlights(
-        in storage: NSTextStorage, palette: Palette, marks: Escapes.Marks
-    ) {
-        let text = marks.masking(storage.string)
-        for match in text.matches(of: /==([^=\n]+)==/) {
-            storage.addAttribute(
-                .backgroundColor, value: palette.highlight,
-                range: NSRange(match.range, in: text))
+    static func styleHighlights(in storage: NSTextStorage, palette: Palette, masked: NSString) {
+        for range in Inline.highlight.ranges(in: masked) {
+            storage.addAttribute(.backgroundColor, value: palette.highlight, range: range)
+        }
+    }
+
+    /// The inline patterns, compiled once rather than on every restyle — they
+    /// run over the whole note on every keystroke.
+    private enum Inline {
+        static let bold = pattern(#"\*\*([^*\n]+)\*\*"#)
+        static let boldUnderscores = pattern(#"__([^_\n]+)__"#)
+        static let italic = pattern(#"\*([^*\n]+)\*"#)
+        static let italicUnderscores = pattern(#"_([^_\n]+)_"#)
+        static let code = pattern(#"`([^`\n]+)`"#)
+        static let underline = pattern(#"<u>([^<\n]+)</u>"#)
+        static let doubleTildes = pattern(#"~~([^~\n]+)~~"#)
+        static let singleTildes = pattern(#"~([^~\n]+)~"#)
+        static let highlight = pattern(#"==([^=\n]+)=="#)
+
+        private static func pattern(_ source: String) -> NSRegularExpression {
+            try! NSRegularExpression(pattern: source)
         }
     }
 
@@ -565,41 +574,39 @@ struct MinimalTextEditor: NSViewRepresentable {
     /// a real hazard in a notes app that ends up holding identifiers and
     /// file names. CommonMark draws the same distinction for `_` and not
     /// for `*`, which is why only the underscore forms consult it.
-    private static func isFreestanding(_ range: Range<String.Index>, in text: String) -> Bool {
-        if range.lowerBound > text.startIndex {
-            let before = text[text.index(before: range.lowerBound)]
-            if before.isLetter || before.isNumber { return false }
-        }
-        if range.upperBound < text.endIndex {
-            let after = text[range.upperBound]
-            if after.isLetter || after.isNumber { return false }
-        }
-        return true
+    private static func isFreestanding(_ range: NSRange, in text: NSString) -> Bool {
+        !isWordCharacter(at: range.location - 1, in: text)
+            && !isWordCharacter(at: NSMaxRange(range), in: text)
+    }
+
+    /// Whether the character — the whole grapheme — at `index` is a letter
+    /// or a number. False off either end.
+    private static func isWordCharacter(at index: Int, in text: NSString) -> Bool {
+        guard index >= 0, index < text.length,
+            let character = text.substring(
+                with: text.rangeOfComposedCharacterSequence(at: index)).first
+        else { return false }
+        return character.isLetter || character.isNumber
     }
 
     /// True when `marker` sits immediately outside either end of the run,
     /// which means this match is the inside of a doubled (bold) one.
-    private static func isAdjacent(
-        to marker: Character, _ range: Range<String.Index>, in text: String
-    ) -> Bool {
-        if range.lowerBound > text.startIndex,
-            text[text.index(before: range.lowerBound)] == marker {
-            return true
-        }
-        if range.upperBound < text.endIndex, text[range.upperBound] == marker { return true }
-        return false
+    private static func isAdjacent(to marker: Unicode.Scalar, _ range: NSRange, in text: NSString)
+        -> Bool
+    {
+        let unit = unichar(marker.value)
+        if range.location > 0, text.character(at: range.location - 1) == unit { return true }
+        return NSMaxRange(range) < text.length && text.character(at: NSMaxRange(range)) == unit
     }
 
     private static func applyTrait(
         _ traits: NSFontDescriptor.SymbolicTraits,
-        over range: Range<String.Index>,
+        over range: NSRange,
         in storage: NSTextStorage,
-        text: String,
         baseFont: NSFont
     ) {
-        let nsRange = NSRange(range, in: text)
-        let current = currentFont(in: storage, at: nsRange.location, fallback: baseFont)
-        storage.addAttribute(.font, value: traitFont(current, traits: traits), range: nsRange)
+        let current = currentFont(in: storage, at: range.location, fallback: baseFont)
+        storage.addAttribute(.font, value: traitFont(current, traits: traits), range: range)
     }
 
     private static func currentFont(in storage: NSTextStorage, at location: Int, fallback: NSFont) -> NSFont {
@@ -646,7 +653,7 @@ struct MinimalTextEditor: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, caretOffset: $caretOffset)
+        Coordinator(text: $text, caretOffset: $caretOffset, style: style)
     }
 
     @MainActor
@@ -655,16 +662,15 @@ struct MinimalTextEditor: NSViewRepresentable {
         var lastFocusToken: Int = 0
         var lastScrollToken: Int = 0
         var lastFindHighlightToken: Int = 0
-        var lastFontScale: Double = 1
-        var lastIndent: Indent = Indent()
-        var lastTheme: Theme = .dark
-        /// Read by the delegate callbacks below as well as by `updateNSView`:
-        /// source view also turns off the smart editing that *rewrites the file*
-        /// — `---`→rule — since looking at the raw text is the one time that
-        /// is least welcome. List continuation stays: it is typing assistance,
-        /// not rendering.
-        var lastSourceView: Bool = false
-        var lastRuleStyle: RuleStyle = .line
+        /// The style the storage was last painted in. Read by the delegate
+        /// callbacks below as well as by `updateNSView`: source view also
+        /// turns off the smart editing that *rewrites the file* — `---`→rule —
+        /// since looking at the raw text is the one time that is least
+        /// welcome. List continuation stays: it is typing assistance, not
+        /// rendering.
+        var style: BodyStyle
+        /// The text last handed across, in either direction.
+        var syncedText = ""
         /// Where the last `--` → `—` and third-↵ rule landed, so the next
         /// press of the same key can take them back, and where each left
         /// the caret. Cleared as soon as the caret leaves that spot.
@@ -673,9 +679,10 @@ struct MinimalTextEditor: NSViewRepresentable {
 
         let caretOffset: Binding<Int>
 
-        init(text: Binding<String>, caretOffset: Binding<Int>) {
+        init(text: Binding<String>, caretOffset: Binding<Int>, style: BodyStyle) {
             self.text = text
             self.caretOffset = caretOffset
+            self.style = style
         }
 
         /// Deferred a turn: a reload assigns `.string` from inside
@@ -697,35 +704,20 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
 
         func textDidChange(_ notification: Notification) {
-            guard let textView = notification.object as? NSTextView else { return }
-            text.wrappedValue = textView.string
-
+            guard let textView = notification.object as? NotesTextView,
+                let storage = textView.textStorage
+            else { return }
+            let blocks = MarkdownBlocks(storage.string as NSString)
             // Hand-rolled edits go through `performEdit`, so the renumber
             // they may trigger waits for the caret they set. AppKit's own
             // edits renumber from here, with the selection already where
-            // the keystroke left it.
-            if let notes = textView as? NotesTextView {
-                notes.renumberLists()
-            }
+            // the keystroke left it. A renumber is an edit of its own, whose
+            // `textDidChange` hands over and restyles the result.
+            if textView.renumberLists(blocks: blocks) { return }
 
-            // Live-restyle: reset font, foreground, and paragraph style to
-            // base across the storage, then re-apply the content passes.
-            // Resetting first is what lets a line that stopped being an HR
-            // or a list item lose the styling it had.
-            if let storage = textView.textStorage {
-                let baseFont = MinimalTextEditor.baseFont(isSourceView: lastSourceView)
-                let palette = Palette.for(lastTheme)
-                MinimalTextEditor.resetBaseAttributes(
-                    in: storage, font: baseFont, color: palette.text,
-                    paragraph: MinimalTextEditor.makeParagraphStyle())
-                guard !lastSourceView else {
-                    storage.removeAttribute(
-                        .backgroundColor, range: NSRange(location: 0, length: storage.length))
-                    return
-                }
-                MinimalTextEditor.restyleContent(
-                    in: storage, baseFont: baseFont, indent: lastIndent, palette: palette)
-            }
+            syncedText = textView.string
+            text.wrappedValue = syncedText
+            MinimalTextEditor.restyleStorage(storage, style: style, blocks: blocks)
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -779,7 +771,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                 return false
             }
 
-            if !lastSourceView, affectedCharRange.length == 0,
+            if !style.isSourceView, affectedCharRange.length == 0,
                 let typed = replacementString, typed == "-" || typed == ">",
                 !textView.hasMarkedText(),
                 let event = NSApp.currentEvent, event.type == .keyDown, event.characters == typed,
@@ -818,7 +810,7 @@ struct MinimalTextEditor: NSViewRepresentable {
             // skip this path naturally. Raw mode skips it outright: this one
             // rewrites the line, and the point of source view is to see what the
             // line actually is.
-            guard !lastSourceView, replacementString == "-",
+            guard !style.isSourceView, replacementString == "-",
                   affectedCharRange.length == 0
             else { return true }
 
@@ -889,7 +881,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                 return true
             }
 
-            if selection.length == 0, !lastSourceView, !isShifted,
+            if selection.length == 0, !style.isSourceView, !isShifted,
                 let notes = textView as? NotesTextView
             {
                 if let revert = SmartEditing.ruleRevert(
@@ -952,7 +944,7 @@ struct MinimalTextEditor: NSViewRepresentable {
                 // wanted. A selection reaching past the line is a delete
                 // first, and takes a plain ↵ like anywhere else.
                 if selection.length == 0 {
-                    let outdented = SmartEditing.outdentedEmptyItem(line, unit: lastIndent.unit)
+                    let outdented = SmartEditing.outdentedEmptyItem(line, unit: style.indent.unit)
                     replace(in: textView, range: lineContent, with: outdented ?? "")
                     return true
                 }
@@ -999,5 +991,12 @@ struct MinimalTextEditor: NSViewRepresentable {
             }
             if let notes = textView as? NotesTextView { notes.performEdit(body) } else { body() }
         }
+    }
+}
+
+extension NSRegularExpression {
+    /// Every match's whole range, left to right and non-overlapping.
+    fileprivate func ranges(in text: NSString) -> [NSRange] {
+        matches(in: text as String, range: NSRange(location: 0, length: text.length)).map(\.range)
     }
 }
