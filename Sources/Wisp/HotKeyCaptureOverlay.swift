@@ -11,7 +11,7 @@ import WispCore
 struct HotKeyCaptureOverlay: View {
     @Environment(\.palette) private var palette
     /// Returns nil on success or a user-facing error message otherwise.
-    let onTryRegister: (HotKey) -> String?
+    let onTryRegister: (KeyChord) -> String?
     let onSuccess: () -> Void
     let onCancel: () -> Void
 
@@ -59,12 +59,11 @@ struct HotKeyCaptureOverlay: View {
             let needed: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
             guard !mods.intersection(needed).isEmpty else { return nil }
 
-            let hotKey = HotKey(
+            let chord = KeyChord(
                 keyCode: UInt32(event.keyCode),
-                modifiers: HotKey.carbonModifiers(from: mods)
-            )
+                carbonModifiers: KeyChord.carbonModifiers(from: mods))
 
-            if let err = onTryRegister(hotKey) {
+            if let err = onTryRegister(chord) {
                 errorMessage = err
                 // Stay listening so the user can immediately try another.
             } else {

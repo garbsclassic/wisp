@@ -1,5 +1,4 @@
 import AppKit
-import Carbon.HIToolbox
 import SwiftUI
 import WispCore
 
@@ -179,8 +178,8 @@ final class PanelController {
     /// The summon chord went down. The panel comes up at once; which mode it
     /// settles into is decided by what happens next. Pressing it while
     /// pinned dismisses.
-    func handleChordDown(modifiers: UInt32) {
-        summonModifierFlags = Self.cgEventFlags(forCarbonModifiers: modifiers)
+    func handleChordDown(modifiers: NSEvent.ModifierFlags) {
+        summonModifierFlags = CGEventFlags(rawValue: UInt64(modifiers.rawValue))
         send(.chordDown)
     }
 
@@ -285,17 +284,6 @@ final class PanelController {
     private func cancelModifierWatch() {
         modifierWatchTimer?.invalidate()
         modifierWatchTimer = nil
-    }
-
-    /// Carbon's modifier masks and `CGEventFlags` are different bit layouts
-    /// for the same four keys.
-    private static func cgEventFlags(forCarbonModifiers modifiers: UInt32) -> CGEventFlags {
-        var flags: CGEventFlags = []
-        if modifiers & UInt32(cmdKey) != 0 { flags.insert(.maskCommand) }
-        if modifiers & UInt32(optionKey) != 0 { flags.insert(.maskAlternate) }
-        if modifiers & UInt32(controlKey) != 0 { flags.insert(.maskControl) }
-        if modifiers & UInt32(shiftKey) != 0 { flags.insert(.maskShift) }
-        return flags
     }
 
     private func applyTheme(_ theme: Theme) {

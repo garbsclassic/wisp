@@ -1560,7 +1560,7 @@ struct ReturnEditTests {
     }
 
     @Test(
-        "↵ on an empty item with a selection past the line turns line start to selection end into \\n",
+        "↵ on an empty item with a selection past its line replaces line start to selection end",
         arguments: [
             ("- |\n|next", "\n|next"),
             ("|- |", "\n|"),

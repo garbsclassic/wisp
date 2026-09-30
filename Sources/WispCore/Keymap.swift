@@ -262,7 +262,7 @@ public struct Keymap: Codable, Equatable, Sendable {
         let parsed = parsedChords(for: action)
         guard !parsed.isEmpty else { return chordSet(for: action).chords.joined(separator: " / ") }
         return parsed
-            .map { HotKey(keyCode: $0.keyCode, modifiers: $0.carbonModifiers).displayString }
+            .map(\.displayString)
             .joined(separator: " / ")
     }
 
@@ -271,7 +271,7 @@ public struct Keymap: Codable, Equatable, Sendable {
     /// you the shortcut.
     public func primaryDisplay(_ action: KeymapAction) -> String {
         guard let chord = parsed(action) else { return self.chord(for: action) }
-        return HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers).displayString
+        return chord.displayString
     }
 
     /// Actions left with no working chord at all, for the footer warning.

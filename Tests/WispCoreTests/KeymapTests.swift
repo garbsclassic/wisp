@@ -226,7 +226,7 @@ struct MenuEquivalentTests {
             for chord in keymap.parsedChords(for: action) {
                 #expect(
                     chord.menuEquivalent != nil,
-                    "\(action.rawValue) chord \(chord.raw) has no menu equivalent")
+                    "\(action.rawValue) chord \(chord.displayString) has no menu equivalent")
             }
         }
     }

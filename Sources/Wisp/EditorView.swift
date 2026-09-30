@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import WispCore
 
@@ -76,19 +77,12 @@ final class EditorModel: ObservableObject {
     private(set) var findHighlightRange = NSRange(location: 0, length: 0)
     private var findMatches: [NSRange] = []
     private var findIndex = 0
-    @Published var hotKey: HotKey = .default {
-        didSet {
-            guard didLoad else { return }
-            settings.setSummon(keyCode: hotKey.keyCode, carbonModifiers: hotKey.modifiers)
-        }
-    }
-
     /// AppDelegate replaces this with the real Carbon-registration
     /// attempt. Returns nil on success or a user-facing error message
     /// if registration was rejected (typically because the combo is
     /// already in use system-wide). Default is a no-op so this is
     /// always callable.
-    var tryUpdateHotKey: @MainActor (HotKey) -> String? = { _ in nil }
+    var tryUpdateHotKey: @MainActor (KeyChord) -> String? = { _ in nil }
 
     private static let placeholders = [
         "What's on your mind?",
@@ -97,43 +91,13 @@ final class EditorModel: ObservableObject {
         "Capture it before you forget.",
         "Anything to remember?",
     ]
-    /// The one text-size control, replacing the old small/medium/large
-    /// cycle. Mirrors the config rather than owning it — `Settings` is
-    /// what persists it and what reconfigures `Typography`; this exists
-    /// to be a `@Published` SwiftUI can observe.
-    ///
-    /// Every writer clamps before assigning (`Metrics.steppedFontScale`,
-    /// `clampedFontScale`, `clampedDefaultFontScale`), so this setter does
-    /// not read the clamped value back — `didSet` fires on an equal write
-    /// too, and a write-back would recurse without end.
-    @Published var fontScale: Double = 1.0 {
-        didSet {
-            guard didLoad else { return }
-            settings.setFontScale(fontScale)
-        }
-    }
-    /// Mirrors the config so the footer button and the editor can observe
-    /// it; `Settings` persists it.
-    @Published var spellcheck = false {
-        didSet {
-            guard didLoad else { return }
-            settings.setSpellcheck(spellcheck)
-        }
-    }
-    @Published var footerStatus: FooterStatus = .position {
-        didSet {
-            guard didLoad else { return }
-            settings.setFooterStatus(footerStatus)
-        }
-    }
-    /// User-facing choice: light, dark, or follow-system. Persisted.
-    @Published var themeSetting: ThemeSetting = .system {
-        didSet {
-            guard didLoad else { return }
-            settings.setTheme(themeSetting)
-            theme = themeSetting.resolve()
-        }
-    }
+    // Read straight from the config, which `Settings` owns and persists;
+    // its changes are forwarded as this model's, so views observing the
+    // model re-render on them too.
+    var fontScale: Double { settings.config.clampedFontScale }
+    var spellcheck: Bool { settings.config.spellcheck }
+    var footerStatus: FooterStatus { settings.config.footerStatus }
+    var themeSetting: ThemeSetting { settings.config.theme }
 
     /// Resolved theme actually used for rendering. Driven by
     /// themeSetting, or — when preference is .system — by the OS
@@ -157,6 +121,7 @@ final class EditorModel: ObservableObject {
     /// between Light and Dark while the user is on .system. Held strong
     /// so the observation stays alive for the model's lifetime.
     private var appearanceObservation: NSKeyValueObservation?
+    private var settingsObservation: AnyCancellable?
 
     private var didLoad = false
     private var saveTask: Task<Void, Never>?
@@ -188,19 +153,16 @@ final class EditorModel: ObservableObject {
     init(settings: Settings) {
         self.settings = settings
         helpDocument = HelpDocument.make(keymap: settings.config.keymap)
-        themeSetting = settings.config.theme
-        theme = themeSetting.resolve()
+        theme = settings.config.theme.resolve()
         appearanceObservation = NSApplication.shared.observe(
             \.effectiveAppearance,
             options: [.new]
         ) { [weak self] _, _ in
             Task { @MainActor in self?.systemAppearanceMaybeChanged() }
         }
-        fontScale = settings.config.clampedFontScale
-        spellcheck = settings.config.spellcheck
-        footerStatus = settings.config.footerStatus
-        let chord = settings.config.summonChord
-        hotKey = HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers)
+        settingsObservation = settings.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
         let url = scratchpadURL
         if let loaded = try? String(contentsOf: url, encoding: .utf8) {
             text = loaded
@@ -273,14 +235,14 @@ final class EditorModel: ObservableObject {
     /// ⌘= / ⌘- and the footer's two glyph buttons. One step each way,
     /// clamped at both ends by `Metrics`.
     func stepFontScale(by steps: Int) {
-        fontScale = Metrics.steppedFontScale(fontScale, by: steps)
+        settings.setFontScale(Metrics.steppedFontScale(fontScale, by: steps))
         requestFocus()
     }
 
     /// ⌘0. Returns to `defaultFontScale` rather than to a constant 1.0,
     /// so "reset" means the size this user considers normal.
     func resetFontScale() {
-        fontScale = settings.config.clampedDefaultFontScale
+        settings.setFontScale(settings.config.clampedDefaultFontScale)
         requestFocus()
     }
 
@@ -290,17 +252,18 @@ final class EditorModel: ObservableObject {
     }
 
     func toggleFooterStatus() {
-        footerStatus = footerStatus == .position ? .modified : .position
+        settings.setFooterStatus(footerStatus == .position ? .modified : .position)
         requestFocus()
     }
 
     func toggleSpellcheck() {
-        spellcheck.toggle()
+        settings.setSpellcheck(!spellcheck)
         requestFocus()
     }
 
     func cycleTheme() {
-        themeSetting = themeSetting.next
+        settings.setTheme(themeSetting.next)
+        theme = themeSetting.resolve()
         requestFocus()
     }
 
@@ -419,38 +382,14 @@ final class EditorModel: ObservableObject {
         while dismissTopOverlay() {}
     }
 
-    /// Re-applies the settings this model caches from a config that has
-    /// just been re-read — theme, text size, and the summon chord. Without
-    /// it Refresh reloads the file but the window keeps rendering the
-    /// values it read at launch.
-    ///
-    /// Adoption, not a user change: `didLoad` is dropped for the duration
-    /// so the property setters don't write the file's own values back at
-    /// it, and the chord is re-registered only when it actually differs,
-    /// since that can fail and cost the user their binding.
+    /// Re-derives what the model computes from a config that has just been
+    /// re-read: the resolved theme and the help page.
     func adoptSettings() {
-        let wasLoaded = didLoad
-        didLoad = false
-        defer { didLoad = wasLoaded }
-
-        themeSetting = settings.config.theme
-        theme = themeSetting.resolve()
-        fontScale = settings.config.clampedFontScale
-        spellcheck = settings.config.spellcheck
-        footerStatus = settings.config.footerStatus
+        // Assigned even when unchanged: `didSet` hands it to the chrome,
+        // which reads `background` straight from the config and only
+        // re-applies it when told.
+        theme = settings.config.theme.resolve()
         helpDocument = HelpDocument.make(keymap: settings.config.keymap)
-
-        let chord = settings.config.summonChord
-        let reloaded = HotKey(keyCode: chord.keyCode, modifiers: chord.carbonModifiers)
-        if reloaded != hotKey { _ = tryUpdateHotKey(reloaded) }
-
-        // Fonts and fontScale live in Typography rather than in a
-        // published property, so nothing above forces the re-render that
-        // picks up a changed face.
-        objectWillChange.send()
-        // The chrome reads `background` straight from the config, and
-        // only re-applies on a theme flip; a reload has to ask for it.
-        onThemeChange?(theme)
     }
 
     /// Counted on first read after an edit rather than on every body pass —

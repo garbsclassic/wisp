@@ -14,12 +14,10 @@ import Foundation
 public struct KeyChord: Equatable, Sendable {
     public let keyCode: UInt32
     public let carbonModifiers: UInt32
-    public let raw: String
 
-    public init(keyCode: UInt32, carbonModifiers: UInt32, raw: String) {
+    public init(keyCode: UInt32, carbonModifiers: UInt32) {
         self.keyCode = keyCode
         self.carbonModifiers = carbonModifiers
-        self.raw = raw
     }
 
     /// Parses `"cmd+opt+/"`. Order doesn't matter and spacing is ignored;
@@ -49,14 +47,14 @@ public struct KeyChord: Equatable, Sendable {
         }
 
         guard let keyToken, let keyCode = keyCodes[keyToken] else { return nil }
-        return KeyChord(keyCode: keyCode, carbonModifiers: modifiers, raw: text)
+        return KeyChord(keyCode: keyCode, carbonModifiers: modifiers)
     }
 
     /// What a config may write for "all four at once". The glyph is accepted
     /// alongside the word for the same reason `⌘` is accepted alongside
     /// `cmd`: it is what the help page prints back, so it should be legal to
     /// paste in. Follows Clef.
-    private static let hyperSpellings: Set<String> = ["hyper", HotKey.hyperGlyph]
+    private static let hyperSpellings: Set<String> = ["hyper", hyperGlyph]
 
     private static let hyperMask: UInt32 =
         UInt32(controlKey) | UInt32(optionKey) | UInt32(shiftKey) | UInt32(cmdKey)
@@ -113,6 +111,90 @@ public struct KeyChord: Equatable, Sendable {
         return codes
     }()
 
+    // MARK: Modifiers
+
+    /// The Carbon mask as AppKit flags. `CGEventFlags` shares these bits, so
+    /// `CGEventFlags(rawValue:)` converts it again.
+    public var modifierFlags: NSEvent.ModifierFlags {
+        Self.modifierBits.reduce(into: []) { flags, pair in
+            if carbonModifiers & pair.carbon != 0 { flags.insert(pair.flag) }
+        }
+    }
+
+    /// The Carbon mask for a key event's flags, counting only the four chord
+    /// modifiers — an arrow also carries `.function` and `.numericPad`.
+    public static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
+        modifierBits.reduce(0) { mask, pair in
+            flags.contains(pair.flag) ? mask | pair.carbon : mask
+        }
+    }
+
+    private static let modifierBits: [(carbon: UInt32, flag: NSEvent.ModifierFlags)] = [
+        (UInt32(controlKey), .control), (UInt32(optionKey), .option),
+        (UInt32(shiftKey), .shift), (UInt32(cmdKey), .command),
+    ]
+
+    // MARK: Display
+
+    /// All four modifiers at once. Written as one glyph rather than as
+    /// `⌃⌥⇧⌘`, which is four fifths of the row before the key even
+    /// arrives — and which reads as four separate keys when it is really
+    /// one, since a hyperkey is what a remapped Caps Lock produces.
+    public static let hyperGlyph = "❖"
+
+    /// How a person reads the chord: "⌥Space", "⇧⌘P", or "❖.". Modifier
+    /// glyphs go in a fixed ⌃⌥⇧⌘ order, however the chord was written.
+    public var displayString: String {
+        var s = ""
+        if carbonModifiers & Self.hyperMask == Self.hyperMask {
+            s = Self.hyperGlyph
+        } else {
+            if carbonModifiers & UInt32(controlKey) != 0 { s += "⌃" }
+            if carbonModifiers & UInt32(optionKey) != 0 { s += "⌥" }
+            if carbonModifiers & UInt32(shiftKey) != 0 { s += "⇧" }
+            if carbonModifiers & UInt32(cmdKey) != 0 { s += "⌘" }
+        }
+        return s + (Self.displayNames[Int(keyCode)] ?? "Key\(keyCode)")
+    }
+
+    private static let displayNames: [Int: String] = [
+        kVK_Space: "Space",
+        kVK_Return: "↩",
+        kVK_Tab: "⇥",
+        kVK_Delete: "⌫",
+        kVK_ForwardDelete: "⌦",
+        kVK_Escape: "⎋",
+        kVK_LeftArrow: "←",
+        kVK_RightArrow: "→",
+        kVK_UpArrow: "↑",
+        kVK_DownArrow: "↓",
+        kVK_Home: "↖",
+        kVK_End: "↘",
+        kVK_PageUp: "⇞",
+        kVK_PageDown: "⇟",
+        kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4",
+        kVK_F5: "F5", kVK_F6: "F6", kVK_F7: "F7", kVK_F8: "F8",
+        kVK_F9: "F9", kVK_F10: "F10", kVK_F11: "F11", kVK_F12: "F12",
+        kVK_ANSI_A: "A", kVK_ANSI_B: "B", kVK_ANSI_C: "C", kVK_ANSI_D: "D",
+        kVK_ANSI_E: "E", kVK_ANSI_F: "F", kVK_ANSI_G: "G", kVK_ANSI_H: "H",
+        kVK_ANSI_I: "I", kVK_ANSI_J: "J", kVK_ANSI_K: "K", kVK_ANSI_L: "L",
+        kVK_ANSI_M: "M", kVK_ANSI_N: "N", kVK_ANSI_O: "O", kVK_ANSI_P: "P",
+        kVK_ANSI_Q: "Q", kVK_ANSI_R: "R", kVK_ANSI_S: "S", kVK_ANSI_T: "T",
+        kVK_ANSI_U: "U", kVK_ANSI_V: "V", kVK_ANSI_W: "W", kVK_ANSI_X: "X",
+        kVK_ANSI_Y: "Y", kVK_ANSI_Z: "Z",
+        kVK_ANSI_0: "0", kVK_ANSI_1: "1", kVK_ANSI_2: "2", kVK_ANSI_3: "3",
+        kVK_ANSI_4: "4", kVK_ANSI_5: "5", kVK_ANSI_6: "6", kVK_ANSI_7: "7",
+        kVK_ANSI_8: "8", kVK_ANSI_9: "9",
+        kVK_ANSI_Period: ".", kVK_ANSI_Comma: ",",
+        kVK_ANSI_Slash: "/", kVK_ANSI_Backslash: "\\",
+        kVK_ANSI_Semicolon: ";", kVK_ANSI_Quote: "'",
+        kVK_ANSI_LeftBracket: "[", kVK_ANSI_RightBracket: "]",
+        kVK_ANSI_Minus: "−", kVK_ANSI_Equal: "=",
+        kVK_ANSI_Grave: "`",
+    ]
+
+    // MARK: Config spelling
+
     /// The inverse of `parse` — renders a captured key code and modifier
     /// mask back into a chord string.
     ///
@@ -157,16 +239,12 @@ public struct KeyChord: Equatable, Sendable {
     /// use the `NSxxxFunctionKey` constants AppKit reserves for exactly
     /// this. A key with no menu spelling returns nil, and the item is built
     /// without an equivalent rather than with a wrong one.
+    ///
+    /// Shift goes in the mask, never in the character: an uppercase
+    /// keyEquivalent makes AppKit draw a second ⇧ in the menu.
     public var menuEquivalent: (character: String, modifiers: NSEvent.ModifierFlags)? {
         guard let character = Self.menuCharacters[keyCode] else { return nil }
-        var flags: NSEvent.ModifierFlags = []
-        if carbonModifiers & UInt32(cmdKey) != 0 { flags.insert(.command) }
-        if carbonModifiers & UInt32(optionKey) != 0 { flags.insert(.option) }
-        if carbonModifiers & UInt32(controlKey) != 0 { flags.insert(.control) }
-        // Shift goes in the mask, never in the character: an uppercase
-        // keyEquivalent makes AppKit draw a second ⇧ in the menu.
-        if carbonModifiers & UInt32(shiftKey) != 0 { flags.insert(.shift) }
-        return (character, flags)
+        return (character, modifierFlags)
     }
 
     /// Key code → the character a menu equivalent matches on. Built from

@@ -68,7 +68,7 @@ final class KeyBindingMonitor {
 
     private func action(for event: NSEvent) -> KeymapAction? {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let modifiers = HotKey.carbonModifiers(from: flags)
+        let modifiers = KeyChord.carbonModifiers(from: flags)
         return bindings.first {
             $0.chord.keyCode == UInt32(event.keyCode) && $0.chord.carbonModifiers == modifiers
         }?.action

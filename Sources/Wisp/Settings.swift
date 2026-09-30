@@ -108,8 +108,10 @@ final class Settings: ObservableObject {
     /// whose key code has no spelling is kept in memory but not written —
     /// writing something the parser rejects would break the binding on the
     /// next launch.
-    func setSummon(keyCode: UInt32, carbonModifiers: UInt32) {
-        guard let chord = KeyChord.string(keyCode: keyCode, carbonModifiers: carbonModifiers)
+    func setSummon(_ summon: KeyChord) {
+        guard
+            let chord = KeyChord.string(
+                keyCode: summon.keyCode, carbonModifiers: summon.carbonModifiers)
         else { return }
         config.keymap.setChord(chord, for: .summon)
         write(["keymap", KeymapAction.summon.rawValue], chord)

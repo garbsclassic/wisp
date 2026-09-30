@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
     private var panelController: PanelController?
     private let hotKey = HotKeyMonitor()
+    /// The summon chord Carbon has registered: the config's, unless
+    /// registering that failed.
+    private var summon: KeyChord?
     /// Every configurable chord except `summon`, which Carbon owns because
     /// it has to fire while another app is frontmost.
     private var keyBindings: KeyBindingMonitor?
@@ -60,27 +63,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings.reportWatcherFailure(failures.joined(separator: " "))
         }
 
-        // Initial registration uses the chord from wisp.jsonc (or the
-        // default when the file doesn't name one). If
-        // even this fails — e.g. user's saved binding is now claimed by
-        // some other app — we leave the app without a hotkey; the user
-        // can rebind from the menu bar menu.
-        _ = registerHotKey(model.hotKey)
+        // If even this fails — the saved binding is now claimed by some
+        // other app — Wisp is left without a hotkey; the user can rebind
+        // from the menu bar menu.
+        adoptSummon(from: settings.config)
 
-        // Mediator the capture overlay calls when the user picks a
-        // combo. Tries Carbon registration; on failure we restore the
-        // previous binding and surface a user-readable error.
-        model.tryUpdateHotKey = { [weak self] hk in
+        // Mediator the capture overlay calls when the user picks a combo.
+        model.tryUpdateHotKey = { [weak self] chord in
             guard let self else { return "Internal error" }
-            if self.registerHotKey(hk) {
-                self.model.hotKey = hk
-                return nil
+            guard self.registerSummon(chord) else {
+                return
+                    "\(chord.displayString) is already used by another app or macOS. Try another combo."
             }
-            // New binding rejected by Carbon — usually means another
-            // app or macOS itself owns it. Re-register the previous
-            // one so the user isn't left without any hotkey.
-            _ = self.registerHotKey(self.model.hotKey)
-            return "\(hk.displayString) is already used by another app or macOS. Try another combo."
+            self.settings.setSummon(chord)
+            return nil
         }
 
         // Nothing is shown at launch: NSApplicationLaunchIsDefaultLaunchKey
@@ -106,14 +102,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController?.openIfNeeded()
     }
 
+    /// Registers the config's summon chord unless it is the one already
+    /// registered — a re-registration can fail and cost the user their
+    /// binding.
+    private func adoptSummon(from config: WispConfig) {
+        if config.summonChord != summon { registerSummon(config.summonChord) }
+    }
+
+    /// Swaps the summon chord for `chord`. When Carbon rejects it — usually
+    /// because another app or macOS owns it — the previous one is put back,
+    /// so the user isn't left without any.
     @discardableResult
-    private func registerHotKey(_ hk: HotKey) -> Bool {
-        hotKey.register(
-            keyCode: hk.keyCode, modifiers: hk.modifiers,
+    private func registerSummon(_ chord: KeyChord) -> Bool {
+        let registered = hotKey.register(
+            keyCode: chord.keyCode, modifiers: chord.carbonModifiers,
             onPress: { [weak self] in
-                self?.panelController?.handleChordDown(modifiers: hk.modifiers)
+                self?.panelController?.handleChordDown(modifiers: chord.modifierFlags)
             },
             onRelease: { [weak self] in self?.panelController?.handleChordUp() })
+        if registered {
+            summon = chord
+        } else if let summon {
+            registerSummon(summon)
+        }
+        return registered
     }
 
     /// The one place a keymap action turns into work. `KeyBindingMonitor`
@@ -269,6 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard settings.config != previous else { return }
 
         model.adoptSettings()
+        adoptSummon(from: settings.config)
         // The binding table and the status menu's equivalents are pure
         // functions of the keymap, so a changed one means rebuilding both.
         if settings.config.keymap != previous.keymap {
