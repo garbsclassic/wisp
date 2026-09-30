@@ -721,275 +721,119 @@ struct MinimalTextEditor: NSViewRepresentable {
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-                return handleEnter(in: textView)
-            }
+            guard let notes = textView as? NotesTextView else { return false }
+            switch commandSelector {
+            case #selector(NSResponder.insertNewline(_:)):
+                return handleEnter(in: notes)
             // Tab and ⇧Tab: indent/outdent a list item or a selected block,
             // rather than moving focus out of the editor.
-            if let notes = textView as? NotesTextView {
-                if commandSelector == #selector(NSResponder.insertTab(_:)) {
-                    notes.handleTab()
-                    return true
-                }
-                if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
-                    notes.handleBacktab()
-                    return true
-                }
+            case #selector(NSResponder.insertTab(_:)):
+                notes.handleTab()
+                return true
+            case #selector(NSResponder.insertBacktab(_:)):
+                notes.handleBacktab()
+                return true
+            default:
+                return false
             }
-            return false
         }
 
-        /// Intercept typed text. Used to convert `---` to a horizontal rule
-        /// the moment the third hyphen is typed — no need for Enter.
+        /// Typed text that rewrites itself: a delimiter over a selection wraps
+        /// it, `--` becomes `—`, and a third `-` on a line of `--` becomes a
+        /// rule without waiting for ↵.
         func textView(
             _ textView: NSTextView,
             shouldChangeTextIn affectedCharRange: NSRange,
             replacementString: String?
         ) -> Bool {
-            // Typing a delimiter over a selection wraps it rather than
-            // replacing it.
-            //
-            // Gated on the live `NSEvent` and not on `replacementString`
-            // alone, which cannot tell a keystroke from a programmatic
-            // replace. Every hand-rolled edit in the app re-enters this
-            // delegate with whatever text it is putting back, and plenty of
-            // those are one character: ⌘L unsetting `- *` puts back `*`,
-            // ⌘E unwrapping `` `*` `` puts back `*`, and AppKit's own undo
-            // restores exactly the character you replaced. Each was being
-            // wrapped instead of applied.
+            // Only a keystroke counts, never a programmatic replace — and
+            // `replacementString` alone cannot tell the two apart. Every
+            // hand-rolled edit in the app re-enters this delegate with
+            // whatever text it is putting back, and plenty of those are one
+            // character: ⌘L unsetting `- *` puts back `*`, and AppKit's own
+            // undo restores exactly the character you replaced.
             //
             // `hasMarkedText` additionally excludes an IME mid-composition,
             // where the character is a half-finished word rather than a
-            // request to wrap anything.
-            if affectedCharRange.length > 0, !textView.hasMarkedText(),
-                let typed = replacementString,
-                let event = NSApp.currentEvent, event.type == .keyDown,
-                event.characters == typed,
-                let markers = MarkdownWrap.surroundMarkers(for: typed) {
-                let wrap = { MarkdownWrap.wrap(in: textView, range: affectedCharRange, markers: markers) }
-                if let notes = textView as? NotesTextView { notes.performEdit(wrap) } else { wrap() }
+            // request to rewrite anything.
+            guard let notes = textView as? NotesTextView,
+                let typed = replacementString, !textView.hasMarkedText(),
+                let event = NSApp.currentEvent, event.type == .keyDown, event.characters == typed
+            else { return true }
+
+            if affectedCharRange.length > 0 {
+                guard let markers = MarkdownWrap.surroundMarkers(for: typed) else { return true }
+                notes.performEdit {
+                    MarkdownWrap.wrap(in: notes, range: affectedCharRange, markers: markers)
+                }
                 return false
             }
 
-            if !style.isSourceView, affectedCharRange.length == 0,
-                let typed = replacementString, typed == "-" || typed == ">",
-                !textView.hasMarkedText(),
-                let event = NSApp.currentEvent, event.type == .keyDown, event.characters == typed,
-                let notes = textView as? NotesTextView
+            // Source view skips the rest: these rewrite the line, and the
+            // point of source view is to see what the line actually is.
+            guard !style.isSourceView, typed == "-" || typed == ">" else { return true }
+            let text = notes.string as NSString
+            let cursor = affectedCharRange.location
+            if let revert = SmartEditing.emDashRevert(
+                in: text, cursor: cursor, autoDash: lastAutoDash?.at, typed: typed)
             {
-                let s = textView.string as NSString
-                let cursor = affectedCharRange.location
-                if let revert = SmartEditing.emDashRevert(
-                    in: s, cursor: cursor, autoDash: lastAutoDash?.at, typed: typed)
-                {
-                    lastAutoDash = nil
-                    notes.apply(revert)
-                    return false
-                }
-                if typed == "-" {
-                    // The dash types as usual and the pair is swapped a turn
-                    // later, in an undo group of its own — so ⌘Z takes back
-                    // the substitution and leaves the `--` that was typed,
-                    // the way macOS autocorrect does.
-                    let typedCaret = cursor + 1
-                    DispatchQueue.main.async { [weak self, weak notes] in
-                        guard let self, let notes,
-                            notes.selectedRange() == NSRange(location: typedCaret, length: 0),
-                            let edit = SmartEditing.emDashEdit(
-                                in: notes.string as NSString, cursor: typedCaret)
-                        else { return }
-                        notes.breakUndoCoalescing()
-                        notes.apply(edit)
-                        self.lastAutoDash = (edit.range.location, edit.selection.location)
-                    }
-                }
+                lastAutoDash = nil
+                notes.apply(revert)
+                return false
             }
-
-            // Only single-char `-` insertions count. Pastes (multi-char) and
-            // undo restorations have different replacement strings, so they
-            // skip this path naturally. Raw mode skips it outright: this one
-            // rewrites the line, and the point of source view is to see what the
-            // line actually is.
-            guard !style.isSourceView, replacementString == "-",
-                  affectedCharRange.length == 0
-            else { return true }
-
-            let s = textView.string as NSString
-            let insertAt = affectedCharRange.location
-            let lineRange = s.lineRange(for: NSRange(location: insertAt, length: 0))
-
-            let beforeCursor = s.substring(with: NSRange(
-                location: lineRange.location,
-                length: insertAt - lineRange.location
-            ))
-            var lineEnd = lineRange.location + lineRange.length
-            if lineEnd > lineRange.location, s.character(at: lineEnd - 1) == 0x0A {
-                lineEnd -= 1
+            guard typed == "-" else { return true }
+            if let rule = SmartEditing.ruleOnThirdDash(in: text, cursor: cursor) {
+                notes.apply(rule)
+                return false
             }
-            let afterCursor = s.substring(with: NSRange(
-                location: insertAt,
-                length: lineEnd - insertAt
-            ))
-
-            // Trigger only when the line up to the cursor is exactly "--" and
-            // the rest of the line is empty — i.e., user is finishing "---"
-            // at the end of a fresh line, not editing inside content.
-            guard beforeCursor == "--", afterCursor.isEmpty else { return true }
-            // Under paragraph text the dashes are a setext underline: they stay as typed, and
-            // the restyle makes the paragraph a heading. In code or frontmatter they're text.
-            let blocks = MarkdownBlocks(s)
-            if blocks.line(at: lineRange.location)?.kind.isCode == true {
-                return true
+            // The dash types as usual and the pair is swapped a turn later,
+            // in an undo group of its own — so ⌘Z takes back the substitution
+            // and leaves the `--` that was typed, the way macOS autocorrect
+            // does.
+            let typedCaret = cursor + 1
+            DispatchQueue.main.async { [weak self, weak notes] in
+                guard let self, let notes,
+                    notes.selectedRange() == NSRange(location: typedCaret, length: 0),
+                    let edit = SmartEditing.emDashEdit(
+                        in: notes.string as NSString, cursor: typedCaret)
+                else { return }
+                notes.breakUndoCoalescing()
+                notes.apply(edit)
+                self.lastAutoDash = (edit.range.location, edit.selection.location)
             }
-            if lineRange.location > 0,
-                case .text(paragraphStart: .some) = blocks.line(at: lineRange.location - 1)?.kind
-            {
-                return true
-            }
-
-            let twoDashRange = NSRange(location: lineRange.location, length: 2)
-            replaceWithHorizontalRule(in: textView, range: twoDashRange)
-            return false  // suppress the typed "-"
+            return true
         }
 
-        private func handleEnter(in textView: NSTextView) -> Bool {
-            let s = textView.string as NSString
-            // The whole selection, not just its start: ↵ over a selection
-            // deletes it first, which is what AppKit's own newline does and
-            // what every hand-rolled path below was quietly skipping.
-            let selection = textView.selectedRange()
-            let cursor = selection.location
-            let lineRange = s.lineRange(for: NSRange(location: cursor, length: 0))
-            var lineEnd = lineRange.location + lineRange.length
-            if lineEnd > lineRange.location, s.character(at: lineEnd - 1) == 0x0A {
-                lineEnd -= 1
-            }
-            let line = s.substring(with: NSRange(
-                location: lineRange.location,
-                length: lineEnd - lineRange.location
-            ))
-
-            // ⇧↵ reaches here as a plain `insertNewline:` — AppKit binds
-            // no selector to the shifted key — so the modifier is read off
-            // the event. Inside an item it starts a continuation line;
-            // anywhere else it is an ordinary ↵.
+        private func handleEnter(in notes: NotesTextView) -> Bool {
+            let text = notes.string as NSString
+            let selection = notes.selectedRange()
+            // ⇧↵ reaches here as a plain `insertNewline:` — AppKit binds no
+            // selector to the shifted key — so the modifier is read off the
+            // event.
             let isShifted = NSApp.currentEvent.map {
                 $0.type == .keyDown && $0.modifierFlags.contains(.shift)
             } ?? false
-            if isShifted, let continuation = SmartEditing.continuationLine(in: s, cursor: cursor) {
-                replace(in: textView, range: selection, with: continuation)
-                return true
-            }
 
-            if selection.length == 0, !style.isSourceView, !isShifted,
-                let notes = textView as? NotesTextView
-            {
+            if selection.length == 0, !style.isSourceView, !isShifted {
                 if let revert = SmartEditing.ruleRevert(
-                    in: s, cursor: cursor, autoRule: lastAutoRule?.at)
+                    in: text, cursor: selection.location, autoRule: lastAutoRule?.at)
                 {
                     lastAutoRule = nil
                     notes.apply(revert)
                     return true
                 }
-                if let edit = SmartEditing.ruleOnReturn(in: s, cursor: cursor) {
+                if let edit = SmartEditing.ruleOnReturn(in: text, cursor: selection.location) {
                     notes.apply(edit)
                     lastAutoRule = (edit.range.location, edit.selection.location)
                     return true
                 }
             }
 
-            if selection.length == 0,
-                let edit = SmartEditing.newlineBeforeItem(in: s, cursor: cursor) {
-                replace(in: textView, range: edit.range, with: edit.replacement)
-                return true
-            }
-
-            // ↵ on a continuation line starts the next item, at the depth
-            // and with the marker of the item the line belongs to.
-            if let continued = SmartEditing.continuedItem(lineRange: lineRange, in: s),
-                cursor >= lineRange.location + SmartEditing.leadingIndent(of: line).utf16.count,
-                let marker = SmartEditing.nextListMarker(
-                    for: s.substring(with: NSRange(
-                        location: continued.line.location,
-                        length: LineEdits.contentLength(of: continued.line, in: s)))),
-                !marker.isEmpty
-            {
-                replace(in: textView, range: selection, with: "\n" + marker)
-                return true
-            }
-
-            guard let marker = SmartEditing.nextListMarker(for: line) else {
-                // Not a list, but an indented line still carries its indent
-                // onto the next one — AppKit's own newline would land the
-                // cursor back at the margin. A flush-left line is left to
-                // AppKit, which keeps undo coalescing on the common path.
-                // The indent up to the *cursor*, not the whole line's:
-                // splitting inside the leading run would otherwise hand the
-                // tail a full copy of the indent on top of the whitespace it
-                // already carries.
-                let head = s.substring(with: NSRange(
-                    location: lineRange.location, length: cursor - lineRange.location))
-                let indent = SmartEditing.leadingIndent(of: head)
-                guard !indent.isEmpty else { return false }
-                replace(in: textView, range: selection, with: "\n" + indent)
-                return true
-            }
-
-            if marker.isEmpty {
-                let lineContent = NSRange(
-                    location: lineRange.location, length: lineEnd - lineRange.location)
-                // A nested empty item steps out a level per press, and a
-                // flush-left one leaves the list — in both cases in place,
-                // with no new line: the item was the blank line the user
-                // wanted. A selection reaching past the line is a delete
-                // first, and takes a plain ↵ like anywhere else.
-                if selection.length == 0 {
-                    let outdented = SmartEditing.outdentedEmptyItem(line, unit: style.indent.unit)
-                    replace(in: textView, range: lineContent, with: outdented ?? "")
-                    return true
-                }
-                let stripRange = NSRange(
-                    location: lineRange.location,
-                    length: NSMaxRange(selection) - lineRange.location
-                )
-                replace(in: textView, range: stripRange, with: "\n")
-            } else {
-                replace(in: textView, range: selection, with: "\n" + marker)
-            }
+            guard let edit = SmartEditing.returnEdit(
+                in: text, selection: selection, shifted: isShifted, unit: style.indent.unit)
+            else { return false }
+            notes.apply(edit)
             return true
-        }
-
-        /// Replace `range` with the horizontal-rule string + newline and
-        /// move the cursor past it. The HR characters are stored as
-        /// plain `---` (markdown standard); the visible full-width
-        /// line is drawn by NotesLayoutManager, while the
-        /// `---` characters themselves are rendered with a clear
-        /// foreground so only the line shows.
-        private func replaceWithHorizontalRule(in textView: NSTextView, range: NSRange) {
-            let replacement = SmartEditing.horizontalRule + "\n"
-            replace(in: textView, range: range, with: replacement)
-            let hrLength = (SmartEditing.horizontalRule as NSString).length
-            let hrRange = NSRange(location: range.location, length: hrLength)
-            textView.textStorage?.addAttribute(
-                .foregroundColor,
-                value: NSColor.clear,
-                range: hrRange
-            )
-        }
-
-        private func replace(in textView: NSTextView, range: NSRange, with replacement: String) {
-            let body = {
-                guard textView.replaceText(in: range, with: replacement) else { return }
-                let newCursor = range.location + (replacement as NSString).length
-                let newRange = NSRange(location: newCursor, length: 0)
-                textView.setSelectedRange(newRange)
-                // Hand-rolled edits bypass NSTextView's keyDown path, so its
-                // built-in "scroll caret into view" doesn't fire. Without
-                // this, hitting Enter at the bottom edge leaves the new
-                // line off-screen until the user scrolls manually.
-                textView.scrollRangeToVisible(newRange)
-            }
-            if let notes = textView as? NotesTextView { notes.performEdit(body) } else { body() }
         }
     }
 }

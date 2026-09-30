@@ -285,3 +285,99 @@ struct RuleRevertTests {
         #expect(edit("text\n\n--", cursor: 8, autoRule: 6) == nil)
     }
 }
+
+@Suite("SmartEditing: rule on the third dash")
+struct RuleOnThirdDashTests {
+    /// `|` marks the caret, which sits just after the `--` already typed: the third `-` has not
+    /// landed yet.
+    private func edit(_ marked: String) -> LineEdits.Edit? {
+        let parts = marked.components(separatedBy: "|")
+        return SmartEditing.ruleOnThirdDash(
+            in: parts.joined() as NSString, cursor: (parts[0] as NSString).length)
+    }
+
+    private func pressed(_ marked: String) -> String? {
+        guard let e = edit(marked) else { return nil }
+        let (text, caret) = apply(e, to: marked.replacingOccurrences(of: "|", with: ""))
+        return (text as NSString).replacingCharacters(
+            in: NSRange(location: caret, length: 0), with: "|")
+    }
+
+    @Test(
+        "A third dash after a lone `--` makes the line a rule, with the caret on the next line",
+        arguments: [
+            ("--|", "---\n|"),
+            ("--|\nnext", "---\n|\nnext"),
+            ("text\n\n--|", "text\n\n---\n|"),
+            ("# H\n--|", "# H\n---\n|"),
+            ("> q\n--|", "> q\n---\n|"),
+            ("```\nx\n```\n--|", "```\nx\n```\n---\n|"),
+        ] as [(String, String)]
+    )
+    func firesOnLoneDashPair(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test("Only the two dashes are replaced")
+    func replacesOnlyTheDashes() {
+        let e = edit("text\n\n--|")
+        #expect(e?.range == NSRange(location: 6, length: 2))
+        #expect(e?.replacement == "---\n")
+        #expect(e?.selection == NSRange(location: 10, length: 0))
+    }
+
+    @Test(
+        "Text before the cursor other than exactly `--` is not a rule",
+        arguments: ["-|", "|", "-|-", "---|", "a--|", " --|", "- -|", "--a|", "\t--|"]
+    )
+    func notExactlyTwoDashes(marked: String) {
+        #expect(edit(marked) == nil)
+    }
+
+    @Test(
+        "Anything after the cursor on the line stops the rule",
+        arguments: ["--|x", "--| ", "--|-", "--|\t"]
+    )
+    func textAfterCursor(marked: String) {
+        #expect(edit(marked) == nil)
+    }
+
+    @Test("Under paragraph text the dashes are a setext underline, so no rule")
+    func underParagraph() {
+        #expect(edit("text\n--|") == nil)
+        #expect(edit("one\ntwo\n--|") == nil)
+    }
+
+    @Test("Inside a fenced code block the dashes are code")
+    func insideFence() {
+        #expect(edit("```\n--|") == nil)
+        #expect(edit("```\nx\n--|\n```") == nil)
+    }
+
+    @Test("Inside frontmatter the dashes are text")
+    func insideFrontmatter() {
+        #expect(edit("---\ntitle: a\n--|\n---\n") == nil)
+    }
+
+    @Test(
+        "In a CRLF note the cursor before the \\r still counts as the end of the line",
+        arguments: [
+            ("--|\r\n", "---\n|\r\n"),
+            ("text\r\n\r\n--|\r\n", "text\r\n\r\n---\n|\r\n"),
+        ] as [(String, String)]
+    )
+    func crlf(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test("In a CRLF note a setext underline and trailing text still stop the rule")
+    func crlfStillRefuses() {
+        #expect(edit("text\r\n--|\r\n") == nil)
+        #expect(edit("--|x\r\n") == nil)
+    }
+
+    @Test("Offsets count UTF-16 units, so an emoji above does not shift the edit")
+    func emojiAbove() {
+        #expect(pressed("😀\n\n--|") == "😀\n\n---\n|")
+    }
+}

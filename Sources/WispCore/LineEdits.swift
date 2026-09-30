@@ -27,6 +27,15 @@ public enum LineEdits {
         /// True when applying this would leave the text exactly as it is,
         /// so callers can skip the undo group entirely.
         public var isNoOp: Bool { range.length == 0 && replacement.isEmpty }
+
+        /// Replaces `range` and leaves the caret just after the replacement,
+        /// which is what typing it would have done.
+        public static func insert(_ replacement: String, replacing range: NSRange) -> Edit {
+            Edit(
+                range: range, replacement: replacement,
+                selection: NSRange(
+                    location: range.location + (replacement as NSString).length, length: 0))
+        }
     }
 
     private static let newline: unichar = 0x0A

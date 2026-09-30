@@ -61,6 +61,28 @@ extension SmartEditing {
             selection: NSRange(location: autoDash + 3, length: 0))
     }
 
+    /// A third `-` typed at `cursor` on a line that holds only `--`: the line
+    /// becomes a rule with the caret past it, without waiting for ↵. Nil
+    /// under paragraph text, where the dashes are a setext underline and the
+    /// restyle makes the paragraph a heading, and in code or frontmatter,
+    /// where they are text.
+    public static func ruleOnThirdDash(in text: NSString, cursor: Int) -> LineEdits.Edit? {
+        let line = LineEdits.lineRange(in: text, at: cursor)
+        guard cursor - line.location == 2, MarkdownBlocks.contentEnd(of: line, in: text) == cursor,
+            text.character(at: line.location) == hyphen,
+            text.character(at: line.location + 1) == hyphen
+        else { return nil }
+        let blocks = MarkdownBlocks(text)
+        if blocks.line(at: line.location)?.kind.isCode == true { return nil }
+        if line.location > 0,
+            case .text(paragraphStart: .some) = blocks.line(at: line.location - 1)?.kind
+        {
+            return nil
+        }
+        return .insert(
+            horizontalRule + "\n", replacing: NSRange(location: line.location, length: 2))
+    }
+
     /// ↵ on an empty line under exactly one blank line under prose — the
     /// third ↵ in a row after text: a rule, set off by a blank line on each
     /// side, with the caret below it. The blank above is what keeps the

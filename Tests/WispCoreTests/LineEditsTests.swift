@@ -812,3 +812,56 @@ struct ToggleChecklistTests {
         #expect(edit.selection == NSRange(location: 6, length: 13))
     }
 }
+
+@Suite("LineEdits — insert")
+struct InsertTests {
+    @Test(
+        "The caret lands after the replacement, counted in UTF-16 units",
+        arguments: [
+            ("x", 1),
+            ("xy", 2),
+            ("é", 1),
+            ("e\u{301}", 2),
+            ("😀", 2),
+            ("👨‍👩‍👧", 8),
+            ("\n  ", 3),
+        ] as [(String, Int)]
+    )
+    func caretAfterReplacement(replacement: String, units: Int) {
+        let edit = LineEdits.Edit.insert(replacement, replacing: NSRange(location: 3, length: 0))
+        #expect(edit.selection == NSRange(location: 3 + units, length: 0))
+    }
+
+    @Test("The range and replacement pass through unchanged")
+    func rangeAndReplacementPassThrough() {
+        let range = NSRange(location: 2, length: 3)
+        let edit = LineEdits.Edit.insert("Z", replacing: range)
+        #expect(edit.range == range)
+        #expect(edit.replacement == "Z")
+    }
+
+    @Test("Replacing a non-empty range puts the caret after the replacement, not the old range")
+    func replacesRange() {
+        let text = "abcdefg"
+        let edit = LineEdits.Edit.insert("Z", replacing: NSRange(location: 2, length: 3))
+        #expect(apply(edit, to: text) == "abZfg")
+        #expect(edit.selection == NSRange(location: 3, length: 0))
+    }
+
+    @Test("An empty replacement is a deletion with the caret at its start")
+    func emptyReplacementDeletes() {
+        let text = "abcdef"
+        let edit = LineEdits.Edit.insert("", replacing: NSRange(location: 4, length: 2))
+        #expect(apply(edit, to: text) == "abcd")
+        #expect(edit.selection == NSRange(location: 4, length: 0))
+    }
+
+    @Test("An emoji leaves the caret between it and the text that followed")
+    func emojiLeavesCaretBeforeFollowingText() {
+        let text = "ab"
+        let edit = LineEdits.Edit.insert("😀", replacing: NSRange(location: 1, length: 0))
+        let result = apply(edit, to: text) as NSString
+        #expect(result as String == "a😀b")
+        #expect(result.substring(from: edit.selection.location) == "b")
+    }
+}

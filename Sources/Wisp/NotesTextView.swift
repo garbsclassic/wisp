@@ -279,8 +279,7 @@ final class NotesTextView: NSTextView {
         if smartPaste, !isSourceView, LineEdits.contentLength(of: line, in: text) == 0,
             let formatted = SmartPaste.format(pasted)
         {
-            apply(LineEdits.Edit(range: selection, replacement: formatted,
-                selection: NSRange(location: selection.location + (formatted as NSString).length, length: 0)))
+            apply(.insert(formatted, replacing: selection))
             return
         }
         super.paste(sender)
@@ -490,11 +489,7 @@ final class NotesTextView: NSTextView {
         let selection = selectedRange()
         let text = string as NSString
         guard selection.length > 0 || isInListItem(selection, in: text) else {
-            apply(
-                LineEdits.Edit(
-                    range: selection, replacement: indentUnit,
-                    selection: NSRange(
-                        location: selection.location + (indentUnit as NSString).length, length: 0)))
+            apply(.insert(indentUnit, replacing: selection))
             return
         }
         apply(LineEdits.indent(in: text, selection: selection, unit: indentUnit))

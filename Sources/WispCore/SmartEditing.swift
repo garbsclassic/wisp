@@ -212,6 +212,68 @@ public enum SmartEditing {
         return cursor == item.contentStart ? line.location : item.contentStart
     }
 
+    /// ↵ in a list or on an indented line, or nil to leave the key to AppKit,
+    /// which keeps undo coalescing on the common path. `shifted` is ⇧↵: inside
+    /// an item it starts a continuation line, anywhere else it is a plain ↵.
+    /// The typed-rule shortcut, `ruleOnReturn`, is the caller's to try first.
+    ///
+    /// Over a selection the selection goes, as AppKit's own newline does.
+    public static func returnEdit(
+        in text: NSString, selection: NSRange, shifted: Bool, unit: String
+    ) -> LineEdits.Edit? {
+        let cursor = selection.location
+        if shifted, let continuation = continuationLine(in: text, cursor: cursor) {
+            return .insert(continuation, replacing: selection)
+        }
+        if selection.length == 0, let edit = newlineBeforeItem(in: text, cursor: cursor) {
+            return edit
+        }
+
+        let lineRange = LineEdits.lineRange(in: text, at: cursor)
+        let content = NSRange(
+            location: lineRange.location,
+            length: MarkdownBlocks.contentEnd(of: lineRange, in: text) - lineRange.location)
+        let line = text.substring(with: content)
+
+        // On a continuation line: the next item, at the depth and with the
+        // marker of the item the line belongs to.
+        if let continued = continuedItem(lineRange: lineRange, in: text),
+            cursor >= lineRange.location + leadingIndent(of: line).utf16.count,
+            let marker = nextListMarker(
+                for: text.substring(with: NSRange(
+                    location: continued.line.location,
+                    length: LineEdits.contentLength(of: continued.line, in: text)))),
+            !marker.isEmpty
+        {
+            return .insert("\n" + marker, replacing: selection)
+        }
+
+        guard let marker = nextListMarker(for: line) else {
+            // Not a list, but an indented line still carries its indent onto
+            // the next one, where AppKit's newline would land at the margin.
+            // The indent up to the *cursor*, not the whole line's: splitting
+            // inside the leading run would otherwise hand the tail a full
+            // copy of the indent on top of the whitespace it already carries.
+            let head = text.substring(
+                with: NSRange(location: lineRange.location, length: cursor - lineRange.location))
+            let indent = leadingIndent(of: head)
+            return indent.isEmpty ? nil : .insert("\n" + indent, replacing: selection)
+        }
+        guard marker.isEmpty else { return .insert("\n" + marker, replacing: selection) }
+
+        // An empty item. A nested one steps out a level per press, and a
+        // flush-left one leaves the list — in both cases in place, with no
+        // new line: the item was the blank line the user wanted. A selection
+        // reaching past the line is a delete first, and takes a plain ↵.
+        if selection.length == 0 {
+            return .insert(outdentedEmptyItem(line, unit: unit) ?? "", replacing: content)
+        }
+        return .insert(
+            "\n",
+            replacing: NSRange(
+                location: lineRange.location, length: NSMaxRange(selection) - lineRange.location))
+    }
+
     /// ↵ with the caret before a list item's text — at column 0, or inside
     /// the indent or marker. There is nothing to split there: continuing
     /// the list would put a fresh marker in front of the one already on

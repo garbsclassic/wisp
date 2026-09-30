@@ -1381,3 +1381,264 @@ struct AncestorsTests {
         #expect(result[0] == nil)
     }
 }
+
+@Suite("SmartEditing: return edit")
+struct ReturnEditTests {
+    /// Fixtures mark the caret with `|`, or the selection with a pair of them, and expectations
+    /// mark where the caret lands, so a case reads as the text before the key and the text after.
+    private func parse(_ marked: String) -> (text: String, selection: NSRange) {
+        let parts = marked.components(separatedBy: "|")
+        let start = (parts[0] as NSString).length
+        let length = parts.count == 3 ? (parts[1] as NSString).length : 0
+        return (parts.joined(), NSRange(location: start, length: length))
+    }
+
+    private func edit(
+        _ marked: String, shifted: Bool = false, unit: String = "  "
+    ) -> LineEdits.Edit? {
+        let (text, selection) = parse(marked)
+        return SmartEditing.returnEdit(
+            in: text as NSString, selection: selection, shifted: shifted, unit: unit)
+    }
+
+    private func pressed(_ marked: String, shifted: Bool = false, unit: String = "  ") -> String? {
+        guard let edit = edit(marked, shifted: shifted, unit: unit) else { return nil }
+        let result = NSMutableString(string: parse(marked).text)
+        result.replaceCharacters(in: edit.range, with: edit.replacement)
+        #expect(edit.selection.length == 0)
+        result.insert("|", at: edit.selection.location)
+        return result as String
+    }
+
+    @Test(
+        "⇧↵ inside an item's text starts a continuation line at the content column",
+        arguments: [
+            ("- ab|", "- ab\n  |"),
+            ("- a|b", "- a\n  |b"),
+            ("1. ab|", "1. ab\n   |"),
+            ("10. ab|", "10. ab\n    |"),
+            ("- [ ] ab|", "- [ ] ab\n      |"),
+            ("  - ab|", "  - ab\n    |"),
+            ("\t- ab|", "\t- ab\n\t  |"),
+            ("- a\n  b|", "- a\n  b\n  |"),
+        ] as [(String, String)]
+    )
+    func shiftedContinuation(marked: String, expected: String) {
+        #expect(pressed(marked, shifted: true) == expected)
+    }
+
+    @Test("⇧↵ over a selection in an item's text replaces the selection")
+    func shiftedReplacesSelection() {
+        #expect(pressed("- a|b|c", shifted: true) == "- a\n  |c")
+    }
+
+    @Test("⇧↵ before an item's content is a plain ↵, which moves the item down")
+    func shiftedBeforeContent() {
+        #expect(pressed("-| a", shifted: true) == "\n|- a")
+    }
+
+    @Test("⇧↵ on a continuation line before its whitespace ends is left to AppKit")
+    func shiftedInContinuationIndent() {
+        #expect(edit("- a\n|  b", shifted: true) == nil)
+    }
+
+    @Test(
+        "⇧↵ off a list line is the same as ↵",
+        arguments: [
+            ("plain|", nil),
+            ("  ind|", "  ind\n  |"),
+        ] as [(String, String?)]
+    )
+    func shiftedOffList(marked: String, expected: String?) {
+        #expect(pressed(marked, shifted: true) == expected)
+        #expect(pressed(marked, shifted: false) == expected)
+    }
+
+    @Test(
+        "↵ before an item's content moves the item down intact, caret at the start of the line",
+        arguments: [
+            ("|- a", "\n|- a"),
+            ("-| a", "\n|- a"),
+            ("  |- a", "\n|  - a"),
+            ("12.| a", "\n|12. a"),
+            ("|- ", "\n|- "),
+            ("para\n|- a", "para\n\n|- a"),
+        ] as [(String, String)]
+    )
+    func beforeItemContent(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test("A selection before an item's content is replaced, and the next marker follows it")
+    func selectionInMarker() {
+        #expect(pressed("|- |a") == "\n- |a")
+    }
+
+    @Test(
+        "↵ on a continuation line past its whitespace starts the owning item's next marker",
+        arguments: [
+            ("- a\n  |b", "- a\n  \n- |b"),
+            ("- a\n  b|", "- a\n  b\n- |"),
+            ("1. a\n   b|", "1. a\n   b\n2. |"),
+            ("- [ ] a\n      b|", "- [ ] a\n      b\n- [ ] |"),
+            ("- [x] a\n      b|", "- [x] a\n      b\n- [ ] |"),
+            ("  - a\n    b|", "  - a\n    b\n  - |"),
+            ("- a\n  b\n  c|", "- a\n  b\n  c\n- |"),
+        ] as [(String, String)]
+    )
+    func continuationLine(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test("↵ on a continuation line with the caret inside its whitespace only carries that much")
+    func continuationLineBeforeWhitespaceEnds() {
+        #expect(edit("- a\n|  b") == nil)
+        #expect(pressed("- a\n | b") == "- a\n \n | b")
+    }
+
+    @Test(
+        "↵ at the end of an item with text continues the list",
+        arguments: [
+            ("- a|", "- a\n- |"),
+            ("* a|", "* a\n* |"),
+            ("+ a|", "+ a\n+ |"),
+            ("1. a|", "1. a\n2. |"),
+            ("9. a|", "9. a\n10. |"),
+            ("1) a|", "1) a\n2) |"),
+            ("a. a|", "a. a\nb. |"),
+            ("A. a|", "A. a\nB. |"),
+            ("- [ ] a|", "- [ ] a\n- [ ] |"),
+            ("- [x] done|", "- [x] done\n- [ ] |"),
+            ("  - a|", "  - a\n  - |"),
+            ("\t1. a|", "\t1. a\n\t2. |"),
+            ("- ab|c", "- ab\n- |c"),
+            ("- a|\nnext", "- a\n- |\nnext"),
+            ("x\n- a|", "x\n- a\n- |"),
+        ] as [(String, String)]
+    )
+    func itemWithText(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test("↵ after the last letter marker has no next marker, so it is left to AppKit")
+    func lastLetterMarker() {
+        #expect(edit("Z. a|") == nil)
+    }
+
+    @Test(
+        "↵ on an empty flush-left item leaves the list in place, with no new line",
+        arguments: [
+            ("- |", "|"),
+            ("1. |", "|"),
+            ("1) |", "|"),
+            ("- [ ] |", "|"),
+            ("x\n- |", "x\n|"),
+            ("- |\nnext", "|\nnext"),
+        ] as [(String, String)]
+    )
+    func emptyFlushLeftItem(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test(
+        "↵ on an empty nested item moves it one level shallower, in place",
+        arguments: [
+            ("  - |", "  ", "- |"),
+            ("    - |", "  ", "  - |"),
+            ("   - |", "  ", " - |"),
+            (" - |", "    ", "- |"),
+            ("    - |", "    ", "- |"),
+            ("\t- |", "  ", "- |"),
+            ("\t\t- |", "  ", "\t- |"),
+            ("\t- |", "\t", "- |"),
+            ("  1. |", "  ", "1. |"),
+            ("  - [ ] |", "  ", "- [ ] |"),
+        ] as [(String, String, String)]
+    )
+    func emptyNestedItem(marked: String, unit: String, expected: String) {
+        #expect(pressed(marked, unit: unit) == expected)
+    }
+
+    @Test(
+        "↵ on an empty item with a selection past the line turns line start to selection end into \\n",
+        arguments: [
+            ("- |\n|next", "\n|next"),
+            ("|- |", "\n|"),
+            ("x\n- |\nab|", "x\n\n|"),
+            ("  - |\n|next", "\n|next"),
+        ] as [(String, String)]
+    )
+    func emptyItemWithSelection(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test(
+        "↵ on an indented non-list line carries the indent up to the caret",
+        arguments: [
+            ("  foo|", "  foo\n  |"),
+            ("\tfoo|", "\tfoo\n\t|"),
+            ("\t  foo|", "\t  foo\n\t  |"),
+            ("  foo|bar", "  foo\n  |bar"),
+            ("  |", "  \n  |"),
+            (" |  foo", " \n |  foo"),
+            ("  | foo", "  \n  | foo"),
+            ("para\n\n  foo|", "para\n\n  foo\n  |"),
+        ] as [(String, String)]
+    )
+    func indentedPlainLine(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test(
+        "↵ on a flush-left plain line, or at column 0 of an indented one, is left to AppKit",
+        arguments: ["plain|", "pl|ain", "|", "|  foo", "para\n|", "- - -|"]
+    )
+    func leftToAppKit(marked: String) {
+        #expect(edit(marked) == nil)
+    }
+
+    @Test(
+        "↵ over a selection replaces the selection along with the split",
+        arguments: [
+            ("- a|bc|d", "- a\n- |d"),
+            ("  a|bc|d", "  a\n  |d"),
+            ("1. a|bc|d", "1. a\n2. |d"),
+        ] as [(String, String)]
+    )
+    func selectionInLine(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test("↵ over a selection on a flush-left plain line is left to AppKit")
+    func selectionOnPlainLine() {
+        #expect(edit("ab|cd|e") == nil)
+    }
+
+    @Test("↵ on an empty item in a CRLF note leaves the list, replacing only the marker")
+    func crlfEmptyItem() {
+        let result = edit("- |\r\n")
+        #expect(result?.range == NSRange(location: 0, length: 2))
+        #expect(result?.replacement == "")
+        #expect(pressed("- |\r\n") == "|\r\n")
+    }
+
+    @Test(
+        "↵ in a CRLF note reads each line without its \\r",
+        arguments: [
+            ("- a|\r\n", "- a\n- |\r\n"),
+            ("  - |\r\n", "- |\r\n"),
+            ("  foo|\r\n", "  foo\n  |\r\n"),
+            ("- a\r\n  b|\r\n", "- a\r\n  b\n- |\r\n"),
+            ("1. a|\r\nnext\r\n", "1. a\n2. |\r\nnext\r\n"),
+        ] as [(String, String)]
+    )
+    func crlf(marked: String, expected: String) {
+        #expect(pressed(marked) == expected)
+    }
+
+    @Test("Offsets count UTF-16 units, so an emoji before the caret does not shift the edit")
+    func emojiBeforeCaret() {
+        #expect(pressed("- 😀|") == "- 😀\n- |")
+        #expect(pressed("  😀|") == "  😀\n  |")
+    }
+}
