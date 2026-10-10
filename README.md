@@ -5,7 +5,7 @@ A menu bar scratchpad for macOS. Press ⌃⌥. in any app to open one Markdown n
 Wisp began as a fork of [sulemaanhamza/wisp](https://github.com/sulemaanhamza/wisp) and has since diverged. It keeps upstream's panel and editor, and adds a hand-edited config file, a keymap you can rebind, list and task editing, hold-to-peek, and a movable panel. It drops upstream's updater and onboarding tour. This is a personal build with no releases. Build it from source.
 
 <p align="center">
-  <img src="docs/screenshot.png" width="720" alt="The Wisp panel in dark mode, showing headings, a task list, nested bullets, inline formatting, and a divider">
+  <img src="screenshot.png" width="720" alt="The Wisp panel in dark mode, showing headings, a task list, nested bullets, inline formatting, and a divider">
 </p>
 
 ## Contents
