@@ -44,37 +44,41 @@ public enum StorageLocation {
     /// Moves the local text to `folder`, unless it already holds a scratchpad: then the local
     /// text is backed up in the old folder and the existing file loads.
     public static func setFolder(
-        _ folder: URL, currentText: String, currentFolder: URL
+        _ folder: URL, currentText: String, currentFolder: URL,
+        removeCurrent: Bool = true, commit: () throws -> Void = {}
     ) throws -> SwitchResult {
         let fm = FileManager.default
         let oldURL = scratchpadURL(in: currentFolder)
-        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
         let newURL = scratchpadURL(in: folder)
-
-        if (newURL.standardizedFileURL.path) == (oldURL.standardizedFileURL.path) {
+        if newURL.resolvingSymlinksInPath() == oldURL.resolvingSymlinksInPath() {
+            try commit()
             return SwitchResult(text: currentText, backupURL: nil)
         }
-
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let result: SwitchResult
         if fm.fileExists(atPath: newURL.path) {
-            let backupURL = oldURL.deletingLastPathComponent()
-                .appendingPathComponent(backupFilename())
-            try? currentText.write(to: backupURL, atomically: true, encoding: .utf8)
-            let loaded = (try? String(contentsOf: newURL, encoding: .utf8)) ?? currentText
-            // The local text is in the backup now.
-            try? fm.removeItem(at: oldURL)
-            return SwitchResult(text: loaded, backupURL: backupURL)
+            let loaded = try String(contentsOf: newURL, encoding: .utf8)
+            try fm.createDirectory(at: currentFolder, withIntermediateDirectories: true)
+            let name = String(backupFilename().dropLast(3)) + "-\(UUID().uuidString).md"
+            let backupURL = currentFolder.appendingPathComponent(name)
+            try Data(currentText.utf8).write(to: backupURL, options: .withoutOverwriting)
+            result = SwitchResult(text: loaded, backupURL: backupURL)
         } else {
             try currentText.write(to: newURL, atomically: true, encoding: .utf8)
-            try? fm.removeItem(at: oldURL)
-            return SwitchResult(text: currentText, backupURL: nil)
+            result = SwitchResult(text: currentText, backupURL: nil)
         }
+        // A failed config write leaves the old note and the active location intact.
+        try commit()
+        if removeCurrent { try? fm.removeItem(at: oldURL) }
+        return result
     }
 
-    /// Leaves the custom folder's file in place: other Macs may still sync through it.
-    public static func resetToDefault(currentText: String) throws {
-        let fm = FileManager.default
-        try fm.createDirectory(at: defaultFolder, withIntermediateDirectories: true)
-        let defaultURL = scratchpadURL(in: defaultFolder)
-        try currentText.write(to: defaultURL, atomically: true, encoding: .utf8)
+    /// Keeps the custom note for other Macs, and preserves an existing default note.
+    public static func resetToDefault(
+        currentText: String, currentFolder: URL, commit: () throws -> Void = {}
+    ) throws -> SwitchResult {
+        try setFolder(
+            defaultFolder, currentText: currentText, currentFolder: currentFolder,
+            removeCurrent: false, commit: commit)
     }
 }

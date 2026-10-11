@@ -8,7 +8,8 @@ final class EditorModel: ObservableObject {
         didSet {
             headings = text.extractHeadings()
             cachedWordCount = nil
-            guard didLoad, !isReloading else { return }
+            if didLoad, showFind, !showHelp { recomputeMatches(resetIndex: false) }
+            guard didLoad, !isReloading, text != oldValue else { return }
             scheduleSave()
         }
     }
@@ -102,17 +103,16 @@ final class EditorModel: ObservableObject {
     @Published private(set) var lastLoadedMTime: Date?
     /// Between a keystroke and its save, when a watcher event for our earlier write would read
     /// stale text back over newer.
-    private var hasPendingSave = false
+    private(set) var hasPendingSave = false
+    @Published private(set) var persistenceWarning: String?
+    private var loadError: Error?
+    private(set) var scratchpadURL: URL
 
     let settings: Settings
 
-    /// Where `scratchpad.md` lives right now, per the config.
-    var scratchpadURL: URL {
-        StorageLocation.scratchpadURL(in: settings.config.scratchpadFolderPath)
-    }
-
     init(settings: Settings) {
         self.settings = settings
+        scratchpadURL = StorageLocation.scratchpadURL(in: settings.config.scratchpadFolderPath)
         helpDocument = HelpDocument.make(keymap: settings.config.keymap)
         theme = settings.config.theme.resolve()
         appearanceObservation = NSApplication.shared.observe(
@@ -125,46 +125,90 @@ final class EditorModel: ObservableObject {
             self?.objectWillChange.send()
         }
         let url = scratchpadURL
-        if let loaded = try? String(contentsOf: url, encoding: .utf8) {
-            text = loaded
+        do {
+            text = try Self.readNote(at: url)
             lastLoadedMTime = Self.fileMTime(at: url)
+        } catch {
+            loadError = error
+            persistenceWarning = "Couldn't read scratchpad: \(error.localizedDescription)"
         }
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
         didLoad = true
     }
 
-    /// Re-reads the note if its mtime moved: on every show, on Refresh, and from the watcher.
-    func reloadFromDiskIfChanged() {
-        // Our own write is pending, so the file on disk is older than the buffer.
+    /// Unsaved local edits take precedence, even for an explicit Refresh.
+    func reloadFromDiskIfChanged(force: Bool = false) {
         guard !hasPendingSave else { return }
-        let url = scratchpadURL
-        guard let mtime = Self.fileMTime(at: url) else { return }
-        if let last = lastLoadedMTime, mtime <= last { return }
-        guard let loaded = try? String(contentsOf: url, encoding: .utf8) else { return }
-        if loaded != text {
-            isReloading = true
-            text = loaded
-            isReloading = false
+        let mtime = Self.fileMTime(at: scratchpadURL)
+        guard force || loadError != nil || mtime != lastLoadedMTime else { return }
+        do {
+            let loaded = try Self.readNote(at: scratchpadURL)
+            adoptLoadedText(loaded)
+        } catch {
+            loadError = error
+            persistenceWarning = "Couldn't read scratchpad: \(error.localizedDescription)"
         }
-        lastLoadedMTime = mtime
     }
 
-    /// For a changed `scratchpadFolder`, whose mtime baseline is the old file's. A folder with no
-    /// scratchpad yet keeps the current text for the next save.
-    func adoptScratchpadAtCurrentPath() {
-        guard let loaded = try? String(contentsOf: scratchpadURL, encoding: .utf8) else {
-            lastLoadedMTime = nil
-            return
+    /// Config-file folder changes save the old buffer before adopting the new location.
+    @discardableResult
+    func reloadSettings() -> Bool {
+        let reloaded = settings.reload { incoming in
+            let url = StorageLocation.scratchpadURL(in: incoming.scratchpadFolderPath)
+            guard url.standardizedFileURL != self.scratchpadURL.standardizedFileURL else { return }
+            try self.flushSave()
+            let exists = FileManager.default.fileExists(atPath: url.path)
+            let loaded = try Self.readNote(at: url)
+            if !exists { try Self.write(self.text, to: url) }
+            self.scratchpadURL = url
+            self.adoptLoadedText(exists ? loaded : self.text)
         }
-        adoptLoadedText(loaded)
+        if reloaded { adoptSettings() }
+        return reloaded
+    }
+
+    /// Commits config only after the destination and any required backup are safe.
+    @discardableResult
+    func changeScratchpadFolder(to folder: URL, reset: Bool = false) throws
+        -> StorageLocation.SwitchResult
+    {
+        try flushSave()
+        let current = try Self.readNote(at: scratchpadURL)
+        adoptLoadedText(current)
+        let result = try StorageLocation.setFolder(
+            folder, currentText: text, currentFolder: scratchpadURL.deletingLastPathComponent(),
+            removeCurrent: !reset
+        ) {
+            guard self.settings.setScratchpadFolder(reset ? "" : folder.path) else {
+                throw NSError(
+                    domain: "Wisp", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: self.settings.configWarning
+                        ?? "Couldn't update scratchpad folder"])
+            }
+        }
+        scratchpadURL = StorageLocation.scratchpadURL(in: folder)
+        adoptLoadedText(result.text)
+        return result
     }
 
     /// Replaces the text without saving it straight back.
-    func adoptLoadedText(_ newText: String) {
+    private func adoptLoadedText(_ newText: String) {
+        saveTask?.cancel()
+        hasPendingSave = false
+        loadError = nil
+        persistenceWarning = nil
         isReloading = true
         text = newText
         isReloading = false
         lastLoadedMTime = Self.fileMTime(at: scratchpadURL)
+    }
+
+    private static func readNote(at url: URL) throws -> String {
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch CocoaError.fileReadNoSuchFile {
+            return ""
+        }
     }
 
     nonisolated private static func fileMTime(at url: URL) -> Date? {
@@ -322,6 +366,7 @@ final class EditorModel: ObservableObject {
         // Even when unchanged: `didSet` tells the chrome to re-read `background`.
         theme = settings.config.theme.resolve()
         helpDocument = HelpDocument.make(keymap: settings.config.keymap)
+        if showFind, showHelp { recomputeMatches(resetIndex: false) }
     }
 
     /// Counted on first read after an edit, not on every render.
@@ -339,36 +384,33 @@ final class EditorModel: ObservableObject {
         placeholder = Self.placeholders.randomElement() ?? Self.placeholders[0]
     }
 
-    /// For quitting, so a pending debounced save isn't lost.
-    func flushSave() {
+    /// Clean buffers never rewrite disk; a failed save remains dirty and blocks quit.
+    func flushSave() throws {
         saveTask?.cancel()
-        hasPendingSave = false
-        try? Self.write(text, to: scratchpadURL)
-        lastLoadedMTime = Self.fileMTime(at: scratchpadURL)
-    }
-
-    /// The URL is fixed up front, so a folder switch mid-debounce can't land the old text there.
-    private func scheduleSave() {
-        saveTask?.cancel()
-        hasPendingSave = true
-        let snapshot = text
-        let url = scratchpadURL
-        saveTask = Task.detached(priority: .background) { [weak self] in
-            try? await Task.sleep(nanoseconds: 800_000_000)
-            guard !Task.isCancelled else { return }
-            try? Self.write(snapshot, to: url)
-            let mtime = Self.fileMTime(at: url)
-            await MainActor.run { self?.didWrite(url: url, mtime: mtime) }
+        saveTask = nil
+        guard hasPendingSave else { return }
+        do {
+            if let loadError { throw loadError }
+            try Self.write(text, to: scratchpadURL)
+            hasPendingSave = false
+            persistenceWarning = nil
+            lastLoadedMTime = Self.fileMTime(at: scratchpadURL)
+            flashSaveIndicator()
+        } catch {
+            persistenceWarning = "Couldn't save scratchpad: \(error.localizedDescription)"
+            throw error
         }
     }
 
-    /// Baselines our own write so the watcher doesn't read it as a change; skipped if the
-    /// scratchpad has since moved.
-    private func didWrite(url: URL, mtime: Date?) {
-        hasPendingSave = false
-        guard url == scratchpadURL else { return }
-        lastLoadedMTime = mtime
-        flashSaveIndicator()
+    /// Debounce and writes share the main actor, so a canceled older task cannot write later.
+    private func scheduleSave() {
+        saveTask?.cancel()
+        hasPendingSave = true
+        saveTask = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: 800_000_000) } catch { return }
+            guard !Task.isCancelled, let self else { return }
+            do { try self.flushSave() } catch { /* The footer retains the error and dirty buffer. */ }
+        }
     }
 
     /// A fresh task per save, so a second save keeps the dot up for its own moment.
@@ -416,6 +458,7 @@ struct EditorView: View {
                             ? NSRange(location: 0, length: 0) : model.findHighlightRange,
                         style: .init(
                             theme: model.theme, fontScale: model.fontScale,
+                            fonts: model.settings.config.fonts,
                             indent: model.settings.config.indent,
                             isSourceView: model.isSourceView, rule: model.settings.config.rule),
                         smartPaste: model.settings.config.smartPaste,
@@ -458,7 +501,7 @@ struct EditorView: View {
                     onToggleSourceView: { model.toggleSourceView() },
                     onToggleSpellcheck: { model.toggleSpellcheck() },
                     onHelpClick: { model.toggleHelp() },
-                    warning: model.settings.warning,
+                    warning: model.persistenceWarning ?? model.settings.warning,
                     onDismiss: { model.onDismissRequest?() }
                 )
             }

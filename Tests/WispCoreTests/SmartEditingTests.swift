@@ -230,6 +230,20 @@ struct ListMarkerTests {
         #expect(SmartEditing.nextListMarker(for: line) == marker)
     }
 
+    @Test("The nine-digit counting boundary advances safely and leaves longer markers alone")
+    func numericDigitBoundary() {
+        let tooLong = String(repeating: "9", count: 20)
+        #expect(SmartEditing.nextListMarker(for: "999999999. item") == "1000000000. ")
+        #expect(SmartEditing.nextListMarker(for: "1000000000. item") == nil)
+        #expect(SmartEditing.nextListMarker(for: "\(tooLong). item") == nil)
+    }
+
+    @Test("Smart paste does not reinterpret an overlong numbered marker as plain text")
+    func smartPasteLeavesOverlongNumberedMarkerAlone() {
+        let marker = String(repeating: "9", count: 20)
+        #expect(SmartPaste.format("\(marker). item\nsecond item") == nil)
+    }
+
     @Test(
         "Alphabetic markers advance one letter and stop at the end of the alphabet",
         arguments: [
@@ -1126,6 +1140,13 @@ struct ReturnEditTests {
         #expect(edit.selection.length == 0)
         result.insert("|", at: edit.selection.location)
         return result as String
+    }
+
+    @Test("Return advances a nine-digit marker and leaves a longer one unchanged")
+    func numericDigitBoundary() {
+        let tooLong = String(repeating: "9", count: 20)
+        #expect(pressed("999999999. item|") == "999999999. item\n1000000000. |")
+        #expect(pressed("\(tooLong). item|") == nil)
     }
 
     @Test(

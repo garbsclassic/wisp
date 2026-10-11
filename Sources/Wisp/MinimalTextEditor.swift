@@ -38,6 +38,7 @@ struct MinimalTextEditor: NSViewRepresentable {
         var theme: Theme
         /// `Typography` applies it; here so a change restyles the body's resolved fonts.
         var fontScale: Double
+        var fonts: FontSet = FontSet()
         var indent: Indent
         /// The raw text in the code face, with every styling pass skipped.
         var isSourceView: Bool

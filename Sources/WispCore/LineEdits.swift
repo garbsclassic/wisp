@@ -374,7 +374,7 @@ public enum LineEdits {
         var runningShift = 0
         var cursor = block.location
 
-        while cursor < NSMaxRange(block) {
+        repeat {
             let line = text.lineRange(for: NSRange(location: cursor, length: 0))
             let body = text.substring(with: line)
             let (inserted, removed) = change(body)
@@ -386,7 +386,7 @@ public enum LineEdits {
                     headDelta: (inserted as NSString).length - removed))
             runningShift += (inserted as NSString).length - removed
             cursor = NSMaxRange(line)
-        }
+        } while cursor < NSMaxRange(block)
 
         /// Clamped at the line start, so a caret in whitespace an outdent removed lands on the
         /// first surviving character.

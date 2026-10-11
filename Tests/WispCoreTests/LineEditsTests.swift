@@ -230,6 +230,15 @@ struct LineClipboardTests {
 
 @Suite("LineEdits — indent and outdent")
 struct IndentEditTests {
+    @Test("Indenting an empty document inserts the unit and keeps the caret valid")
+    func indentEmptyDocument() {
+        let edit = LineEdits.indent(in: "" as NSString, selection: NSRange(location: 0, length: 0), unit: "  ")
+        let result = apply(edit, to: "")
+        #expect(result == "  ")
+        #expect(edit.selection == NSRange(location: 2, length: 0))
+        #expect(NSMaxRange(edit.selection) <= (result as NSString).length)
+    }
+
     @Test("Tab on one line shifts it and the cursor together")
     func singleLine() {
         let text = "alpha\nbeta\n"
@@ -280,6 +289,17 @@ struct IndentEditTests {
             in: text as NSString, selection: NSRange(location: 2, length: 0), unit: "  ")
         #expect(apply(edit, to: text) == "alpha\n")
         #expect(edit.selection == NSRange(location: 2, length: 0))
+    }
+
+    @Test("Outdenting an empty trailing line is a no-op with a valid caret")
+    func outdentTrailingEmptyLine() {
+        let text = "alpha\n"
+        let cursor = (text as NSString).length
+        let edit = LineEdits.outdent(
+            in: text as NSString, selection: NSRange(location: cursor, length: 0), unit: "  ")
+        #expect(edit.isNoOp)
+        #expect(apply(edit, to: text) == text)
+        #expect(NSMaxRange(edit.selection) <= (text as NSString).length)
     }
 
     @Test("A partial indent outdents by what is actually there")
@@ -632,6 +652,31 @@ struct MoveLinesTests {
 
 @Suite("LineEdits — toggle bulleted list item")
 struct ToggleBulletedListItemTests {
+    @Test("An empty document becomes a bullet with the caret after its marker")
+    func emptyDocument() {
+        let edit = LineEdits.toggleBulletedList(
+            in: "" as NSString, selection: NSRange(location: 0, length: 0))
+        let result = apply(edit, to: "")
+        #expect(result == "- ")
+        #expect(edit.selection == NSRange(location: 2, length: 0))
+        #expect(NSMaxRange(edit.selection) <= (result as NSString).length)
+    }
+
+    @Test("The trailing empty line becomes a bullet and toggles back cleanly")
+    func trailingEmptyLine() {
+        let text = "plain\n"
+        let set = LineEdits.toggleBulletedList(
+            in: text as NSString,
+            selection: NSRange(location: (text as NSString).length, length: 0))
+        let once = apply(set, to: text)
+        #expect(once == "plain\n- ")
+        #expect(NSMaxRange(set.selection) <= (once as NSString).length)
+
+        let unset = LineEdits.toggleBulletedList(in: once as NSString, selection: set.selection)
+        #expect(apply(unset, to: once) == text)
+        #expect(NSMaxRange(unset.selection) <= (text as NSString).length)
+    }
+
     @Test("A plain line becomes a bullet")
     func setOne() {
         let text = "alpha\n"
@@ -713,6 +758,28 @@ struct ToggleBulletedListItemTests {
 
 @Suite("LineEdits — toggle checklist")
 struct ToggleChecklistTests {
+    @Test("An empty document becomes an unchecked checklist with a valid caret")
+    func emptyDocument() {
+        let edit = LineEdits.toggleChecklist(
+            in: "" as NSString, selection: NSRange(location: 0, length: 0))
+        let result = apply(edit, to: "")
+        #expect(result == "- [ ] ")
+        #expect(edit.selection == NSRange(location: 6, length: 0))
+        #expect(NSMaxRange(edit.selection) <= (result as NSString).length)
+    }
+
+    @Test("The trailing empty line becomes an unchecked checklist with a valid caret")
+    func trailingEmptyLine() {
+        let text = "plain\n"
+        let edit = LineEdits.toggleChecklist(
+            in: text as NSString,
+            selection: NSRange(location: (text as NSString).length, length: 0))
+        let result = apply(edit, to: text)
+        #expect(result == "plain\n- [ ] ")
+        #expect(edit.selection == NSRange(location: (result as NSString).length, length: 0))
+        #expect(NSMaxRange(edit.selection) <= (result as NSString).length)
+    }
+
     @Test("A plain line gains a whole checklist marker, and the caret rides past it")
     func plainLine() {
         let text = "foo"

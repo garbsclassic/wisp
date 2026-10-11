@@ -28,17 +28,27 @@ public enum ConfigStore {
         public let config: WispConfig
         /// An unreadable file or malformed keys, for the footer.
         public let error: String?
+        public let failed: Bool
+
+        init(config: WispConfig, error: String?, failed: Bool = false) {
+            self.config = config
+            self.error = error
+            self.failed = failed
+        }
     }
 
     /// Seeds the file on first run. A malformed file falls back to defaults.
-    public static func loadOrSeed(defaults: WispConfig = WispConfig()) -> Load {
+    public static func loadOrSeed(
+        defaults: WispConfig = WispConfig(), at fileURL: URL = ConfigStore.fileURL
+    ) -> Load {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             do {
-                try write(defaults)
+                try write(defaults, at: fileURL)
             } catch {
                 return Load(
                     config: defaults,
-                    error: "Couldn't write \(fileURL.path): \(error.localizedDescription)")
+                    error: "Couldn't write \(fileURL.path): \(error.localizedDescription)",
+                    failed: true)
             }
             return Load(config: defaults, error: nil)
         }
@@ -56,7 +66,8 @@ public enum ConfigStore {
         } catch {
             return Load(
                 config: defaults,
-                error: "wisp.jsonc is unreadable, using defaults: \(error.localizedDescription)")
+                error: "wisp.jsonc is unreadable, using defaults: \(error.localizedDescription)",
+                failed: true)
         }
     }
 
@@ -70,8 +81,9 @@ public enum ConfigStore {
 
     /// Strict JSON: chezmoi's `modify_` script and re-add hook run the file through `jq`, and a
     /// comment would make that merge drop every preserved setting.
-    public static func write(_ config: WispConfig) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    public static func write(_ config: WispConfig, at fileURL: URL = ConfigStore.fileURL) throws {
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         // Otherwise Foundation writes "ctrl+opt+\/": valid, but noise to hand-edit.
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -96,19 +108,23 @@ public enum ConfigStore {
         }
     }
 
-    /// Rewrites one value in place, keeping the file's order, indentation, and comments. Falls
-    /// back to a full encode when the key is missing, so `config` must carry the new value.
+    /// Edits existing text only after validating it; full encoding is for a missing file.
     public static func update(
-        _ path: [String], to value: some Encodable, in config: WispConfig
+        _ path: [String], to value: some Encodable, in config: WispConfig,
+        at fileURL: URL = ConfigStore.fileURL
     ) throws {
-        guard let literal = jsonLiteral(for: value),
-            let text = try? String(contentsOf: fileURL, encoding: .utf8),
-            let rewritten = JSONTextEdit.replacingValue(in: text, at: path, with: literal)
-        else {
-            try write(config)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            try write(config, at: fileURL)
             return
         }
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let text = try String(contentsOf: fileURL, encoding: .utf8)
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        _ = try decoder.decode(WispConfig.self, from: Data(text.utf8))
+        guard let literal = jsonLiteral(for: value),
+            let rewritten = JSONTextEdit.replacingValue(in: text, at: path, with: literal)
+        else { throw CocoaError(.fileReadCorruptFile) }
+        _ = try decoder.decode(WispConfig.self, from: Data(rewritten.utf8))
         try rewritten.write(to: fileURL, atomically: true, encoding: .utf8)
     }
 

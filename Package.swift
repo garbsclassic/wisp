@@ -26,5 +26,10 @@ let package = Package(
             dependencies: ["WispCore"],
             path: "Tests/WispCoreTests"
         ),
+        .testTarget(
+            name: "WispTests",
+            dependencies: ["Wisp"],
+            path: "Tests/WispTests"
+        ),
     ]
 )

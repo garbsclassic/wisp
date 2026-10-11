@@ -20,8 +20,11 @@ WAS_RUNNING=0
 if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
   WAS_RUNNING=1
   osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
-  pkill -x "$APP_NAME" 2>/dev/null || true
   sleep 1
+  if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+    echo "error: $APP_NAME did not quit; preserve unsaved text before installing" >&2
+    exit 1
+  fi
 fi
 
 if [[ -d "$DEST" ]]; then

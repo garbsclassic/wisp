@@ -20,7 +20,7 @@ public enum SmartEditing {
         }
         // `1)` as well as `1.`, as CommonMark allows; the letters take only `.`.
         if let match = line.firstMatch(of: /^([ \t]*)(\d+)([.)])\s/) {
-            let n = Int(match.2) ?? 0
+            guard match.2.count <= maxCountedDigits, let n = Int(match.2) else { return nil }
             if isEmptyAfter(match.range, in: line) { return "" }
             return "\(match.1)\(n + 1)\(match.3) "
         }

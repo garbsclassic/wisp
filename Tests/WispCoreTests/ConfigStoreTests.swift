@@ -57,11 +57,90 @@ struct JSONTextEditTests {
         #expect(after.contains("/* on */ false"))
     }
 
-    /// Nil tells the caller to fall back to a full encode.
-    @Test("An absent key yields nil", arguments: [["nope"], ["keymap", "nope"], ["theme", "nope"]])
-    func absentKey(path: [String]) {
-        let text = #"{ "theme": "dark", "keymap": { "summon": "cmd+j" } }"#
-        #expect(JSONTextEdit.replacingValue(in: text, at: path, with: "1") == nil)
+    @Test("An absent top-level key is added to an empty object")
+    func insertIntoEmptyObject() throws {
+        let after = try #require(
+            JSONTextEdit.replacingValue(in: "{}", at: ["theme"], with: "\"dark\""))
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        #expect(try decoder.decode(WispConfig.self, from: Data(after.utf8)).theme == .dark)
+    }
+
+    @Test("An absent key is added to a comment-only object without dropping the comment")
+    func insertIntoCommentOnlyObject() throws {
+        let before = "{\n  // keep this note\n}\n"
+        let after = try #require(
+            JSONTextEdit.replacingValue(in: before, at: ["theme"], with: "\"dark\""))
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        #expect(after.contains("// keep this note"))
+        #expect(try decoder.decode(WispConfig.self, from: Data(after.utf8)).theme == .dark)
+    }
+
+    @Test("A new key follows a trailing line comment on the last member")
+    func insertAfterTrailingLineComment() throws {
+        let before = "{\n  \"theme\": \"light\" // keep { braces, and commas }\n}\n"
+        let after = try #require(
+            JSONTextEdit.replacingValue(in: before, at: ["fontScale"], with: "1.5"))
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        let decoded = try decoder.decode(WispConfig.self, from: Data(after.utf8))
+        #expect(after.contains("// keep { braces, and commas }"))
+        #expect(decoded.theme == .light)
+        #expect(decoded.fontScale == 1.5)
+    }
+
+    @Test("A missing nested object and key are inserted without changing existing values")
+    func insertMissingNestedPath() throws {
+        let before = "{\n  // preserve me\n  \"theme\": \"light\"\n}\n"
+        let after = try #require(
+            JSONTextEdit.replacingValue(
+                in: before, at: ["keymap", "summon"], with: "\"cmd+j\""))
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        let decoded = try decoder.decode(WispConfig.self, from: Data(after.utf8))
+        #expect(after.contains("// preserve me"))
+        #expect(decoded.theme == .light)
+        #expect(decoded.keymap.chord(for: .summon) == "cmd+j")
+    }
+
+    @Test("An escaped JSON5 key is matched by its decoded name")
+    func escapedKey() throws {
+        let before = #"{ "font\u0053cale": 1.0 }"#
+        let after = try #require(
+            JSONTextEdit.replacingValue(in: before, at: ["fontScale"], with: "1.5"))
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        #expect(try decoder.decode(WispConfig.self, from: Data(after.utf8)).fontScale == 1.5)
+    }
+
+    @Test("An unquoted escaped JSON5 key survives insertion of another key")
+    func insertBesideEscapedUnquotedKey() throws {
+        let before = #"{ \u0074heme: 'light' }"#
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        let original = try decoder.decode([String: String].self, from: Data(before.utf8))
+        let after = try #require(
+            JSONTextEdit.replacingValue(in: before, at: ["fontScale"], with: "1.5"))
+        let decoded = try decoder.decode(WispConfig.self, from: Data(after.utf8))
+        #expect(original[#"\u0074heme"#] == "light")
+        #expect(after.contains(#"\u0074heme: 'light'"#))
+        #expect(decoded.theme == WispConfig().theme)
+        #expect(decoded.fontScale == 1.5)
+    }
+
+    @Test("Inserted members keep CRLF newlines and the existing member indentation")
+    func insertedMemberPreservesCRLF() throws {
+        let before = "{\r\n\t\"theme\": 'light'\r\n}\r\n"
+        let after = try #require(
+            JSONTextEdit.replacingValue(in: before, at: ["fontScale"], with: "1.5"))
+        let decoder = JSONDecoder()
+        decoder.allowsJSON5 = true
+        let decoded = try decoder.decode(WispConfig.self, from: Data(after.utf8))
+        #expect(after.contains("\r\n\t\"fontScale\": 1.5\r\n"))
+        #expect(!after.replacingOccurrences(of: "\r\n", with: "").contains("\n"))
+        #expect(decoded.theme == .light)
+        #expect(decoded.fontScale == 1.5)
     }
 }
 
@@ -151,20 +230,65 @@ final class ConfigStoreTests {
         #expect(ConfigStore.loadOrSeed().config.theme == .light)
     }
 
-    @Test("An update to an absent key falls back to a full encode")
-    func updateFallsBack() throws {
-        try FileManager.default.createDirectory(
-            at: ConfigStore.directory, withIntermediateDirectories: true)
-        try #"{ "theme": "light" }"#.write(
-            to: ConfigStore.fileURL, atomically: true, encoding: .utf8)
-
-        var config = ConfigStore.loadOrSeed().config
+    @Test("A missing top-level key is inserted without rewriting partial config text")
+    func updateInsertsAbsentTopLevelKey() throws {
+        let fileURL = root.appendingPathComponent("partial.jsonc")
+        let before = "{\n  // hand-edited config\n  \"theme\": \"light\"\n}\n"
+        try before.write(to: fileURL, atomically: true, encoding: .utf8)
+        var config = WispConfig()
         config.fontScale = 1.5
-        try ConfigStore.update(["fontScale"], to: config.fontScale, in: config)
+        try ConfigStore.update(["fontScale"], to: config.fontScale, in: config, at: fileURL)
 
-        let reloaded = ConfigStore.loadOrSeed().config
+        let after = try String(contentsOf: fileURL, encoding: .utf8)
+        let reloaded = ConfigStore.loadOrSeed(at: fileURL).config
+        #expect(after.contains("// hand-edited config"))
+        #expect(after.contains("\"theme\": \"light\""))
         #expect(reloaded.fontScale == 1.5)
         #expect(reloaded.theme == .light)
+    }
+
+    @Test("The first nested setting save creates only the missing object and key")
+    func updateInsertsAbsentNestedKey() throws {
+        let fileURL = root.appendingPathComponent("partial-nested.jsonc")
+        let before = "{\n  // keep my notes\n  \"theme\": \"light\"\n}\n"
+        try before.write(to: fileURL, atomically: true, encoding: .utf8)
+        var config = WispConfig()
+        config.keymap.setChord("cmd+opt+w", for: .summon)
+
+        try ConfigStore.update(
+            ["keymap", "summon"], to: config.keymap.chord(for: .summon), in: config,
+            at: fileURL)
+
+        let after = try String(contentsOf: fileURL, encoding: .utf8)
+        let load = ConfigStore.loadOrSeed(at: fileURL)
+        #expect(after.contains("// keep my notes"))
+        #expect(after.contains("\"theme\": \"light\""))
+        #expect(load.config.keymap.chord(for: .summon) == "cmd+opt+w")
+        #expect(load.config.theme == .light)
+    }
+
+    @Test("Replacing a primitive leaves trailing block and line comments valid")
+    func primitiveTrailingComments() throws {
+        let fileURL = root.appendingPathComponent("comments.jsonc")
+        let before = """
+            {
+              "fontScale": 1 /* keep, { braces, and commas } */ // keep this line too
+              ,
+              "theme": "light"
+            }
+            """
+        try before.write(to: fileURL, atomically: true, encoding: .utf8)
+        var config = WispConfig()
+        config.fontScale = 1.5
+
+        try ConfigStore.update(["fontScale"], to: config.fontScale, in: config, at: fileURL)
+
+        let after = try String(contentsOf: fileURL, encoding: .utf8)
+        let load = ConfigStore.loadOrSeed(at: fileURL)
+        #expect(after.contains("1.5 /* keep, { braces, and commas } */"))
+        #expect(after.contains("// keep this line too"))
+        #expect(load.config.fontScale == 1.5)
+        #expect(load.config.theme == .light)
     }
 
     @Test("An unreadable file falls back to defaults and reports why")
@@ -176,6 +300,73 @@ final class ConfigStoreTests {
         let load = ConfigStore.loadOrSeed()
         #expect(load.config == WispConfig())
         #expect(load.error?.contains("unreadable") == true)
+        #expect(load.failed)
+    }
+
+    @Test("A lenient field diagnostic does not mark the whole file as failed")
+    func malformedFieldIsNotAFileFailure() throws {
+        let fileURL = root.appendingPathComponent("bad-field.jsonc")
+        try #"{ "fontScale": "large", "theme": "dark" }"#.write(
+            to: fileURL, atomically: true, encoding: .utf8)
+
+        let load = ConfigStore.loadOrSeed(at: fileURL)
+
+        #expect(!load.failed)
+        #expect(load.error?.contains("fontScale") == true)
+        #expect(load.config.fontScale == WispConfig().fontScale)
+        #expect(load.config.theme == .dark)
+    }
+
+    @Test("Updating malformed JSON fails without replacing its text")
+    func malformedUpdatePreservesFile() throws {
+        let fileURL = root.appendingPathComponent("malformed.jsonc")
+        let original = "{ this is not json"
+        try original.write(to: fileURL, atomically: true, encoding: .utf8)
+        var failed = false
+
+        do {
+            try ConfigStore.update(["theme"], to: ThemeSetting.dark, in: WispConfig(), at: fileURL)
+        } catch {
+            failed = true
+        }
+
+        #expect(failed)
+        #expect(try String(contentsOf: fileURL, encoding: .utf8) == original)
+    }
+
+    @Test("Updating invalid UTF-8 fails without replacing the bytes")
+    func invalidUTF8UpdatePreservesBytes() throws {
+        let fileURL = root.appendingPathComponent("invalid-utf8.jsonc")
+        let original = Data([0x7B, 0xFF, 0x80, 0x7D])
+        try original.write(to: fileURL)
+        var failed = false
+
+        do {
+            try ConfigStore.update(["theme"], to: ThemeSetting.dark, in: WispConfig(), at: fileURL)
+        } catch {
+            failed = true
+        }
+
+        #expect(failed)
+        #expect(try Data(contentsOf: fileURL) == original)
+    }
+
+    @Test("Updating a directory in place of the config fails and leaves the directory")
+    func directoryAtConfigPathIsPreserved() throws {
+        let fileURL = root.appendingPathComponent("config-is-directory", isDirectory: true)
+        try FileManager.default.createDirectory(at: fileURL, withIntermediateDirectories: true)
+        var failed = false
+
+        do {
+            try ConfigStore.update(["theme"], to: ThemeSetting.dark, in: WispConfig(), at: fileURL)
+        } catch {
+            failed = true
+        }
+
+        var isDirectory: ObjCBool = false
+        #expect(failed)
+        #expect(FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory))
+        #expect(isDirectory.boolValue)
     }
 
     /// `$schema` is an editor hint, so loading must not report it as malformed.

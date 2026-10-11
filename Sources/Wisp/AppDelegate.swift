@@ -64,11 +64,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // For the capture overlay.
         model.tryUpdateHotKey = { [weak self] chord in
             guard let self else { return "Internal error" }
+            let previous = self.summon
             guard self.registerSummon(chord) else {
                 return
                     "\(chord.displayString) is already used by another app or macOS. Try another combo."
             }
-            self.settings.setSummon(chord)
+            guard self.settings.setSummon(chord) else {
+                if let previous {
+                    self.registerSummon(previous)
+                } else {
+                    self.hotKey.unregister()
+                    self.summon = nil
+                }
+                return self.settings.configWarning ?? "Couldn't save summon chord"
+            }
             return nil
         }
 
@@ -151,10 +160,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        model.flushSave()
-        // Otherwise written on hide, which quitting skips.
-        panelController?.savePanelFrameIfVisible()
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        do {
+            try model.flushSave()
+            panelController?.savePanelFrameIfVisible()
+            return .terminateNow
+        } catch {
+            panelController?.openIfNeeded()
+            let alert = NSAlert(error: error)
+            alert.messageText = "Couldn't save your scratchpad"
+            alert.informativeText = "Wisp will stay open so your unsaved text can be recovered. "
+                + error.localizedDescription
+            _ = alert.runModal()
+            return .terminateCancel
+        }
     }
 
     /// Confirms before adopting a folder's existing scratchpad; the local text is backed up.
@@ -186,13 +205,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         do {
-            let result = try StorageLocation.setFolder(
-                folder, currentText: model.text,
-                currentFolder: settings.config.scratchpadFolderPath)
-            settings.setScratchpadFolder(folder.path)
+            let result = try model.changeScratchpadFolder(to: folder)
             startNoteWatcher()
-            // Even when unchanged: it re-baselines the mtime, so our own write isn't a change.
-            model.adoptLoadedText(result.text)
             if let backupURL = result.backupURL {
                 let alert = NSAlert()
                 alert.messageText = "Local text saved as backup"
@@ -210,10 +224,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func resetStorageLocation() {
         guard StorageLocation.isCustom(settings.config.scratchpadFolder) else { return }
         do {
-            try StorageLocation.resetToDefault(currentText: model.text)
-            settings.setScratchpadFolder("")
+            try model.changeScratchpadFolder(to: StorageLocation.defaultFolder, reset: true)
             startNoteWatcher()
-            model.adoptLoadedText(model.text)
         } catch {
             let alert = NSAlert(error: error)
             _ = alert.runModal()
@@ -230,17 +242,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func refresh() {
         panelController?.openIfNeeded()
         reloadConfig()
-        model.reloadFromDiskIfChanged()
+        model.reloadFromDiskIfChanged(force: true)
     }
 
     /// Shared by ⌘R and the config watcher. A no-op when nothing changed, since Wisp's own writes
     /// come back as watcher events.
     private func reloadConfig() {
         let previous = settings.config
-        settings.reload()
+        model.reloadSettings()
         guard settings.config != previous else { return }
 
-        model.adoptSettings()
         adoptSummon(from: settings.config)
         // Both are pure functions of the keymap.
         if settings.config.keymap != previous.keymap {
@@ -250,16 +261,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The note moved: the watcher and the mtime baseline point at the old file.
         if settings.config.scratchpadFolder != previous.scratchpadFolder {
             startNoteWatcher()
-            model.adoptScratchpadAtCurrentPath()
         }
     }
 
     /// The folder, not the file: writers replace it by rename, so a watch on the old inode sees
     /// nothing.
     private func startNoteWatcher() {
-        noteWatcher = DirectoryWatcher(directoryURL: settings.config.scratchpadFolderPath) {
+        noteWatcher = DirectoryWatcher(directoryURL: model.scratchpadURL.deletingLastPathComponent()) {
             [weak self] in
             self?.model.reloadFromDiskIfChanged()
+        }
+        if let failure = noteWatcher?.failureDescription {
+            settings.reportWatcherFailure(failure)
         }
     }
 }

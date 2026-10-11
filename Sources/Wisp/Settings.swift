@@ -11,12 +11,15 @@ final class Settings: ObservableObject {
     /// A directory whose watcher didn't start, so edits there need ⌘R. Lasts until relaunch.
     @Published private(set) var watcherWarning: String?
 
-    init() {
-        let load = ConfigStore.loadOrSeed()
+    let configFileURL: URL
+
+    init(configFileURL: URL = ConfigStore.fileURL) {
+        self.configFileURL = configFileURL
+        let load = ConfigStore.loadOrSeed(at: configFileURL)
         config = load.config
         configWarning = load.error
         applyTypography()
-        installSchema()
+        if configFileURL == ConfigStore.fileURL { installSchema() }
     }
 
     /// Under `swift run` there is no bundled copy to install. A failed write never displaces a
@@ -61,67 +64,80 @@ final class Settings: ObservableObject {
 
     // MARK: Mutations
 
-    func setTheme(_ preference: ThemeSetting) {
-        config.theme = preference
-        write(["theme"], preference)
+    @discardableResult
+    func setTheme(_ preference: ThemeSetting) -> Bool {
+        var next = config
+        next.theme = preference
+        return write(["theme"], preference, next: next)
     }
 
-    func setSpellcheck(_ isOn: Bool) {
-        guard isOn != config.spellcheck else { return }
-        config.spellcheck = isOn
-        write(["spellcheck"], isOn)
+    @discardableResult
+    func setSpellcheck(_ isOn: Bool) -> Bool {
+        var next = config
+        next.spellcheck = isOn
+        return write(["spellcheck"], isOn, next: next)
     }
 
-    func setFooterStatus(_ status: FooterStatus) {
-        guard status != config.footerStatus else { return }
-        config.footerStatus = status
-        write(["footerStatus"], status)
+    @discardableResult
+    func setFooterStatus(_ status: FooterStatus) -> Bool {
+        var next = config
+        next.footerStatus = status
+        return write(["footerStatus"], status, next: next)
     }
 
-    /// Reconfigures `Typography` here, or the next SwiftUI pass would render at the old scale.
-    func setFontScale(_ scale: Double) {
-        let clamped = Metrics.clampFontScale(scale)
-        guard clamped != config.fontScale else { return }
-        config.fontScale = clamped
-        applyTypography()
-        write(["fontScale"], clamped)
+    @discardableResult
+    func setFontScale(_ scale: Double) -> Bool {
+        var next = config
+        next.fontScale = Metrics.clampFontScale(scale)
+        return write(["fontScale"], next.fontScale, next: next)
     }
 
-    /// A key code with no spelling is dropped, since the parser would reject it next launch.
-    func setSummon(_ summon: KeyChord) {
-        guard
-            let chord = KeyChord.string(
-                keyCode: summon.keyCode, carbonModifiers: summon.carbonModifiers)
-        else { return }
-        config.keymap.setChord(chord, for: .summon)
-        write(["keymap", KeymapAction.summon.rawValue], chord)
+    @discardableResult
+    func setSummon(_ summon: KeyChord) -> Bool {
+        guard let chord = KeyChord.string(
+            keyCode: summon.keyCode, carbonModifiers: summon.carbonModifiers)
+        else { return false }
+        var next = config
+        next.keymap.setChord(chord, for: .summon)
+        return write(["keymap", KeymapAction.summon.rawValue], chord, next: next)
     }
 
-    func setScratchpadFolder(_ path: String) {
-        config.scratchpadFolder = path
-        write(["scratchpadFolder"], path)
+    @discardableResult
+    func setScratchpadFolder(_ path: String) -> Bool {
+        var next = config
+        next.scratchpadFolder = path
+        return write(["scratchpadFolder"], path, next: next)
     }
 
-    /// The panel's size, written when it hides.
-    func setPanel(_ panel: PanelFrame) {
-        guard panel != config.panel else { return }
-        config.panel = panel
-        write(["panel"], panel)
+    @discardableResult
+    func setPanel(_ panel: PanelFrame) -> Bool {
+        var next = config
+        next.panel = panel
+        return write(["panel"], panel, next: next)
     }
 
-    /// Nil, written as `null`, returns the panel to the default spot.
-    func setPosition(_ position: PanelPosition?) {
-        guard position != config.position else { return }
-        config.position = position
-        write(["position"], position)
+    @discardableResult
+    func setPosition(_ position: PanelPosition?) -> Bool {
+        var next = config
+        next.position = position
+        return write(["position"], position, next: next)
     }
 
-    /// The Refresh menu item, for a file edited or synced in while Wisp ran.
-    func reload() {
-        let load = ConfigStore.loadOrSeed()
-        config = load.config
-        configWarning = load.error
-        applyTypography()
+    /// Prepare a folder change before publishing any new settings.
+    @discardableResult
+    func reload(prepare: (WispConfig) throws -> Void = { _ in }) -> Bool {
+        let load = ConfigStore.loadOrSeed(at: configFileURL)
+        guard !load.failed else { configWarning = load.error; return false }
+        do {
+            try prepare(load.config)
+            config = load.config
+            configWarning = load.error
+            applyTypography()
+            return true
+        } catch {
+            configWarning = "Couldn't reload settings: \(error.localizedDescription)"
+            return false
+        }
     }
 
     /// The one place the config reaches `Typography`.
@@ -131,17 +147,23 @@ final class Settings: ObservableObject {
 
     /// The Settings… menu item; seeds the file first if it's missing.
     func openConfigFile() {
-        if !FileManager.default.fileExists(atPath: ConfigStore.fileURL.path) {
-            try? ConfigStore.write(config)
+        if !FileManager.default.fileExists(atPath: configFileURL.path) {
+            try? ConfigStore.write(config, at: configFileURL)
         }
-        NSWorkspace.shared.open(ConfigStore.fileURL)
+        NSWorkspace.shared.open(configFileURL)
     }
 
-    private func write(_ path: [String], _ value: some Encodable) {
+    private func write(_ path: [String], _ value: some Encodable, next: WispConfig) -> Bool {
+        guard next != config else { return true }
         do {
-            try ConfigStore.update(path, to: value, in: config)
+            try ConfigStore.update(path, to: value, in: next, at: configFileURL)
+            config = next
+            configWarning = nil
+            applyTypography()
+            return true
         } catch {
             configWarning = "Couldn't write wisp.jsonc: \(error.localizedDescription)"
+            return false
         }
     }
 }

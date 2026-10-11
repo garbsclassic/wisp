@@ -17,12 +17,4 @@ extension View {
             }
     }
 
-    /// The arrow while hovered, so the editor's I-beam doesn't show through an overlay.
-    func arrowCursor() -> some View {
-        self.onContinuousHover { phase in
-            if case .active = phase {
-                NSCursor.arrow.set()
-            }
-        }
-    }
 }
