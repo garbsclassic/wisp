@@ -13,15 +13,25 @@ DEST="$DEST_DIR/${APP_NAME}.app"
 
 "$ROOT_DIR/scripts/build.sh"
 
+is_running() {
+  local query_status=0
+  pgrep -x "$APP_NAME" >/dev/null 2>&1 || query_status=$?
+  if [[ "$query_status" -gt 1 ]]; then
+    echo "error: couldn't check whether $APP_NAME is running; installation stopped" >&2
+    exit 1
+  fi
+  return "$query_status"
+}
+
 # Quit every running copy, wherever it was launched from — one started out of
 # dist/ keeps its old executable mapped and would carry on running the
 # pre-rebuild code — and relaunch from the install location afterwards.
 WAS_RUNNING=0
-if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+if is_running; then
   WAS_RUNNING=1
   osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
   sleep 1
-  if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+  if is_running; then
     echo "error: $APP_NAME did not quit; preserve unsaved text before installing" >&2
     exit 1
   fi
