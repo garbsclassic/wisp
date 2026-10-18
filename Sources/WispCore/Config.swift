@@ -338,8 +338,10 @@ public struct WispConfig: Codable, Equatable, Sendable {
     public var clampedDefaultFontScale: Double { Metrics.clampFontScale(defaultFontScale) }
 
     /// Falls back to the default, or an unparseable chord would leave no way to open the app.
-    public var summonChord: KeyChord {
-        keymap.parsed(.summon) ?? KeyChord.parse(KeymapAction.summon.defaultChords.chords[0])!
+    public var summonChords: [KeyChord] {
+        let chords = keymap.parsedChords(for: .summon)
+        return chords.isEmpty
+            ? KeymapAction.summon.defaultChords.chords.compactMap(KeyChord.parse) : chords
     }
 
     /// For the footer; other actions report through `Keymap.unparseableActions`.

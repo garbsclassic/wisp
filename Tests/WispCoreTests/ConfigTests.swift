@@ -98,7 +98,24 @@ struct ConfigDerivedTests {
     func brokenChord() {
         let config = WispConfig(keymap: Keymap([.summon: ChordSet(["ctrl+opt+nosuchkey"])]))
         #expect(!config.summonChordIsValid)
-        #expect(config.summonChord == WispConfig().summonChord)
+        #expect(config.summonChords == WispConfig().summonChords)
+    }
+
+    @Test("Every valid summon alias survives decoding and encoding")
+    func summonAliases() throws {
+        let config = try decode(
+            #"{"keymap":{"summon":["ctrl+opt+.","cmd+nope","hyper+w"]}}"#)
+        #expect(config.summonChords == [KeyChord.parse("ctrl+opt+.")!, KeyChord.parse("hyper+w")!])
+        #expect(config.summonChordIsValid)
+        let data = try JSONEncoder().encode(config)
+        #expect(try JSONDecoder().decode(WispConfig.self, from: data) == config)
+    }
+
+    @Test("An empty summon list falls back to the default and is flagged")
+    func emptySummonAliases() throws {
+        let config = try decode(#"{"keymap":{"summon":[]}}"#)
+        #expect(config.summonChords == WispConfig().summonChords)
+        #expect(!config.summonChordIsValid)
     }
 
     @Test("An empty scratchpad path means the default folder")

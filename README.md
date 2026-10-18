@@ -157,7 +157,7 @@ Wisp bundles no fonts. It looks up a named family by name, and if the family isn
 
 Wisp writes every binding under `keymap` on first launch. A chord is modifiers plus one key, in any order: `cmd+shift+d`, `opt+up`, `ctrl+opt+.`. `hyper` stands for all four modifiers, so `hyper+.` means `ctrl+opt+shift+cmd+.`, which is what a Caps Lock key remapped to a hyper key sends.
 
-An action can take a list of chords instead of one, and every chord in the list works. For example, `"help": ["f1", "cmd+/"]`.
+An action can take a list of chords instead of one, and every chord in the list works. For example, `"help": ["f1", "cmd+/"]` or `"summon": ["ctrl+opt+.", "hyper+w"]`. Every summon alias works globally for tap-to-pin and hold-to-peek. **Set Shortcut…** replaces the summon list with the single captured chord.
 
 `summon` is the only global shortcut. `find`, `settings`, and `refresh` also work while Wisp is active with the panel closed, and they open the panel. The rest work only while the panel is in front. The menu bar menu shows each item's current chord, and those chords work while the menu is closed.
 

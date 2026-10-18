@@ -9,8 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
     private var panelController: PanelController?
     private let hotKey = HotKeyMonitor()
-    /// The chord Carbon has registered, which differs from the config's if registering failed.
-    private var summon: KeyChord?
     /// Every chord but `summon`, which Carbon owns so it fires while another app is in front.
     private var keyBindings: KeyBindingMonitor?
     /// Live reload of the config and the note; the note's is rebuilt when the scratchpad moves.
@@ -18,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var noteWatcher: DirectoryWatcher?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        adoptSummon(from: settings.config)
         NSApp.mainMenu = MainMenuBuilder.make()
         let panel = PanelController(model: model, settings: settings)
         panelController = panel
@@ -58,24 +57,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings.reportWatcherFailure(failures.joined(separator: " "))
         }
 
-        // If this fails too, Wisp has no hotkey until the user rebinds it from the menu.
-        adoptSummon(from: settings.config)
-
         // For the capture overlay.
         model.tryUpdateHotKey = { [weak self] chord in
             guard let self else { return "Internal error" }
-            let previous = self.summon
-            guard self.registerSummon(chord) else {
+            let previous = self.hotKey.chords
+            guard self.registerSummon([chord]) else {
                 return
                     "\(chord.displayString) is already used by another app or macOS. Try another combo."
             }
             guard self.settings.setSummon(chord) else {
-                if let previous {
-                    self.registerSummon(previous)
-                } else {
-                    self.hotKey.unregister()
-                    self.summon = nil
-                }
+                self.registerSummon(previous)
                 return self.settings.configWarning ?? "Couldn't save summon chord"
             }
             return nil
@@ -97,27 +88,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController?.openIfNeeded()
     }
 
-    /// Only when the chord changed, since a re-registration can fail and lose the binding.
+    /// Retains unchanged registrations when the config reloads.
     private func adoptSummon(from config: WispConfig) {
-        if config.summonChord != summon { registerSummon(config.summonChord) }
+        if config.summonChords != hotKey.chords { registerSummon(config.summonChords) }
     }
 
-    /// When Carbon rejects `chord`, usually because something else owns it, the previous chord is
-    /// restored once.
     @discardableResult
-    private func registerSummon(_ chord: KeyChord) -> Bool {
-        if register(chord) {
-            summon = chord
-            return true
-        }
-        if let previous = summon, !register(previous) { summon = nil }
-        return false
-    }
-
-    private func register(_ chord: KeyChord) -> Bool {
+    private func registerSummon(_ chords: [KeyChord]) -> Bool {
         hotKey.register(
-            keyCode: chord.keyCode, modifiers: chord.carbonModifiers,
-            onPress: { [weak self] in
+            chords,
+            onPress: { [weak self] chord in
                 self?.panelController?.handleChordDown(modifiers: chord.modifierFlags)
             },
             onRelease: { [weak self] in self?.panelController?.handleChordUp() })
