@@ -3,6 +3,9 @@ import Foundation
 
 /// Imported once from the retired config keys; size is in points and position is the top-left.
 public struct LegacyPanelGeometry: Decodable {
+    // The old config accepted sizes from 200 points per side; recovery applies today's minimum.
+    private static let minimumSide: Double = 200
+
     private struct Size: Decodable {
         let width: Double
         let height: Double
@@ -23,8 +26,7 @@ public struct LegacyPanelGeometry: Decodable {
         let panel = try? values.decode(Size.self, forKey: .panel)
         size = panel.flatMap {
             $0.width.isFinite && $0.height.isFinite
-                && $0.width >= PanelPlacement.minimumSize.width
-                && $0.height >= PanelPlacement.minimumSize.height
+                && $0.width >= Self.minimumSide && $0.height >= Self.minimumSide
                 ? CGSize(width: $0.width, height: $0.height) : nil
         }
         let point = try? values.decode(Position.self, forKey: .position)
@@ -36,8 +38,8 @@ public struct LegacyPanelGeometry: Decodable {
 
 /// Initial placement and recovery for a borderless panel, independent of frame storage.
 public enum PanelPlacement {
-    public static let minimumSize = CGSize(width: 200, height: 200)
-    public static let defaultSize = CGSize(width: 800, height: 640)
+    public static let minimumSize = CGSize(width: 540, height: 640)
+    public static let defaultSize = CGSize(width: 800, height: minimumSize.height)
     public static let topInset: CGFloat = 0.05
     public static let minVisible: CGFloat = 120
 
@@ -75,9 +77,13 @@ public enum PanelPlacement {
         return self.frame(topLeft: defaultTopLeft(for: size, on: home), size: size)
     }
 
-    /// Reset restores the default size and location, including while hidden.
+    /// Reset uses the usable screen's proportions, preserving the minimum where it fits.
     public static func resetFrame(on screen: CGRect) -> CGRect {
-        let size = fitted(defaultSize, to: screen)
+        let size = fitted(
+            CGSize(
+                width: max((screen.width * 0.4).rounded(), minimumSize.width),
+                height: max((screen.height * 0.6).rounded(), minimumSize.height)),
+            to: screen)
         return frame(topLeft: defaultTopLeft(for: size, on: screen), size: size)
     }
 

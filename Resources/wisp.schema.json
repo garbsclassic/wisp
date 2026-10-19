@@ -128,7 +128,11 @@
         "decreaseFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+-" },
         "resetFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+0" },
         "reveal": { "$ref": "#/$defs/chordSet", "default": "opt+cmd+r" },
-        "resetPosition": { "$ref": "#/$defs/chordSet", "default": "cmd+opt+0" }
+        "resetView": {
+          "description": "Reset View: restore the default location and a size of 40% usable width by 60% usable height, bounded by the minimum and screen.",
+          "$ref": "#/$defs/chordSet",
+          "default": "cmd+opt+0"
+        }
       }
     },
     "indent": {

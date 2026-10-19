@@ -16,7 +16,7 @@ private func legacyGeometry(_ json: String, json5: Bool = false) throws -> Legac
 struct InitialFrameTests {
     @Test("The minimum and default sizes are the supported window sizes")
     func sizeDefaults() {
-        #expect(PanelPlacement.minimumSize == CGSize(width: 200, height: 200))
+        #expect(PanelPlacement.minimumSize == CGSize(width: 540, height: 640))
         #expect(PanelPlacement.defaultSize == CGSize(width: 800, height: 640))
     }
 
@@ -30,11 +30,31 @@ struct InitialFrameTests {
     @Test("Legacy size is read in points and position remains a top-left corner")
     func legacyGeometryUsesPointsAndTopLeft() throws {
         let legacy = try legacyGeometry(
+            #"{"panel":{"width":600,"height":900},"position":{"x":200,"y":800}}"#)
+
+        let frame = PanelPlacement.initialFrame(legacy: legacy, target: primary, screens: [primary])
+
+        #expect(frame == CGRect(x: 200, y: -100, width: 600, height: 900))
+    }
+
+    @Test("An old short panel keeps its point width and recenters at the new minimum height")
+    func oldShortSizeGrowsToPortraitMinimum() throws {
+        let legacy = try legacyGeometry(
             #"{"panel":{"width":600,"height":400},"position":{"x":200,"y":700}}"#)
 
         let frame = PanelPlacement.initialFrame(legacy: legacy, target: primary, screens: [primary])
 
-        #expect(frame == CGRect(x: 200, y: 300, width: 600, height: 400))
+        #expect(frame == CGRect(x: 420, y: 215, width: 600, height: 640))
+    }
+
+    @Test("An old narrow panel grows only its width to the new minimum")
+    func oldNarrowSizeGrowsToMinimumWidth() throws {
+        let legacy = try legacyGeometry(
+            #"{"panel":{"width":300,"height":900},"position":{"x":200,"y":800}}"#)
+
+        let frame = PanelPlacement.initialFrame(legacy: legacy, target: primary, screens: [primary])
+
+        #expect(frame == CGRect(x: 450, y: 0, width: 540, height: 900))
     }
 
     @Test("An invalid legacy size falls back while a valid position is retained")
@@ -50,11 +70,11 @@ struct InitialFrameTests {
     @Test("A malformed legacy position falls back while a valid size is retained")
     func malformedPositionFallsBackIndependently() throws {
         let legacy = try legacyGeometry(
-            #"{"panel":{"width":600,"height":400},"position":{"x":"left","y":700}}"#)
+            #"{"panel":{"width":600,"height":900},"position":{"x":"left","y":800}}"#)
 
         let frame = PanelPlacement.initialFrame(legacy: legacy, target: primary, screens: [primary])
 
-        #expect(frame == CGRect(x: 420, y: 455, width: 600, height: 400))
+        #expect(frame == CGRect(x: 420, y: 0, width: 600, height: 900))
     }
 
     @Test("JSON5 legacy geometry accepts comments and trailing commas")
@@ -63,14 +83,14 @@ struct InitialFrameTests {
             """
             {
               // These are points, not fractions of the screen.
-              panel: { width: 600, height: 400, },
-              position: { x: 200, y: 700, },
+              panel: { width: 600, height: 900, },
+              position: { x: 200, y: 800, },
             }
             """, json5: true)
 
         let frame = PanelPlacement.initialFrame(legacy: legacy, target: primary, screens: [primary])
 
-        #expect(frame == CGRect(x: 200, y: 300, width: 600, height: 400))
+        #expect(frame == CGRect(x: 200, y: -100, width: 600, height: 900))
     }
 
     @Test("A nonfinite legacy size falls back without discarding a valid position")
@@ -86,23 +106,23 @@ struct InitialFrameTests {
     @Test("An unreachable legacy position uses the default location and keeps its size")
     func unreachableLegacyPosition() throws {
         let legacy = try legacyGeometry(
-            #"{"panel":{"width":600,"height":400},"position":{"x":4000,"y":4000}}"#)
+            #"{"panel":{"width":600,"height":900},"position":{"x":4000,"y":4000}}"#)
 
         let frame = PanelPlacement.initialFrame(legacy: legacy, target: primary, screens: [primary])
 
-        #expect(frame == CGRect(x: 420, y: 455, width: 600, height: 400))
+        #expect(frame == CGRect(x: 420, y: 0, width: 600, height: 900))
     }
 
-    @Test("A reachable legacy frame on a negative-origin display is retained")
+    @Test("A reachable tall legacy frame keeps its position on a negative-origin display")
     func negativeOriginDisplay() throws {
         let secondary = CGRect(x: -1280, y: 0, width: 1280, height: 1024)
         let legacy = try legacyGeometry(
-            #"{"panel":{"width":600,"height":400},"position":{"x":-1200,"y":900}}"#)
+            #"{"panel":{"width":600,"height":900},"position":{"x":-1200,"y":950}}"#)
 
         let frame = PanelPlacement.initialFrame(
             legacy: legacy, target: primary, screens: [primary, secondary])
 
-        #expect(frame == CGRect(x: -1200, y: 500, width: 600, height: 400))
+        #expect(frame == CGRect(x: -1200, y: 50, width: 600, height: 900))
     }
 
     @Test("An oversized legacy size without a position stays on the target screen")
@@ -123,7 +143,7 @@ struct RecoveredFrameTests {
 
     @Test("A reachable frame on a connected secondary display stays put")
     func connectedSecondaryIsUnchanged() {
-        let frame = CGRect(x: -1100, y: 300, width: 800, height: 500)
+        let frame = CGRect(x: -1100, y: 100, width: 800, height: 900)
 
         let recovered = PanelPlacement.recoveredFrame(
             frame, target: primary, screens: [primary, secondary])
@@ -134,11 +154,11 @@ struct RecoveredFrameTests {
 
     @Test("A frame from a disconnected display returns to the target at the same size")
     func detachedDisplayFallsBack() {
-        let frame = CGRect(x: -1100, y: 300, width: 800, height: 400)
+        let frame = CGRect(x: -1100, y: 0, width: 800, height: 900)
 
         let recovered = PanelPlacement.recoveredFrame(frame, target: primary, screens: [primary])
 
-        #expect(recovered == CGRect(x: 320, y: 455, width: 800, height: 400))
+        #expect(recovered == CGRect(x: 320, y: 0, width: 800, height: 900))
     }
 
     @Test("An undersized saved frame grows to the minimum and remains reachable")
@@ -147,7 +167,7 @@ struct RecoveredFrameTests {
 
         let recovered = PanelPlacement.recoveredFrame(frame, target: primary, screens: [primary])
 
-        #expect(recovered == CGRect(x: 620, y: 655, width: 200, height: 200))
+        #expect(recovered == CGRect(x: 450, y: 215, width: 540, height: 640))
         #expect(PanelPlacement.isReachable(recovered, on: [primary]))
     }
 
@@ -162,7 +182,7 @@ struct RecoveredFrameTests {
 
     @Test("No connected screens leaves the current frame alone")
     func noScreensIsNoOp() {
-        let frame = CGRect(x: -1100, y: 300, width: 800, height: 400)
+        let frame = CGRect(x: -1100, y: 300, width: 800, height: 640)
 
         #expect(PanelPlacement.recoveredFrame(frame, target: .zero, screens: []) == frame)
     }
@@ -182,13 +202,6 @@ struct RecoveredFrameTests {
                 PanelPlacement.recoveredFrame(frame, target: primary, screens: [primary])
                     == usableDefault)
         }
-    }
-
-    @Test("An undersized target fits the default reset frame to its bounds")
-    func resetFitsTinyTarget() {
-        let tiny = CGRect(x: -200, y: 30, width: 500, height: 300)
-
-        #expect(PanelPlacement.resetFrame(on: tiny) == tiny)
     }
 
     @Test("Reachability requires the full minimum overlap in both dimensions")
@@ -212,18 +225,57 @@ struct RecoveredFrameTests {
             x: primary.maxX - PanelPlacement.minVisible,
             y: 250,
             width: 800,
-            height: 500)
+            height: 640)
 
         #expect(PanelPlacement.isReachable(frame, on: [primary]))
         #expect(PanelPlacement.recoveredFrame(frame, target: primary, screens: [primary]) == frame)
     }
 }
 
-@Test("Reset returns the default frame on the requested screen")
-func resetFrame() {
-    #expect(
-        PanelPlacement.resetFrame(on: primary)
-            == CGRect(x: 320, y: 215, width: 800, height: 640))
+@Suite("PanelPlacement.resetFrame")
+struct ResetFrameTests {
+    @Test("Reset scales to forty percent width and sixty percent height")
+    func scalesBothDimensions() {
+        let large = CGRect(x: 0, y: 0, width: 2400, height: 1800)
+
+        #expect(
+            PanelPlacement.resetFrame(on: large)
+                == CGRect(x: 720, y: 630, width: 960, height: 1080))
+    }
+
+    @Test("Reset applies the minimum independently to each dimension")
+    func minimumSizeOnPrimary() {
+        #expect(
+            PanelPlacement.resetFrame(on: primary)
+                == CGRect(x: 432, y: 215, width: 576, height: 640))
+    }
+
+    @Test("Reset fits the minimum dimensions to a small screen")
+    func fitsSmallScreen() {
+        let small = CGRect(x: -200, y: 30, width: 500, height: 300)
+
+        #expect(
+            PanelPlacement.resetFrame(on: small)
+                == CGRect(x: -200, y: 30, width: 500, height: 300))
+    }
+
+    @Test("Reset keeps the screen's negative origin")
+    func negativeOrigin() {
+        let screen = CGRect(x: -2560, y: 60, width: 2500, height: 1380)
+
+        #expect(
+            PanelPlacement.resetFrame(on: screen)
+                == CGRect(x: -1810, y: 543, width: 1000, height: 828))
+    }
+
+    @Test("Fractional reset size and origin round to whole points")
+    func roundsFractionalSizeAndOrigin() {
+        let screen = CGRect(x: 20.25, y: -5.5, width: 1501.25, height: 1705)
+
+        #expect(
+            PanelPlacement.resetFrame(on: screen)
+                == CGRect(x: 470, y: 591, width: 601, height: 1023))
+    }
 }
 
 @Test("The top-left corner uses minX and maxY")

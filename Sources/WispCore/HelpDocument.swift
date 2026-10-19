@@ -40,7 +40,7 @@ public struct HelpDocument: Equatable, Sendable {
         return HelpDocument(sections: [
             Section("Wisp", [
                 Row(chord(.summon), "tap to pin · hold to peek · tap again to dismiss"),
-                Row(chord(.resetPosition), "reset panel position"),
+                Row(chord(.resetView), "reset view size and position"),
                 Row("⌘↑ · ⌘↓", "move to beginning · end"),
                 Row(chord(.refresh), "refresh"),
                 Row(chord(.reveal), "reveal note in finder"),

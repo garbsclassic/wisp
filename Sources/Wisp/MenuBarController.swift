@@ -55,7 +55,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Actions, then settings, then Quit; wording follows Clef's where they overlap.
         menu.addItem(
-            boundItem(.resetPosition, symbol: "arrow.up.and.down.and.arrow.left.and.right"))
+            boundItem(.resetView, symbol: "arrow.up.and.down.and.arrow.left.and.right"))
         menu.addItem(boundItem(.refresh, symbol: "arrow.clockwise"))
         menu.addItem(boundItem(.reveal, symbol: "doc.text.magnifyingglass"))
 

@@ -91,7 +91,7 @@ final class PanelFrameController {
         saveFrame(of: panel)
     }
 
-    func resetPosition(of panel: NSWindow) {
+    func resetView(of panel: NSWindow) {
         guard let target = targetScreen else { return }
         // An explicit reset supersedes even a temporarily unreadable legacy config.
         completeRestoration(of: panel)

@@ -52,7 +52,7 @@ Press ⌘/ or F1, or click `?` in the footer, for the full shortcut list inside 
 - Tap ⌃⌥. to pin the panel open. Tap it again to close it.
 - Hold ⌃⌥. to peek. The panel opens without taking focus and closes when you let go. `peekHold` sets how long a press must last to count as a hold.
 - Press Esc to close the panel. Esc only acts while the panel has focus, so a panel left open behind another app stays put. If the find bar, the help page, or a folder picker is open, Esc closes that first.
-- Drag the panel by any part that isn't text. It opens in the same place next time. **Reset Position** (⌥⌘0) restores its default size and spot on the primary display.
+- Drag the panel by any part that isn't text. It opens in the same place next time. **Reset View** (⌥⌘0) restores its size relative to the primary display and its default spot.
 - Left-click the menu bar icon to pin the panel. Right-click it, or Control-click, for the menu.
 
 To change the ⌃⌥. chord, choose **Set Shortcut…** in the menu bar menu, or edit `keymap.summon` in the config.
@@ -167,7 +167,7 @@ Wisp drops a chord it can't parse. If that leaves an action with no working chor
 | `settings`           | `cmd+,`            |
 | `refresh`            | `cmd+r`            |
 | `reveal`             | `opt+cmd+r`        |
-| `resetPosition`      | `cmd+opt+0`        |
+| `resetView`          | `cmd+opt+0`        |
 | `help`               | `["f1", "cmd+/"]`  |
 | `cycleTheme`         | `cmd+t`            |
 | `sourceView`         | `cmd+shift+v`      |
@@ -195,9 +195,9 @@ Wisp drops a chord it can't parse. If that leaves an action with no working chor
 
 Window geometry is local runtime state in macOS preferences, separate from `wisp.jsonc`. Wisp saves one rectangle as the panel moves and resizes. It stays on its display across summons and relaunches, without following the pointer. An unreachable frame is recovered onto a connected display at startup, on show, or when displays change.
 
-The initial size is 800×640 points, centred on the primary display with its top edge 5% down the usable screen. Reset Position restores that size and location, fitted to the display. Resizing has a 200×200-point minimum.
+The initial size is 800×640 points, centred on the primary display with its top edge 5% down the usable screen. **Reset View** sizes the panel to 40% of the usable width and 60% of the usable height, excluding the menu bar and Dock, and returns it to that default location. The 540×640-point minimum applies, fitted to the display if smaller. The `keymap.resetView` binding controls Reset View; rename any former `keymap.resetPosition` override to `resetView`.
 
-On the first launch without a saved frame, Wisp imports the former `panel` size (in points) and top-left `position` from the config. Those keys are retained for recovery but are no longer written or used after migration; `monitor` is ignored. Remove these retired keys from your managed config after the frame has been imported. If the config is temporarily unreadable, migration waits until it can be read; an explicit Reset Position chooses the default frame instead.
+On the first launch without a saved frame, Wisp imports the former `panel` size (in points) and top-left `position` from the config. Those keys are retained for recovery but are no longer written or used after migration; `monitor` is ignored. Remove these retired keys from your managed config after the frame has been imported. If the config is temporarily unreadable, migration waits until it can be read; an explicit Reset View chooses the monitor-relative frame instead.
 
 ## Build from source
 

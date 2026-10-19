@@ -111,9 +111,15 @@ private struct FramePersistenceCheck {
                 description: "This AppKit check needs a logged-in session with a display "
                     + "above primary")
         }
+        guard primary.visibleFrame.width >= PanelPlacement.defaultSize.width,
+            primary.visibleFrame.height >= 240
+        else {
+            throw CheckFailure(
+                description: "Primary display must be at least 800×240 points for this check")
+        }
         let visible = upper.visibleFrame
-        guard visible.width >= 860, visible.height >= 500 else {
-            throw CheckFailure(description: "Upper display must fit an 860×500 point window")
+        guard visible.width >= 860, visible.height >= PanelPlacement.minimumSize.height else {
+            throw CheckFailure(description: "Upper display must fit an 860×640 point window")
         }
         return (primary, upper)
     }
@@ -123,31 +129,34 @@ private struct FramePersistenceCheck {
     ) throws {
         let legacyTopLeft = CGPoint(
             x: primary.visibleFrame.minX + 155, y: primary.visibleFrame.maxY - 120)
-        try writeLegacy(size: CGSize(width: 720, height: 420), topLeft: legacyTopLeft)
+        try writeLegacy(size: CGSize(width: 720, height: 640), topLeft: legacyTopLeft)
         let configBefore = try Data(contentsOf: ConfigStore.fileURL)
 
         let panel = makePanel(
             CGRect(
                 x: primary.visibleFrame.minX, y: primary.visibleFrame.minY,
-                width: 800, height: 640))
+                width: PanelPlacement.defaultSize.width,
+                height: PanelPlacement.defaultSize.height))
         var controller: PanelFrameController? = PanelFrameController()
         controller?.restoreFrame(of: panel)
+        let importedHeight = min(PanelPlacement.minimumSize.height, primary.visibleFrame.height)
         let imported = CGRect(
-            x: legacyTopLeft.x.rounded(), y: (legacyTopLeft.y - 420).rounded(),
-            width: 720, height: 420)
+            x: legacyTopLeft.x.rounded(), y: (legacyTopLeft.y - importedHeight).rounded(),
+            width: 720, height: importedHeight)
         try expectFrame(panel.frame, imported, "legacy size points and top-left migration")
         try expectSavedFrame(imported, defaults: defaults, label: "legacy frame migration")
         try expectConfigUnchanged(configBefore)
 
         let moved = CGRect(
-            x: upper.visibleFrame.minX + 100, y: upper.visibleFrame.minY + 100,
+            x: upper.visibleFrame.minX + (upper.visibleFrame.width - 860) / 2,
+            y: upper.visibleFrame.minY + (upper.visibleFrame.height - 640) / 2,
             width: panel.frame.width, height: panel.frame.height)
         panel.setFrame(moved, display: false)
         try waitForSavedFrame(moved, defaults: defaults, label: "move-only change")
         try expectFrame(panel.frame, moved, "move-only change")
         try expectConfigUnchanged(configBefore)
 
-        let resized = CGRect(origin: moved.origin, size: CGSize(width: 860, height: 500))
+        let resized = CGRect(origin: moved.origin, size: CGSize(width: 860, height: 640))
         panel.setFrame(resized, display: false)
         try waitForSavedFrame(resized, defaults: defaults, label: "resize-only change")
         try expectFrame(panel.frame, resized, "resize-only change")
@@ -172,7 +181,8 @@ private struct FramePersistenceCheck {
         let panel = makePanel(
             CGRect(
                 x: primary.visibleFrame.minX, y: primary.visibleFrame.minY,
-                width: 800, height: 640))
+                width: PanelPlacement.defaultSize.width,
+                height: PanelPlacement.defaultSize.height))
         var controller: PanelFrameController? = PanelFrameController()
         controller?.restoreFrame(of: panel)
         try expectFrame(panel.frame, expected, "saved frame restored by a new process")
@@ -184,18 +194,31 @@ private struct FramePersistenceCheck {
 
         let reset = PanelPlacement.resetFrame(on: primary.visibleFrame)
         try check(!panel.isVisible, "Test panel unexpectedly became visible")
-        controller?.resetPosition(of: panel)
+        controller?.resetView(of: panel)
         try check(!panel.isVisible, "Reset showed the hidden panel")
         try expectFrame(panel.frame, reset, "reset while hidden")
+        if primary.visibleFrame.height < PanelPlacement.minimumSize.height {
+            try check(
+                panel.frame.minX >= primary.visibleFrame.minX
+                    && panel.frame.maxX <= primary.visibleFrame.maxX
+                    && panel.frame.minY >= primary.visibleFrame.minY
+                    && panel.frame.maxY <= primary.visibleFrame.maxY,
+                "Reset frame does not fit a primary visible frame shorter than minimum height")
+        }
         try expectSavedFrame(reset, defaults: defaults, label: "hidden reset")
         try expectConfigUnchanged(configBefore)
 
-        let offscreen = CGRect(x: -10000, y: -10000, width: 800, height: 640)
+        let offscreen = CGRect(
+            origin: CGPoint(x: -10000, y: -10000), size: PanelPlacement.defaultSize)
+        let recovered = PanelPlacement.recoveredFrame(
+            offscreen, target: primary.visibleFrame, screens: NSScreen.screens.map(\.visibleFrame))
         panel.setFrame(offscreen, display: false)
         controller?.recoverFrame(of: panel)
         try check(!panel.isVisible, "Recovery showed the hidden panel")
+        try expectFrame(panel.frame, recovered, "hidden recovery")
         try check(
-            panel.frame.size == CGSize(width: 800, height: 640)
+            panel.frame.size
+                == PanelPlacement.fitted(PanelPlacement.defaultSize, to: primary.visibleFrame)
                 && PanelPlacement.isReachable(
                     panel.frame, on: NSScreen.screens.map(\.visibleFrame)),
             "Disconnected-frame recovery did not keep size and return to a connected display")
@@ -213,7 +236,8 @@ private struct FramePersistenceCheck {
         let panel = makePanel(
             CGRect(
                 x: primary.visibleFrame.minX, y: primary.visibleFrame.minY,
-                width: 800, height: 640))
+                width: PanelPlacement.defaultSize.width,
+                height: PanelPlacement.defaultSize.height))
         var controller: PanelFrameController? = PanelFrameController()
         controller?.restoreFrame(of: panel)
         try check(defaults.string(forKey: frameKey) == nil,
@@ -221,11 +245,13 @@ private struct FramePersistenceCheck {
 
         let topLeft = CGPoint(
             x: primary.visibleFrame.minX + 190, y: primary.visibleFrame.maxY - 125)
-        let config = legacyConfig(size: CGSize(width: 700, height: 410), topLeft: topLeft)
+        let config = legacyConfig(size: CGSize(width: 700, height: 640), topLeft: topLeft)
         try writeRawConfig(config)
         controller?.restoreFrame(of: panel)
+        let repairedHeight = min(PanelPlacement.minimumSize.height, primary.visibleFrame.height)
         let repaired = CGRect(
-            x: topLeft.x.rounded(), y: (topLeft.y - 410).rounded(), width: 700, height: 410)
+            x: topLeft.x.rounded(), y: (topLeft.y - repairedHeight).rounded(),
+            width: 700, height: repairedHeight)
         try expectFrame(panel.frame, repaired, "repaired legacy retry")
         try expectSavedFrame(repaired, defaults: defaults, label: "repaired legacy retry")
         try expectConfigUnchanged(Data(config.utf8))
@@ -237,14 +263,15 @@ private struct FramePersistenceCheck {
         let resetPanel = makePanel(
             CGRect(
                 x: primary.visibleFrame.minX, y: primary.visibleFrame.minY,
-                width: 800, height: 640))
+                width: PanelPlacement.defaultSize.width,
+                height: PanelPlacement.defaultSize.height))
         var resetController: PanelFrameController? = PanelFrameController()
         resetController?.restoreFrame(of: resetPanel)
         try check(defaults.string(forKey: frameKey) == nil,
                   "Malformed legacy config unexpectedly created a saved frame before reset")
 
         let reset = PanelPlacement.resetFrame(on: primary.visibleFrame)
-        resetController?.resetPosition(of: resetPanel)
+        resetController?.resetView(of: resetPanel)
         try check(!resetPanel.isVisible, "Reset during migration delay showed the panel")
         try expectFrame(resetPanel.frame, reset, "reset overrides malformed legacy config")
         try expectSavedFrame(reset, defaults: defaults, label: "reset during migration delay")

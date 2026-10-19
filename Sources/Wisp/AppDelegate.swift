@@ -136,7 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .decreaseFontScale: model.stepFontScale(by: -1)
         case .resetFontScale: model.resetFontScale()
         case .reveal: NSWorkspace.shared.activateFileViewerSelecting([model.scratchpadURL])
-        case .resetPosition: panelController?.resetPosition()
+        case .resetView: panelController?.resetView()
         }
     }
 
