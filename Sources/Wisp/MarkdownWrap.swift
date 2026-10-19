@@ -23,8 +23,8 @@ enum MarkdownWrap {
         static let code = Markers("`")
     }
 
-    /// With no selection, inserts the pair around the caret; a wrapped selection is unwrapped, and
-    /// any other is wrapped.
+    /// With no selection, inserts the pair around the caret. Unwraps markers inside or immediately
+    /// outside a selection; any other selection is wrapped.
     static func toggle(in textView: NSTextView, markers: Markers) {
         let nsString = textView.string as NSString
         let selectedRange = textView.selectedRange()
@@ -54,6 +54,21 @@ enum MarkdownWrap {
                 location: selectedRange.location,
                 length: (inner as NSString).length
             ))
+            return
+        }
+
+        if selectedRange.location >= openLen,
+           NSMaxRange(selectedRange) + closeLen <= nsString.length,
+           nsString.substring(with: NSRange(
+               location: selectedRange.location - openLen, length: openLen)) == markers.open,
+           nsString.substring(with: NSRange(
+               location: NSMaxRange(selectedRange), length: closeLen)) == markers.close {
+            let outerRange = NSRange(
+                location: selectedRange.location - openLen,
+                length: selectedRange.length + openLen + closeLen)
+            guard textView.replaceText(in: outerRange, with: selectedText) else { return }
+            textView.setSelectedRange(NSRange(
+                location: outerRange.location, length: selectedRange.length))
             return
         }
 
