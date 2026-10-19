@@ -27,7 +27,7 @@ Wisp began as a fork of [sulemaanhamza/wisp](https://github.com/sulemaanhamza/wi
 
 ## Install
 
-Wisp needs macOS 13 or later and the Command Line Tools. It doesn't need Xcode.
+Wisp needs macOS 15 or later and the Command Line Tools. It doesn't need Xcode.
 
 ```sh
 ./scripts/install.sh

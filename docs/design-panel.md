@@ -9,3 +9,5 @@ The panel stays where it was left. Use the primary display for initial placement
 Import Wisp's former JSON `panel` and `position` only when no current saved frame exists. Wisp's old size was already in points, unlike Clef's old screen shares. Retain the old file without rewriting it. Delay migration and persistence while the file is unreadable so a transient error cannot permanently replace a user's placement. An explicit Reset View supersedes migration.
 
 The implementations remain local to each repository so both build from a fresh clone. `MovablePanel` shares the drag algorithm; placement and migration can differ where the applications' needs differ.
+
+SwiftUI owns pointing-hand cursors through `pointerStyle(.link)`, including clipping and cursor restoration when controls disappear or are disabled. AppKit owns window-edge resizing and text cursors. The drawn checklist boxes retain their small text-view cursor override so a clickable box has an arrow while the surrounding text has an I-beam. Native pointer styles require macOS 15, matching Clef.

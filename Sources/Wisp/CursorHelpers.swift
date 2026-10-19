@@ -1,20 +1,16 @@
 import SwiftUI
-import AppKit
 
 extension View {
-    /// The pointing hand while hovered, set on every move since NSTextView reasserts its I-beam.
+    /// SwiftUI owns cursor transitions, clipping, and restoration when the control disappears.
     func pointerCursor() -> some View {
-        self
-            .onContinuousHover { phase in
-                if case .active = phase {
-                    NSCursor.pointingHand.set()
-                }
-            }
-            .onHover { hovering in
-                if !hovering {
-                    NSCursor.arrow.set()
-                }
-            }
+        modifier(PointerCursor())
     }
+}
 
+private struct PointerCursor: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func body(content: Content) -> some View {
+        content.pointerStyle(isEnabled ? .link : nil)
+    }
 }

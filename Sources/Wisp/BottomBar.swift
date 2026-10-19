@@ -172,10 +172,9 @@ struct HoverTextButton<Label: View>: View {
             }
         }
         // Clicking reset disables it under the pointer, where no hover exit arrives.
-        .onChange(of: isEnabled) { enabled in
+        .onChange(of: isEnabled) { _, enabled in
             guard !enabled, isHovered else { return }
             isHovered = false
-            NSCursor.arrow.set()
         }
     }
 }

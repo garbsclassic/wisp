@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Wisp",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v15)],
     targets: [
         // Logic the app is built out of — text parsing, config, theme
         // tokens, frame validation. No views and no controllers, so it

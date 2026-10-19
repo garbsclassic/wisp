@@ -29,7 +29,7 @@ if [[ -z "$TEST_SDK" || ! -d "$TEST_SDK" ]]; then
     exit 1
 fi
 
-TEST_TARGET="$(uname -m)-apple-macosx13.0"
+TEST_TARGET="$(uname -m)-apple-macosx15.0"
 TEST_APP="$TEST_ROOT/FramePersistenceCheck.app"
 TEST_BINARY="$TEST_APP/Contents/MacOS/FramePersistenceCheck"
 mkdir -p "$TEST_APP/Contents/MacOS" "$XDG_CONFIG_HOME"
