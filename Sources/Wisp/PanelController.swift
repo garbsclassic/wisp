@@ -2,9 +2,6 @@ import AppKit
 import SwiftUI
 import WispCore
 
-private let panelSize = CGSize(width: 800, height: 640)
-/// Smaller than this on either side is a corrupted value, not a choice.
-private let minimumSide: CGFloat = 200
 /// A standard window's radius since Big Sur. AppKit exposes none, and a borderless panel draws no
 /// corners of its own.
 let panelCornerRadius: CGFloat = 10
@@ -16,7 +13,8 @@ final class PanelController {
     private let settings: Settings
     private let visualEffect: NSVisualEffectView
     private let tint: NSView
-    private let positioner: PanelPositioner
+    private let frameController = PanelFrameController()
+    private var screenObserver: (any NSObjectProtocol)?
 
     /// Changed only through `send`, and by `handleHide` after the fact.
     private(set) var state: SummonState = .hidden
@@ -30,11 +28,7 @@ final class PanelController {
     init(model: EditorModel, settings: Settings) {
         self.model = model
         self.settings = settings
-        positioner = PanelPositioner(
-            monitor: { settings.config.monitor },
-            saved: { settings.config.position },
-            save: { settings.setPosition($0) })
-        let contentRect = NSRect(origin: .zero, size: panelSize)
+        let contentRect = NSRect(origin: .zero, size: PanelPlacement.defaultSize)
         panel = FloatingPanel(
             contentRect: contentRect,
             styleMask: [.borderless, .nonactivatingPanel, .resizable],
@@ -48,8 +42,9 @@ final class PanelController {
         panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
+        panel.minSize = PanelPlacement.minimumSize
 
-        let outer = NSView(frame: NSRect(origin: .zero, size: panelSize))
+        let outer = NSView(frame: NSRect(origin: .zero, size: PanelPlacement.defaultSize))
         outer.wantsLayer = true
 
         // cornerRadius and masksToBounds follow a resize, where a fixed mask layer wouldn't.
@@ -74,6 +69,8 @@ final class PanelController {
         tint.translatesAutoresizingMaskIntoConstraints = false
 
         let host = NSHostingView(rootView: EditorView(model: model))
+        // The panel owns geometry; SwiftUI must not install content-size constraints.
+        host.sizingOptions = []
         host.translatesAutoresizingMaskIntoConstraints = false
 
         inner.addSubview(visualEffect)
@@ -87,7 +84,16 @@ final class PanelController {
 
         panel.contentView = outer
 
-        positioner.place(panel, size: { [rememberedSize] _ in rememberedSize })
+        frameController.restoreFrame(of: panel)
+
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.frameController.recoverFrame(of: self.panel)
+            }
+        }
 
         applyTheme(model.theme)
         model.onThemeChange = { [weak self] theme in
@@ -106,6 +112,10 @@ final class PanelController {
         panel.onHide = { [weak self] in
             self?.handleHide()
         }
+    }
+
+    isolated deinit {
+        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
     }
 
     /// On screen and key: an app-modal picker leaves the panel showing but not taking input.
@@ -140,14 +150,13 @@ final class PanelController {
         cancelHoldTimer()
         cancelModifierWatch()
         state = .hidden
-        saveFrame()
         // orderOut leaves SwiftUI mounted, and overlays' key monitors with it.
         model.dismissAllOverlays()
     }
 
-    /// Moves the panel back to its default spot and forgets the saved one.
+    /// Restores the default size and location, including while hidden.
     func resetPosition() {
-        positioner.reset(panel, size: { [rememberedSize] _ in rememberedSize })
+        frameController.resetPosition(of: panel)
     }
 
     // MARK: Summon
@@ -193,8 +202,7 @@ final class PanelController {
     /// Without taking focus. A no-op when up, so re-summoning a peek doesn't move it.
     private func show() {
         guard !panel.isVisible else { return }
-        // Every summon, since `monitor: pointer` follows the screen in use now.
-        positioner.place(panel, size: { [rememberedSize] _ in rememberedSize })
+        frameController.recoverFrame(of: panel)
         applyTheme(model.theme)
         // Picks up a synced change: one stat, and a read only if it changed.
         model.reloadFromDiskIfChanged()
@@ -266,29 +274,5 @@ final class PanelController {
             view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
         ]
-    }
-
-    // MARK: Placement
-
-    /// The size the panel was last left at, or the default one.
-    private var rememberedSize: CGSize {
-        guard let saved = settings.config.panel,
-            saved.width >= minimumSide, saved.height >= minimumSide
-        else { return panelSize }
-        return CGSize(width: saved.width, height: saved.height)
-    }
-
-    /// For quitting, which skips the hide.
-    func savePanelFrameIfVisible() {
-        guard panel.isVisible else { return }
-        saveFrame()
-    }
-
-    /// On hide rather than on every move or resize: the next summon is the only reader.
-    private func saveFrame() {
-        positioner.saveIfMoved(panel)
-        let size = panel.frame.size
-        guard size.width >= minimumSide, size.height >= minimumSide else { return }
-        settings.setPanel(PanelFrame(width: Double(size.width), height: Double(size.height)))
     }
 }

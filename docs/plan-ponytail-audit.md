@@ -48,10 +48,6 @@ Acceptance: Return after `Int.max` or a longer numeric marker must not crash or 
 
 Acceptance: counts and Next/Previous navigation must match the current document after an edit or reload. Changing only `fonts.notes` or `fonts.code` must update the existing note without another edit, zoom change, or relaunch.
 
-### 5. Small deletions — finding 12
-
-- [ ] Recheck references, then delete unused `PanelPositioner.resize` and `View.arrowCursor` from [PanelPositioner](../Sources/Wisp/PanelPositioner.swift) and [CursorHelpers](../Sources/Wisp/CursorHelpers.swift).
-
 ## Verification and delivery
 
 - [ ] Delegate substantial regression-test work to `tester` with bounded test-file ownership. Keep tests alongside each behavior change rather than postponing them to the end.

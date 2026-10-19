@@ -24,7 +24,6 @@ struct ConfigDecodingTests {
         #expect(config.theme == .dark)
         #expect(config.fontScale == 1.25)
         #expect(config.fonts == FontSet())
-        #expect(config.monitor == .primary)
     }
 
     @Test("Nested keys default independently")
@@ -34,12 +33,14 @@ struct ConfigDecodingTests {
         #expect(config.fonts.notes == FontSet().notes)
     }
 
-    @Test("A sizeless panel object is reported, not silently defaulted")
-    func panelFrameWithoutSize() throws {
+    @Test("Retired geometry keys are ignored without diagnostics")
+    func retiredGeometry() throws {
         let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "panel": { "width": 800 } }"#, diagnostics: diagnostics)
-        #expect(config.panel == nil)
-        #expect(diagnostics.malformedKeys == ["panel"])
+        let config = try decode(
+            #"{ "monitor": "pointer", "panel": { "width": 800 }, "position": null }"#,
+            diagnostics: diagnostics)
+        #expect(config == WispConfig())
+        #expect(diagnostics.malformedKeys.isEmpty)
     }
 }
 
@@ -64,9 +65,9 @@ struct ConfigDiagnosticsTests {
     @Test("An unknown enum value is malformed, not fatal")
     func unknownEnumCase() throws {
         let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "monitor": "projector" }"#, diagnostics: diagnostics)
-        #expect(config.monitor == .primary)
-        #expect(diagnostics.malformedKeys == ["monitor"])
+        let config = try decode(#"{ "theme": "midnight" }"#, diagnostics: diagnostics)
+        #expect(config.theme == .system)
+        #expect(diagnostics.malformedKeys == ["theme"])
     }
 
     @Test("A missing key is quiet — only a wrong shape is worth reporting")
@@ -212,24 +213,6 @@ struct DefaultFontScaleTests {
         #expect(WispConfig().defaultFontScale == 1.0)
         #expect(WispConfig(defaultFontScale: 9).clampedDefaultFontScale
             == Metrics.fontScaleRange.upperBound)
-    }
-}
-
-@Suite("Position")
-struct PositionConfigTests {
-    private func decode(_ json: String, diagnostics: ConfigDiagnostics? = nil) throws -> WispConfig {
-        let decoder = JSONDecoder()
-        decoder.allowsJSON5 = true
-        if let diagnostics { decoder.userInfo[.configDiagnostics] = diagnostics }
-        return try decoder.decode(WispConfig.self, from: Data(json.utf8))
-    }
-
-    @Test("An explicit null means nil without a diagnostic")
-    func explicitNull() throws {
-        let diagnostics = ConfigDiagnostics()
-        let config = try decode(#"{ "position": null }"#, diagnostics: diagnostics)
-        #expect(config.position == nil)
-        #expect(diagnostics.malformedKeys.isEmpty)
     }
 }
 

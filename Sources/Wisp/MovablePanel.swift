@@ -1,6 +1,6 @@
 import AppKit
 
-// Kept identical in Wisp and Clef; a change here belongs in both.
+// Drag handling is shared with Clef; frame persistence belongs to the controller.
 
 /// A borderless panel dragged from anywhere that isn't text, or only inside `dragArea`. Run from
 /// `sendEvent`, since a SwiftUI hosting view never allows `isMovableByWindowBackground`: a press
@@ -16,12 +16,6 @@ class MovablePanel: NSPanel {
 
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
     private var isDragging = false
-
-    /// Takes the frame it's given: `PanelPlacement` already refuses an unreachable position, and
-    /// AppKit would nudge a panel left partly off screen.
-    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
-        frameRect
-    }
 
     override func sendEvent(_ event: NSEvent) {
         switch event.type {

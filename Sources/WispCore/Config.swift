@@ -50,14 +50,6 @@ extension KeyedDecodingContainer {
     }
 }
 
-/// Which screen the panel opens on. Same key and values as Clef's.
-public enum MonitorTarget: String, Codable, CaseIterable, Sendable {
-    /// The menu bar's screen; a saved position is used wherever it is.
-    case primary
-    /// The pointer's screen, with a saved position carried to the same relative spot.
-    case pointer
-}
-
 /// Family names, where nil is the system face. A missing family falls back in `Typography`.
 public struct FontSet: Codable, Equatable, Sendable {
     /// The notes body.
@@ -202,18 +194,7 @@ public struct Background: Codable, Equatable, Sendable {
     }
 }
 
-/// The panel's remembered size. Position is separate, since Clef shares that key and not this one.
-public struct PanelFrame: Codable, Equatable, Sendable {
-    public var width: Double
-    public var height: Double
-
-    public init(width: Double, height: Double) {
-        self.width = width
-        self.height = height
-    }
-}
-
-/// Everything Wisp persists; there is deliberately no UserDefaults beside it.
+/// User settings; window geometry is local runtime state in macOS preferences.
 public struct WispConfig: Codable, Equatable, Sendable {
     public var theme: ThemeSetting
     public var fonts: FontSet
@@ -222,9 +203,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
     /// What ⌘0 returns `fontScale` to, so reset means your normal size.
     public var defaultFontScale: Double
     public var background: Background
-    public var monitor: MonitorTarget
-    /// Where the panel was last dragged; nil opens it at the default spot.
-    public var position: PanelPosition?
     /// Milliseconds the chord must be held to peek rather than pin; `0` always peeks. As in Clef.
     public var peekHold: Int
     /// Flashes a dot on each save, which is otherwise silent.
@@ -241,8 +219,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
     public var spellcheck: Bool
     /// Clicking the footer's label flips it; persisted.
     public var footerStatus: FooterStatus
-    /// Absent until the panel has been shown and hidden once.
-    public var panel: PanelFrame?
 
     public init(
         theme: ThemeSetting = .system,
@@ -250,8 +226,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
         fontScale: Double = 1.0,
         defaultFontScale: Double = 1.0,
         background: Background = Background(),
-        monitor: MonitorTarget = .primary,
-        position: PanelPosition? = nil,
         peekHold: Int = 250,
         saveIndicator: Bool = true,
         smartPaste: Bool = true,
@@ -261,16 +235,13 @@ public struct WispConfig: Codable, Equatable, Sendable {
         caret: Caret = Caret(),
         rule: RuleStyle = .line,
         spellcheck: Bool = false,
-        footerStatus: FooterStatus = .position,
-        panel: PanelFrame? = nil
+        footerStatus: FooterStatus = .position
     ) {
         self.theme = theme
         self.fonts = fonts
         self.fontScale = fontScale
         self.defaultFontScale = defaultFontScale
         self.background = background
-        self.monitor = monitor
-        self.position = position
         self.peekHold = peekHold
         self.saveIndicator = saveIndicator
         self.smartPaste = smartPaste
@@ -281,7 +252,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
         self.rule = rule
         self.spellcheck = spellcheck
         self.footerStatus = footerStatus
-        self.panel = panel
     }
 
     public init(from decoder: any Decoder) throws {
@@ -300,10 +270,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
             diagnostics: diagnostics)
         background = container.lenientValue(
             forKey: .background, default: defaults.background, diagnostics: diagnostics)
-        monitor = container.lenientValue(
-            forKey: .monitor, default: defaults.monitor, diagnostics: diagnostics)
-        position = container.lenientValue(
-            forKey: .position, default: defaults.position, diagnostics: diagnostics)
         peekHold = container.lenientValue(
             forKey: .peekHold, default: defaults.peekHold, diagnostics: diagnostics)
         saveIndicator = container.lenientValue(
@@ -324,9 +290,6 @@ public struct WispConfig: Codable, Equatable, Sendable {
             forKey: .spellcheck, default: defaults.spellcheck, diagnostics: diagnostics)
         footerStatus = container.lenientValue(
             forKey: .footerStatus, default: defaults.footerStatus, diagnostics: diagnostics)
-        // `T` is `PanelFrame?`, so missing and null both mean no frame.
-        panel = container.lenientValue(
-            forKey: .panel, default: defaults.panel, diagnostics: diagnostics)
     }
 
     public var peekHoldSeconds: TimeInterval { max(0, Double(peekHold) / 1000) }

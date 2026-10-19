@@ -75,22 +75,6 @@
         }
       }
     },
-    "monitor": {
-      "description": "primary opens on the menu bar's screen, or wherever a saved position is; pointer on whichever display the cursor is on, with a saved position carried to the same relative spot there.",
-      "type": "string",
-      "enum": ["primary", "pointer"],
-      "default": "primary"
-    },
-    "position": {
-      "description": "Where the panel was last dragged to: its top-left corner in screen points, y growing upward. Written when the panel hides. Omit or null — which Reset Position writes — for the default spot, centred with its top edge 5% down the screen.",
-      "type": ["object", "null"],
-      "properties": {
-        "x": { "type": "number" },
-        "y": { "type": "number" }
-      },
-      "required": ["x", "y"],
-      "additionalProperties": false
-    },
     "peekHold": {
       "description": "Milliseconds the summon chord must be held before the panel peeks — closing when the chord is let go — instead of pinning. 0 always peeks.",
       "type": "integer",
@@ -197,16 +181,6 @@
       "type": "string",
       "enum": ["position", "modified"],
       "default": "position"
-    },
-    "panel": {
-      "description": "The remembered panel size in screen points, written when the panel hides.",
-      "type": ["object", "null"],
-      "properties": {
-        "width": { "type": "number" },
-        "height": { "type": "number" }
-      },
-      "required": ["width", "height"],
-      "additionalProperties": false
     }
   }
 }

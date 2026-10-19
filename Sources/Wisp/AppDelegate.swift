@@ -143,7 +143,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         do {
             try model.flushSave()
-            panelController?.savePanelFrameIfVisible()
             return .terminateNow
         } catch {
             panelController?.openIfNeeded()

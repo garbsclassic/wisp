@@ -372,8 +372,7 @@ final class ConfigStoreTests {
     /// `$schema` is an editor hint, so loading must not report it as malformed.
     @Test("write emits $schema first, and loadOrSeed round-trips through it")
     func schemaKeyRoundTrips() throws {
-        var config = WispConfig()
-        config.panel = PanelFrame(width: 800, height: 640)
+        let config = WispConfig()
         try ConfigStore.write(config)
 
         let text = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
@@ -387,22 +386,14 @@ final class ConfigStoreTests {
         #expect(load.config == config)
     }
 
-    /// A full rewrite on the first drag would drop any comment added since.
-    @Test("A written config carries position: null, and the first save edits it in place")
-    func firstPositionSaveIsInPlace() throws {
-        var config = WispConfig()
-        try ConfigStore.write(config)
-        let written = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
-        #expect(written.contains(#""position" : null"#))
-
-        try ("// kept\n" + written).write(
-            to: ConfigStore.fileURL, atomically: true, encoding: .utf8)
-        config.position = PanelPosition(x: 12, y: 34)
-        try ConfigStore.update(["position"], to: config.position, in: config)
-
-        let after = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
-        #expect(after.hasPrefix("// kept"))
-        #expect(ConfigStore.loadOrSeed().config.position == PanelPosition(x: 12, y: 34))
+    @Test("Written config excludes local window geometry")
+    func geometryIsNotWritten() throws {
+        try ConfigStore.write(WispConfig())
+        let data = try Data(contentsOf: ConfigStore.fileURL)
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["panel"] == nil)
+        #expect(object["position"] == nil)
+        #expect(object["monitor"] == nil)
     }
 
     /// The directory is watched for live reload, so a needless rewrite reads as an edit.
@@ -470,8 +461,8 @@ struct SchemaSyncTests {
     func topLevelKeysMatchSchema() throws {
         let written = try Self.encodedKeys(of: WispConfig())
         let schemaKeys = try Self.schemaProperties(at: [])
-        // Nil omits "panel" and "position", and "$schema" comes from `SchemaTagged`.
-        #expect(schemaKeys == written.union(["panel", "position", "$schema"]))
+        // "$schema" comes from `SchemaTagged`.
+        #expect(schemaKeys == written.union(["$schema"]))
     }
 
     @Test("keymap's schema keys match KeymapAction's cases")

@@ -52,7 +52,7 @@ Press ⌘/ or F1, or click `?` in the footer, for the full shortcut list inside 
 - Tap ⌃⌥. to pin the panel open. Tap it again to close it.
 - Hold ⌃⌥. to peek. The panel opens without taking focus and closes when you let go. `peekHold` sets how long a press must last to count as a hold.
 - Press Esc to close the panel. Esc only acts while the panel has focus, so a panel left open behind another app stays put. If the find bar, the help page, or a folder picker is open, Esc closes that first.
-- Drag the panel by any part that isn't text. It opens in the same place next time. **Reset Position** (⌥⌘0) moves it back to the default spot.
+- Drag the panel by any part that isn't text. It opens in the same place next time. **Reset Position** (⌥⌘0) restores its default size and spot on the primary display.
 - Left-click the menu bar icon to pin the panel. Right-click it, or Control-click, for the menu.
 
 To change the ⌃⌥. chord, choose **Set Shortcut…** in the menu bar menu, or edit `keymap.summon` in the config.
@@ -135,8 +135,6 @@ The file's `$schema` key points at `wisp.schema.json` in the same folder. Wisp c
 | `defaultFontScale`   | `1.0`                | The value ⌘0 resets `fontScale` to                                                                                                                    |
 | `background.blur`    | `true`               | Blurs whatever is behind the panel                                                                                                                    |
 | `background.opacity` | _(theme's own)_      | The panel tint's opacity, 0–1. `1` makes the panel solid                                                                                              |
-| `monitor`            | `"primary"`          | `pointer` opens the panel on the display under the cursor, and moves a saved position to the same relative spot there                                 |
-| `position`           | _(written on drag)_  | The panel's top-left `x` and `y` in screen points, saved when a dragged panel closes. `null` is the default spot: centered, with the top edge 5% down |
 | `peekHold`           | `250`                | Milliseconds to hold the summon chord before the panel peeks instead of pinning. `0` always peeks                                                     |
 | `saveIndicator`      | `true`               | Flashes a dot in the top corner each time Wisp saves the note                                                                                         |
 | `smartPaste`         | `true`               | Converts a pasted grid to a table and pasted short lines to a list, when you paste onto a blank line                                                  |
@@ -149,7 +147,6 @@ The file's `$schema` key points at `wisp.schema.json` in the same folder. Wisp c
 | `spellcheck`         | `false`              | Checks spelling as you type. F6, ⌘;, and the footer's `Abc` button toggle it                                                                          |
 | `footerStatus`       | `"position"`         | What the footer's label shows: `position` for line, column, and word count, `modified` for when the note was saved                                    |
 | `keymap.*`           | _(see below)_        | Every shortcut                                                                                                                                        |
-| `panel`              | _(written on close)_ | The panel's last `width` and `height`                                                                                                                 |
 
 Wisp bundles no fonts. It looks up a named family by name, and if the family isn't installed, it uses the system font and says so in the footer.
 
@@ -194,6 +191,14 @@ Wisp drops a chord it can't parse. If that leaves an action with no working chor
 | `decreaseFontScale`  | `cmd+-`            |
 | `resetFontScale`     | `cmd+0`            |
 
+### Window placement
+
+Window geometry is local runtime state in macOS preferences, separate from `wisp.jsonc`. Wisp saves one rectangle as the panel moves and resizes. It stays on its display across summons and relaunches, without following the pointer. An unreachable frame is recovered onto a connected display at startup, on show, or when displays change.
+
+The initial size is 800×640 points, centred on the primary display with its top edge 5% down the usable screen. Reset Position restores that size and location, fitted to the display. Resizing has a 200×200-point minimum.
+
+On the first launch without a saved frame, Wisp imports the former `panel` size (in points) and top-left `position` from the config. Those keys are retained for recovery but are no longer written or used after migration; `monitor` is ignored. Remove these retired keys from your managed config after the frame has been imported. If the config is temporarily unreadable, migration waits until it can be read; an explicit Reset Position chooses the default frame instead.
+
 ## Build from source
 
 ```sh
@@ -210,6 +215,8 @@ To run the tests:
 ```
 
 Plain `swift test` fails with `no such module 'Testing'`. Swift Testing ships inside the Command Line Tools but isn't on the default search path, so `test.sh` points the compiler, the linker, and dyld at it.
+
+Run `./scripts/test-appkit.sh` for the isolated frame migration and separate-process persistence checks. It requires a logged-in GUI session with a display arranged above the primary display.
 
 To run Wisp without building a bundle, use `swift run`. Launch at Login and the bundled config schema need the bundle, so they don't work this way. `swift run` uses the default SDK, so if that SDK is `MacOSX27.0.sdk` or later, set `SDKROOT` to an older one first.
 

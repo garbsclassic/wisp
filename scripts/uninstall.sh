@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Removes Wisp. Keeps your config unless --purge is passed.
+# Removes Wisp. Keeps config and window preferences unless --purge is passed.
 set -euo pipefail
 
 APP_NAME="Wisp"
@@ -12,7 +12,8 @@ for arg in "$@"; do
     case "$arg" in
     --purge) PURGE=1 ;;
     *)
-        echo "usage: uninstall.sh [--purge]   (--purge also removes $CONFIG_DIR)" >&2
+        echo "usage: uninstall.sh [--purge]" \
+            "(--purge also removes $CONFIG_DIR and window preferences)" >&2
         exit 2
         ;;
     esac
@@ -40,10 +41,11 @@ else
 fi
 
 if [[ "$PURGE" == "1" ]]; then
+    defaults delete dev.garbs.wisp >/dev/null 2>&1 || true
     if [[ -d "$CONFIG_DIR" ]]; then
         rm -rf "$CONFIG_DIR"
         echo "Removed $CONFIG_DIR"
     fi
 else
-    echo "Kept $CONFIG_DIR (pass --purge to remove it)"
+    echo "Kept $CONFIG_DIR and window preferences (pass --purge to remove them)"
 fi

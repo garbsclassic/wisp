@@ -109,20 +109,6 @@ final class Settings: ObservableObject {
         return write(["scratchpadFolder"], path, next: next)
     }
 
-    @discardableResult
-    func setPanel(_ panel: PanelFrame) -> Bool {
-        var next = config
-        next.panel = panel
-        return write(["panel"], panel, next: next)
-    }
-
-    @discardableResult
-    func setPosition(_ position: PanelPosition?) -> Bool {
-        var next = config
-        next.position = position
-        return write(["position"], position, next: next)
-    }
-
     /// Prepare a folder change before publishing any new settings.
     @discardableResult
     func reload(prepare: (WispConfig) throws -> Void = { _ in }) -> Bool {

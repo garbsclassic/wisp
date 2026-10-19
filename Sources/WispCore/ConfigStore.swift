@@ -96,14 +96,11 @@ public enum ConfigStore {
 
         private enum Keys: String, CodingKey {
             case schema = "$schema"
-            case position
         }
 
         func encode(to encoder: any Encoder) throws {
             var container = encoder.container(keyedBy: Keys.self)
             try container.encode(schemaReference, forKey: .schema)
-            // A `null` position makes the first save an in-place edit, not a full rewrite.
-            if config.position == nil { try container.encodeNil(forKey: .position) }
             try config.encode(to: encoder)
         }
     }
