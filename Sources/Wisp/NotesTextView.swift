@@ -14,7 +14,15 @@ final class NotesTextView: NSTextView {
 
     /// Cached per edit: AppKit asks once per misspelled word, and classifying the note each time
     /// took seconds on a long note.
-    private var codeRanges: [NSRange]?
+    private var analysis: DocumentAnalysis?
+    struct CharacterEdit {
+        let range: NSRange
+        let delta: Int
+    }
+    var styledAnalysis: DocumentAnalysis?
+    var pendingCharacterEdit: CharacterEdit?
+    var hasMultipleCharacterEdits = false
+    var findHighlightRange: NSRange?
     private var storageObserver: (any NSObjectProtocol)?
 
     /// How the caret moves and blinks. Applied on the next reposition.
@@ -62,13 +70,33 @@ final class NotesTextView: NSTextView {
             forName: NSTextStorage.didProcessEditingNotification, object: storage, queue: nil
         ) { [weak textView] note in
             guard let edited = note.object as? NSTextStorage,
-                  edited.editedMask.contains(.editedCharacters) else { return }
-            MainActor.assumeIsolated { textView?.codeRanges = nil }
+                edited.editedMask.contains(.editedCharacters)
+            else { return }
+            let length = edited.length
+            let range = edited.editedRange
+            let delta = edited.changeInLength
+            MainActor.assumeIsolated {
+                textView?.analysis = nil
+                if textView?.pendingCharacterEdit != nil {
+                    textView?.hasMultipleCharacterEdits = true
+                }
+                textView?.pendingCharacterEdit = CharacterEdit(range: range, delta: delta)
+                if textView?.findHighlightRange != nil {
+                    textView?.layoutManager?.removeTemporaryAttribute(
+                        .backgroundColor, forCharacterRange: NSRange(location: 0, length: length))
+                    textView?.findHighlightRange = nil
+                }
+            }
         }
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
         return (scrollView, textView)
+    }
+
+    isolated deinit {
+        if let storageObserver { NotificationCenter.default.removeObserver(storageObserver) }
+        for observer in keyWindowObservers { NotificationCenter.default.removeObserver(observer) }
     }
 
     // MARK: Caret
@@ -311,7 +339,8 @@ final class NotesTextView: NSTextView {
             undoManager?.isUndoing != true, undoManager?.isRedoing != true,
             let textStorage
         else { return false }
-        let edits = SmartEditing.renumber(in: string as NSString, blocks: blocks)
+        let edits = SmartEditing.renumber(
+            in: string as NSString, blocks: blocks ?? documentAnalysis().blocks)
         guard !edits.isEmpty,
             shouldChangeText(
                 inRanges: edits.map { NSValue(range: $0.range) },
@@ -341,12 +370,14 @@ final class NotesTextView: NSTextView {
         let selection = selectedRange()
         let text = string as NSString
         if selection.length == 0,
-            let edit = SmartEditing.backspaceAtItemStart(in: text, cursor: selection.location) {
+            let edit = SmartEditing.backspaceAtItemStart(in: text, cursor: selection.location)
+        {
             apply(edit)
             return
         }
         if let edit = LineEdits.backspaceInIndent(
-            in: text, selection: selection, unit: indentUnit) {
+            in: text, selection: selection, unit: indentUnit)
+        {
             apply(edit)
             return
         }
@@ -419,13 +450,16 @@ final class NotesTextView: NSTextView {
         let text = string as NSString
         let selection = selectedRange()
         if let edit = LineEdits.outdentAtCursor(
-            in: text, selection: selection, unit: indentUnit) {
+            in: text, selection: selection, unit: indentUnit)
+        {
             apply(edit)
             return
         }
         let edit = LineEdits.outdent(in: text, selection: selection, unit: indentUnit)
         // A flush block rewrites to itself; skipping it keeps the no-op off the undo stack.
-        guard edit.replacement != text.substring(with: edit.range) else { return }
+        guard !edit.replacement.utf16.elementsEqual(text.substring(with: edit.range).utf16) else {
+            return
+        }
         apply(edit)
     }
 
@@ -478,16 +512,28 @@ final class NotesTextView: NSTextView {
         return SmartEditing.listItem(lineRange: line, in: text) != nil
     }
 
+    /// Invalidated by the storage observer on character edits, never by attribute changes.
+    func documentAnalysis() -> DocumentAnalysis {
+        if let analysis { return analysis }
+        let revision = DocumentAnalysis(string)
+        analysis = revision
+        return revision
+    }
+
+    func adoptAnalysis(_ revision: DocumentAnalysis) {
+        assert(revision.matches(string))
+        analysis = revision
+    }
+
     /// Keeps spelling marks off code. Clearing passes straight through.
     override func setSpellingState(_ value: Int, range charRange: NSRange) {
         guard value != 0 else {
             super.setSpellingState(value, range: charRange)
             return
         }
-        let text = string as NSString
-        if codeRanges == nil { codeRanges = MarkdownBlocks(text).codeRanges(in: text) }
+        let codeRanges = documentAnalysis().codeRanges
         var remaining = [charRange]
-        for code in codeRanges ?? [] where NSIntersectionRange(code, charRange).length > 0 {
+        for code in codeRanges where NSIntersectionRange(code, charRange).length > 0 {
             remaining = remaining.flatMap { piece -> [NSRange] in
                 let cut = NSIntersectionRange(piece, code)
                 guard cut.length > 0 else { return [piece] }

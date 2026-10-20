@@ -10,7 +10,7 @@ extension NSAttributedString.Key {
 /// Draws rules, bullets, and checklist boxes over characters the styling pass paints clear, so
 /// the file stays plain Markdown and layout, selection, and offsets match the text.
 final class NotesLayoutManager: NSLayoutManager {
-    /// Refreshed on every theme change by `MinimalTextEditor.restyle`.
+    /// Refreshed on every theme change by `Editor.restyle`.
     var ruleColor: NSColor = .secondaryLabelColor
     /// Body colour, since a muted bullet reads as a disabled item.
     var bulletColor: NSColor = .textColor

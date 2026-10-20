@@ -150,6 +150,7 @@ final class PanelController {
         cancelHoldTimer()
         cancelModifierWatch()
         state = .hidden
+        model.isPanelVisible = false
         // orderOut leaves SwiftUI mounted, and overlays' key monitors with it.
         model.dismissAllOverlays()
     }
@@ -207,6 +208,7 @@ final class PanelController {
         // Picks up a synced change: one stat, and a read only if it changed.
         model.reloadFromDiskIfChanged()
         model.refreshPlaceholder()
+        model.isPanelVisible = true
         panel.orderFrontRegardless()
         // Re-render the blur and shadow, or the first show can have the wrong appearance.
         DispatchQueue.main.async { [weak self] in

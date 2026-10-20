@@ -12,7 +12,7 @@
 
 Two size controls fight each other today. `fontSize` (`small`/`medium`/`large` → 17/20/24pt) is cycled by ⌘1/⌘2/⌘3 and the footer's "Aa" button, and it moves the notes body only. `fontScale` is a continuous multiplier applied inside `Typography.scaled` that moves _everything_, body and chrome alike, and is reachable only by hand-editing `wisp.jsonc`. Two knobs, overlapping ranges, one of them invisible.
 
-`fontScale` also has a bug: changing it in the config updates the chrome immediately but leaves the notes body at its old size until the next keystroke. `MinimalTextEditor.updateNSView` re-applies the body font only when `fontSize` changed ([MinimalTextEditor.swift:88](Sources/Wisp/MinimalTextEditor.swift:88)), and a scale change doesn't touch `fontSize`. SwiftUI re-evaluates chrome bodies on `objectWillChange`, so `Typography.ui` re-resolves for free; the `NSTextStorage` holds resolved `NSFont` attributes and nothing invalidates them. It self-heals on typing because `textDidChange` restyles the whole storage. Merging the two features fixes the bug by construction — the value the editor compares becomes the value that actually changed.
+`fontScale` also has a bug: changing it in the config updates the chrome immediately but leaves the notes body at its old size until the next keystroke. `Editor.updateNSView` re-applies the body font only when `fontSize` changed ([Editor.swift:88](Sources/Wisp/Editor.swift:88)), and a scale change doesn't touch `fontSize`. SwiftUI re-evaluates chrome bodies on `objectWillChange`, so `Typography.ui` re-resolves for free; the `NSTextStorage` holds resolved `NSFont` attributes and nothing invalidates them. It self-heals on typing because `textDidChange` restyles the whole storage. Merging the two features fixes the bug by construction — the value the editor compares becomes the value that actually changed.
 
 The editing asks are separate but land in the same two files. ⌘C/⌘X on an empty selection has to intercept `copy:`/`cut:`, which means the notes view has to be an `NSTextView` subclass rather than whatever `NSTextView.scrollableTextView()` hands back — which also lets the `replaceLayoutManager` hack go away, since the layout manager can be built into the stack directly.
 
@@ -64,7 +64,7 @@ Assumption worth naming: ⌘D on a selection that spans lines duplicates the sel
 - [x] Add `defaultFontScale` to `WispConfig` (lenient decode, like every other key)
 - [x] `Settings.setFontScale(_:)`, which re-runs `Typography.configure` so chrome and body agree on the new scale in the same pass
 - [x] `EditorModel.fontScale` as a `@Published` mirroring the old `fontSize` property, plus `increaseFontScale` / `decreaseFontScale` / `resetFontScale`
-- [x] `MinimalTextEditor` takes `fontScale` where it took `fontSize`, and compares it in `updateNSView` — this is the bug fix
+- [x] `Editor` takes `fontScale` where it took `fontSize`, and compares it in `updateNSView` — this is the bug fix
 - [x] Footer: two glyph buttons (`textformat.size.smaller` / `.larger`) replacing the "Aa" cycle
 - [x] View menu: Increase ⌘=, Decrease ⌘-, Actual Size ⌘0, replacing the three fixed sizes
 - [x] `HelpOverlay` and the README config table follow

@@ -36,7 +36,7 @@ a caret that animates on every keystroke reads as input lag.
 
 - [x] `Caret` config struct: `motion`, `blink`; lenient decode; README row
 - [x] `NotesTextView`: suppress the stock caret, `CaretLayer` overlay, hook the update method
-- [x] Plumb `caret` through `MinimalTextEditor` like `indent`
+- [x] Plumb `caret` through `Editor` like `indent`
 - [x] Tests via `tester`: config decode, defaults, malformed key naming
 - [x] Visual verification: width and position against the stock caret, both themes, typing stays instant
 - [x] Progress line

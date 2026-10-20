@@ -214,7 +214,7 @@ Accent discipline: `#ec3013` lands on the cursor, the find match, and active sta
 ### 6. Fonts
 
 Delete `Sources/Wisp/FontFace.swift`. Point `makeFont` in
-[MinimalTextEditor.swift:270](Sources/Wisp/MinimalTextEditor.swift:270) at the configured
+[Editor.swift:270](Sources/Wisp/Editor.swift:270) at the configured
 `fonts.notes`, replacing the serif fallback chain with `NSFont.systemFont`.
 
 Add a `Typography` helper resolving `fonts.ui` with a system fallback, modeled on Clef's

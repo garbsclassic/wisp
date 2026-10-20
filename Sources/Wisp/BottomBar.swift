@@ -10,6 +10,7 @@ enum FooterReadout {
 
 struct FooterBar: View {
     let readout: FooterReadout
+    let isPanelVisible: Bool
     let onToggleReadout: () -> Void
     let fontScale: Double
     /// The percentage is a reset button only when ⌘0 would change something.
@@ -103,9 +104,12 @@ struct FooterBar: View {
                 .font(Typography.ui(Metrics.chromeSize, tabularDigits: true))
         case .modified(let date):
             if let date {
-                // Its own clock, so `just now` moves on without a keystroke.
-                TimelineView(.periodic(from: .now, by: 15)) { context in
-                    Text("last modified: \(RelativeTime.coarse(date, now: context.date))")
+                if isPanelVisible {
+                    TimelineView(.periodic(from: .now, by: 15)) { context in
+                        Text("last modified: \(RelativeTime.coarse(date, now: context.date))")
+                    }
+                } else {
+                    Text("last modified: \(RelativeTime.coarse(date, now: .now))")
                 }
             } else {
                 Text("not saved yet")

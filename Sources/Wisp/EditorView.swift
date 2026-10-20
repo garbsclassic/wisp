@@ -4,16 +4,35 @@ import WispCore
 
 @MainActor
 final class EditorModel: ObservableObject {
-    @Published var text: String = "" {
-        didSet {
-            headings = text.extractHeadings()
-            cachedWordCount = nil
-            if didLoad, showFind, !showHelp { recomputeMatches(resetIndex: false) }
-            guard didLoad, !isReloading, text != oldValue else { return }
-            scheduleSave()
+    @Published var isPanelVisible = false
+    @Published private(set) var document = DocumentAnalysis("")
+    var text: String {
+        get { document.text }
+        set {
+            guard !document.matches(newValue) else { return }
+            acceptEdit(DocumentAnalysis(newValue))
         }
     }
-    @Published var headings: [Heading] = []
+    var headings: [Heading] { document.headings }
+
+    /// The editor hands over its final post-renumber revision, including its derived structure.
+    func acceptEdit(_ revision: DocumentAnalysis) {
+        guard !document.matches(revision.text) else { return }
+        document = revision
+        cachedWordCount = nil
+        cachedPosition = nil
+        if didLoad, showFind, !showHelp { recomputeMatches(resetIndex: false) }
+        guard didLoad, !isReloading else { return }
+        scheduleSave()
+    }
+
+    private var cachedPosition: (offset: Int, value: CaretPosition)?
+    var caretPosition: CaretPosition {
+        if let cachedPosition, cachedPosition.offset == caretOffset { return cachedPosition.value }
+        let value = document.caretPosition(at: caretOffset)
+        cachedPosition = (caretOffset, value)
+        return value
+    }
     private var cachedWordCount: Int?
     /// The caret's UTF-16 offset, as the text view last reported it.
     @Published var caretOffset = 0
@@ -182,8 +201,10 @@ final class EditorModel: ObservableObject {
             guard self.settings.setScratchpadFolder(reset ? "" : folder.path) else {
                 throw NSError(
                     domain: "Wisp", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: self.settings.configWarning
-                        ?? "Couldn't update scratchpad folder"])
+                    userInfo: [
+                        NSLocalizedDescriptionKey: self.settings.configWarning
+                            ?? "Couldn't update scratchpad folder"
+                    ])
             }
         }
         scratchpadURL = StorageLocation.scratchpadURL(in: folder)
@@ -292,6 +313,10 @@ final class EditorModel: ObservableObject {
 
     func dismissFind() {
         showFind = false
+        findMatches = []
+        findIndex = 0
+        findMatchCount = 0
+        findCurrentDisplayIndex = 0
         clearFindHighlight()
         requestFocus()
     }
@@ -409,7 +434,11 @@ final class EditorModel: ObservableObject {
         saveTask = Task { [weak self] in
             do { try await Task.sleep(nanoseconds: 800_000_000) } catch { return }
             guard !Task.isCancelled, let self else { return }
-            do { try self.flushSave() } catch { /* The footer retains the error and dirty buffer. */ }
+            do {
+                try self.flushSave()
+            } catch {
+                // The footer retains the error and dirty buffer.
+            }
         }
     }
 
@@ -446,8 +475,9 @@ struct EditorView: View {
                     model.jumpTo(headings[index])
                 }
                 ZStack(alignment: .topLeading) {
-                    MinimalTextEditor(
-                        text: $model.text,
+                    Editor(
+                        document: model.document,
+                        onEdit: model.acceptEdit,
                         caretOffset: $model.caretOffset,
                         focusToken: model.focusToken,
                         scrollToken: model.scrollToken,
@@ -472,7 +502,7 @@ struct EditorView: View {
                     if model.text.isEmpty {
                         Text(model.placeholder)
                             // The body's face, which in source view is the code one.
-                            .font(Font(MinimalTextEditor.baseFont(isSourceView: model.isSourceView)))
+                            .font(Font(Editor.baseFont(isSourceView: model.isSourceView)))
                             .foregroundStyle(Color(palette.muted))
                             .allowsHitTesting(false)
                             .padding(.horizontal, Metrics.chromeInsetX)
@@ -480,12 +510,13 @@ struct EditorView: View {
                     }
                 }
                 FooterBar(
-                    // Only the shown readout is computed; both scan the whole note.
+                    // Only compute the readout currently on screen.
                     readout: model.footerStatus == .position
                         ? .position(
-                            CaretPosition(in: model.text, at: model.caretOffset),
+                            model.caretPosition,
                             words: model.wordCount)
                         : .modified(model.lastLoadedMTime),
+                    isPanelVisible: model.isPanelVisible,
                     onToggleReadout: { model.toggleFooterStatus() },
                     fontScale: model.fontScale,
                     isDefaultFontScale:

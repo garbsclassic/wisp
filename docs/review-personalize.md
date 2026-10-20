@@ -73,7 +73,7 @@ mutation-tested against the new assertions to confirm they would now be caught.
       dark, the same hue as the caret two lines above, so the one string that must read as failure
       read as a hint. Added a `danger` token rather than overloading `accent`.
 - [x] **The find highlight kept the outgoing theme's color.**
-      [MinimalTextEditor.swift:72](../Sources/Wisp/MinimalTextEditor.swift#L72) — it's a storage
+      [Editor.swift:72](../Sources/Wisp/Editor.swift#L72) — it's a storage
       attribute and `applyPalette` merges rather than replaces, so a mid-find theme flip left cyan
       on vermilion paper. Extracted `applyFindHighlight(to:scroll:)` and call it from both branches.
       The staleness predates the branch; opposed hues are what made it visible.

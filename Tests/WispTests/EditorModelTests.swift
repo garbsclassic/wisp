@@ -307,7 +307,7 @@ struct EditorModelTests {
 
     @Test("Font family changes alone make body styles unequal")
     func bodyStyleIncludesFontFamilies() {
-        let style = MinimalTextEditor.BodyStyle(
+        let style = Editor.BodyStyle(
             theme: .dark, fontScale: 1, fonts: FontSet(notes: "Helvetica", code: "Menlo"),
             indent: Indent(), isSourceView: false, rule: .line)
         var changedNotes = style

@@ -43,7 +43,7 @@ Acceptance: Return after `Int.max` or a longer numeric marker must not crash or 
 ### 4. Search and live fonts — findings 9, 10
 
 - [ ] Recompute search matches when the active document changes, including local edits, disk reloads, and changes to the help document. Preserve the current match index where possible and clear an invalid highlight.
-- [ ] Include font families in [MinimalTextEditor.BodyStyle](../Sources/Wisp/MinimalTextEditor.swift) and its [EditorView](../Sources/Wisp/EditorView.swift) caller so a config reload restyles existing text and typing attributes.
+- [ ] Include font families in [Editor.BodyStyle](../Sources/Wisp/Editor.swift) and its [EditorView](../Sources/Wisp/EditorView.swift) caller so a config reload restyles existing text and typing attributes.
 - [ ] Add model assertions for stale search results and focused checks for font-only style changes. Inspect the rendered behavior in both themes.
 
 Acceptance: counts and Next/Previous navigation must match the current document after an edit or reload. Changing only `fonts.notes` or `fonts.code` must update the existing note without another edit, zoom change, or relaunch.

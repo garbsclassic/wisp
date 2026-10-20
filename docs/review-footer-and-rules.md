@@ -2,7 +2,7 @@
 
 Reviewer pass over `main..995cd0f` on 2026-09-28, driven through a harness on a copy of the tree.
 
-- [x] Medium — spellcheck rebuilds `MarkdownBlocks` per `setSpellingState` call, once per misspelling: 5.9 s at 125K chars ([NotesTextView.swift:546](../Sources/Wisp/NotesTextView.swift:546)). The whole-note `checkSpelling` on enable is also redundant ([MinimalTextEditor.swift:214](../Sources/Wisp/MinimalTextEditor.swift:214)).
+- [x] Medium — spellcheck rebuilds `MarkdownBlocks` per `setSpellingState` call, once per misspelling: 5.9 s at 125K chars ([NotesTextView.swift:546](../Sources/Wisp/NotesTextView.swift:546)). The whole-note `checkSpelling` on enable is also redundant ([Editor.swift:214](../Sources/Wisp/Editor.swift:214)).
 - [x] Low–Medium — the right-click Spelling submenu's Check Spelling While Typing bypasses the model; its grammar and autocorrect items turn on features nothing turns off.
 - [x] Low — `emDashEdit`'s returned edit is not the one the app applies, so its tests check a discarded value.
 - [x] Low — marks made in source view survive leaving it, since the code filter is skipped there.

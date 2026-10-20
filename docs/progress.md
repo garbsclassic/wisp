@@ -93,7 +93,7 @@
   warning rather than silent staleness
 - 2026-09-02 — [editing-and-scale](plan-editing-and-scale.md): merged `fontSize` and `fontScale` into
   one continuous scale (⌘= / ⌘- / ⌘0, two footer glyph buttons, new `defaultFontScale` key), which
-  also fixed the body text not resizing until the next keystroke — `MinimalTextEditor` now compares
+  also fixed the body text not resizing until the next keystroke — `Editor` now compares
   the scale rather than the retired three-step enum. Type sizes moved into `Theme.Metrics` following
   Clef. The panel no longer opens at launch at all (`NSApplicationLaunchIsDefaultLaunchKey` wasn't
   reliably false for an `SMAppService` login item), so `LaunchSource` is gone. New editing: ⌘D
