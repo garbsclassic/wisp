@@ -7,7 +7,9 @@ extension NSTextView {
     /// delegate. False, with no edit, when the delegate refuses.
     @discardableResult
     func replaceText(in range: NSRange, with replacement: String) -> Bool {
-        guard shouldChangeText(in: range, replacementString: replacement) else { return false }
+        guard isEditable, shouldChangeText(in: range, replacementString: replacement) else {
+            return false
+        }
         textStorage?.replaceCharacters(in: range, with: replacement)
         didChangeText()
         return true
@@ -17,6 +19,7 @@ extension NSTextView {
 struct Editor: NSViewRepresentable {
     var document: DocumentAnalysis
     var onEdit: (DocumentAnalysis) -> Void
+    var isEditable: Bool = true
     private var text: String { document.text }
     /// For the footer's line:column and the heading jumps.
     @Binding var caretOffset: Int
@@ -62,6 +65,7 @@ struct Editor: NSViewRepresentable {
         textView.font = Self.baseFont(isSourceView: style.isSourceView)
         textView.defaultParagraphStyle = Self.makeParagraphStyle()
         textView.allowsUndo = true
+        textView.isEditable = isEditable
         textView.isRichText = false
         textView.importsGraphics = false
         textView.usesFindBar = false
@@ -87,9 +91,16 @@ struct Editor: NSViewRepresentable {
         // Against the last hand-over rather than `textView.string`, which costs a full scan of the
         // bridged storage.
         coordinator.onEdit = onEdit
+        textView.isEditable = isEditable
         if document !== coordinator.syncedDocument {
             let changed = coordinator.syncedDocument?.matches(text) != true
-            if changed { textView.string = text }
+            if changed {
+                textView.breakUndoCoalescing()
+                textView.undoManager?.removeAllActions()
+                textView.string = text
+                coordinator.lastAutoDash = nil
+                coordinator.lastAutoRule = nil
+            }
             textView.adoptAnalysis(document)
             coordinator.syncedDocument = document
             if changed {

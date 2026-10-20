@@ -69,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.registerSummon(previous)
                 return self.settings.configWarning ?? "Couldn't save summon chord"
             }
+            self.settings.reportSummonRegistration(requested: [chord], registered: self.hotKey.chords)
             return nil
         }
 
@@ -91,6 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Retains unchanged registrations when the config reloads.
     private func adoptSummon(from config: WispConfig) {
         if config.summonChords != hotKey.chords { registerSummon(config.summonChords) }
+        settings.reportSummonRegistration(requested: config.summonChords, registered: hotKey.chords)
     }
 
     @discardableResult
@@ -229,9 +231,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func reloadConfig() {
         let previous = settings.config
         model.reloadSettings()
-        guard settings.config != previous else { return }
-
         adoptSummon(from: settings.config)
+        guard settings.config != previous else { return }
         // Both are pure functions of the keymap.
         if settings.config.keymap != previous.keymap {
             keyBindings?.apply(settings.config.keymap)

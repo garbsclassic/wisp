@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import WispCore
 
@@ -137,4 +138,40 @@ struct HotKeyMonitorTests {
         defer { secondProbe.unregister() }
         try #require(secondProbe.register([second], onPress: { _ in }, onRelease: {}))
     }
+
+    @Test("Registration warnings report partial and total conflicts, then clear on recovery")
+    func registrationWarningsRecover() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wisp-hotkey-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settings = Settings(configFileURL: directory.appendingPathComponent("wisp.jsonc"))
+        let available = try #require(KeyChord.parse("hyper+f7"))
+        let occupied = try #require(KeyChord.parse("hyper+f6"))
+        let blocker = HotKeyMonitor()
+        defer { blocker.unregister() }
+        try #require(blocker.register([occupied], onPress: { _ in }, onRelease: {}))
+        let monitor = HotKeyMonitor()
+        defer { monitor.unregister() }
+
+        #expect(!monitor.register([available, occupied], onPress: { _ in }, onRelease: {}))
+        settings.reportSummonRegistration(
+            requested: [available, occupied], registered: monitor.chords)
+        let warning = try #require(settings.summonWarning)
+        #expect(warning.contains(occupied.displayString))
+        #expect(!warning.contains(available.displayString))
+        #expect(settings.warning == warning)
+        #expect(monitor.chords == [available])
+
+        #expect(!monitor.register([occupied], onPress: { _ in }, onRelease: {}))
+        settings.reportSummonRegistration(requested: [occupied], registered: monitor.chords)
+        #expect(settings.summonWarning != nil)
+        #expect(monitor.chords == [available])
+
+        blocker.unregister()
+        try #require(monitor.register([occupied], onPress: { _ in }, onRelease: {}))
+        settings.reportSummonRegistration(requested: [occupied], registered: monitor.chords)
+        #expect(settings.summonWarning == nil)
+        #expect(monitor.chords == [occupied])
+    }
+
 }

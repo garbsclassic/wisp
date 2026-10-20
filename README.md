@@ -37,7 +37,7 @@ The script builds the app, quits any running copy, and copies the bundle to `/Ap
 
 Run Wisp from the installed copy, not from `dist/`. macOS records the login item against the bundle's path, so a rebuild or a move can orphan a login item that points into `dist/`.
 
-To remove Wisp, run the uninstall script. It quits Wisp and withdraws the login item before it deletes the app. It keeps your config unless you pass `--purge`.
+To remove Wisp, run the uninstall script. It quits Wisp and withdraws the login item before it deletes the app, stopping if either step fails. It keeps your config unless you pass `--purge`.
 
 ```sh
 ./scripts/uninstall.sh
@@ -115,6 +115,8 @@ Wisp saves the note as plain Markdown at `~/Documents/scratchpad.md`. To keep it
 
 Wisp watches the note's folder and the config folder. A change from another app, another Mac, or a sync client shows up without a reload. If a watch can't start, the footer says so. ⌘R re-reads the note and the config from disk either way.
 
+If Wisp can't read the note, it keeps the editor read-only until a read succeeds. Repair the file or its permissions, then press ⌘R to retry. Loading different contents from disk or another folder clears undo history, because previous edits refer to the old text.
+
 ## Configure Wisp
 
 ### Settings
@@ -159,6 +161,8 @@ An action can take a list of chords instead of one, and every chord in the list 
 `summon` is the only global shortcut. `find`, `settings`, and `refresh` also work while Wisp is active with the panel closed, and they open the panel. The rest work only while the panel is in front. The menu bar menu shows each item's current chord, and those chords work while the menu is closed.
 
 Wisp drops a chord it can't parse. If that leaves an action with no working chord, the footer names the action.
+
+If macOS rejects a summon chord, the footer names it. Available chords keep working; after freeing a chord, press ⌘R to retry registration.
 
 | Action               | Default            |
 | -------------------- | ------------------ |

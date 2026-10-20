@@ -11,6 +11,9 @@ final class Settings: ObservableObject {
     /// A directory whose watcher didn't start, so edits there need ⌘R. Lasts until relaunch.
     @Published private(set) var watcherWarning: String?
 
+    /// Configured summon chords that macOS could not register.
+    @Published private(set) var summonWarning: String?
+
     let configFileURL: URL
 
     init(configFileURL: URL = ConfigStore.fileURL) {
@@ -37,6 +40,7 @@ final class Settings: ObservableObject {
     /// The most severe warning, since the footer has room for one. Follows Clef.
     var warning: String? {
         if let configWarning { return configWarning }
+        if let summonWarning { return summonWarning }
         if let watcherWarning { return watcherWarning }
         if !config.summonChordIsValid {
             return "Unreadable summon chord \"\(config.keymap.chord(for: .summon))\" — using the default"
@@ -60,6 +64,13 @@ final class Settings: ObservableObject {
     /// Set once at launch, from whichever watchers failed to start.
     func reportWatcherFailure(_ description: String) {
         watcherWarning = description
+    }
+
+    func reportSummonRegistration(requested: [KeyChord], registered: [KeyChord]) {
+        let rejected = requested.filter { !registered.contains($0) }
+        summonWarning = rejected.isEmpty ? nil
+            : "Summon shortcut unavailable: \(rejected.map(\.displayString).joined(separator: ", "))"
+                + " — already used by another app or macOS"
     }
 
     // MARK: Mutations

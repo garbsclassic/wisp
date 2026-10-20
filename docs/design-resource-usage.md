@@ -6,6 +6,8 @@ The text storage's character-edit notification invalidates the text view's analy
 
 Editor synchronization compares revision identity first. The caret footer caches its result by revision and offset, binary-searches line starts, and counts graphemes only within the current line. Line numbering preserves the existing LF-based behavior, including CRLF and the empty line after a trailing newline.
 
+An external replacement with different text clears the note's undo history: its saved ranges refer to the previous contents and cannot safely apply to the replacement. Local edit handoffs, unchanged reloads, and style changes retain history. A failed note read leaves the editor read-only until a successful reload, so edits cannot create a dirty buffer that blocks recovery from the read error.
+
 ## Local rendering with a full fallback
 
 The text view keeps the last styled revision and the pending character edit until styling finishes. A single edit wholly within an unindented plain line can restyle that line when both revisions establish unchanged block context. Setext heading content is excluded. The local pass uses the same inline renderer as the full pass and preserves AppKit attributes outside the renderer's own keys.

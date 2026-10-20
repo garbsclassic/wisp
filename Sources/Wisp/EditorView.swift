@@ -17,7 +17,7 @@ final class EditorModel: ObservableObject {
 
     /// The editor hands over its final post-renumber revision, including its derived structure.
     func acceptEdit(_ revision: DocumentAnalysis) {
-        guard !document.matches(revision.text) else { return }
+        guard isEditable, !document.matches(revision.text) else { return }
         document = revision
         cachedWordCount = nil
         cachedPosition = nil
@@ -125,6 +125,7 @@ final class EditorModel: ObservableObject {
     private(set) var hasPendingSave = false
     @Published private(set) var persistenceWarning: String?
     private var loadError: Error?
+    var isEditable: Bool { loadError == nil }
     private(set) var scratchpadURL: URL
 
     let settings: Settings
@@ -478,6 +479,7 @@ struct EditorView: View {
                     Editor(
                         document: model.document,
                         onEdit: model.acceptEdit,
+                        isEditable: model.isEditable,
                         caretOffset: $model.caretOffset,
                         focusToken: model.focusToken,
                         scrollToken: model.scrollToken,

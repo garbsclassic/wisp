@@ -32,10 +32,11 @@ struct EditorModelTests {
         let model = EditorModel(settings: settings)
         #expect(model.text.isEmpty)
         #expect(model.persistenceWarning != nil)
+        #expect(!model.isEditable)
         model.text = "keep this local text"
-        #expect(throws: (any Error).self) { try model.flushSave() }
-        #expect(model.text == "keep this local text")
-        #expect(model.hasPendingSave)
+        #expect(model.text.isEmpty)
+        #expect(!model.hasPendingSave)
+        try model.flushSave()
         let childURL = noteURL.appendingPathComponent("child")
         #expect(FileManager.default.fileExists(atPath: childURL.path))
 

@@ -19,18 +19,34 @@ for arg in "$@"; do
     esac
 done
 
+is_running() {
+    local query_status=0
+    pgrep -x "$APP_NAME" >/dev/null 2>&1 || query_status=$?
+    if [[ "$query_status" -gt 1 ]]; then
+        echo "error: couldn't check whether $APP_NAME is running; uninstall stopped" >&2
+        exit 1
+    fi
+    return "$query_status"
+}
+
 if [[ -d "$DEST" ]]; then
     # Quit first: the unregister call below runs the same binary, and two live
     # copies of an accessory app fighting over one status item is avoidable.
-    if pgrep -f "$DEST/Contents/MacOS/$APP_NAME" >/dev/null 2>&1; then
+    if is_running; then
         osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
-        pkill -f "$DEST/Contents/MacOS/$APP_NAME" 2>/dev/null || true
         sleep 1
+        if is_running; then
+            echo "error: $APP_NAME did not quit; preserve unsaved text before uninstalling" >&2
+            exit 1
+        fi
     fi
 
     # Withdraw the login item while the bundle still exists. SMAppService keys
     # the registration to the bundle, so deleting the app first would strand it.
-    "$DEST/Contents/MacOS/$APP_NAME" --unregister-login-item || true
+    if ! "$DEST/Contents/MacOS/$APP_NAME" --unregister-login-item; then
+        echo "error: couldn't remove Launch at Login; uninstall stopped" >&2
+        exit 1
+    fi
 fi
 
 if [[ -d "$DEST" ]]; then

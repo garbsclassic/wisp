@@ -217,9 +217,8 @@ final class NotesTextView: NSTextView {
 
     /// Keeps Cut and Copy enabled with no selection, or their key equivalents never fire.
     override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
-        if item.action == #selector(copy(_:)) || item.action == #selector(cut(_:)) {
-            return true
-        }
+        if item.action == #selector(copy(_:)) { return true }
+        if item.action == #selector(cut(_:)) { return isEditable }
         return super.validateUserInterfaceItem(item)
     }
 
@@ -235,6 +234,7 @@ final class NotesTextView: NSTextView {
 
     /// With nothing selected, cuts the line, keeping the column on the line that moves up.
     override func cut(_ sender: Any?) {
+        guard isEditable else { return }
         guard selectedRange().length == 0 else {
             super.cut(sender)
             return
@@ -283,6 +283,16 @@ final class NotesTextView: NSTextView {
     // MARK: Keymap edits
 
     // Called by `AppDelegate.perform`, inside the key event that asked.
+
+    override func shouldChangeText(in range: NSRange, replacementString: String?) -> Bool {
+        isEditable && super.shouldChangeText(in: range, replacementString: replacementString)
+    }
+
+    override func shouldChangeText(
+        inRanges ranges: [NSValue], replacementStrings: [String]?
+    ) -> Bool {
+        isEditable && super.shouldChangeText(inRanges: ranges, replacementStrings: replacementStrings)
+    }
 
     /// ⌘B, ⌘I, and the other inline formats.
     func toggleWrap(_ markers: MarkdownWrap.Markers) {
@@ -335,7 +345,7 @@ final class NotesTextView: NSTextView {
     @discardableResult
     func renumberLists(blocks: MarkdownBlocks? = nil) -> Bool {
         // Renumbering mid-undo would land on the redo stack and make the step a no-op.
-        guard !isApplyingEdit,
+        guard isEditable, !isApplyingEdit,
             undoManager?.isUndoing != true, undoManager?.isRedoing != true,
             let textStorage
         else { return false }
@@ -387,6 +397,7 @@ final class NotesTextView: NSTextView {
     /// A click on a drawn box toggles it; a click beside it places the caret. A multi-click's later
     /// clicks are swallowed, or `super` would select the hidden marker.
     override func mouseDown(with event: NSEvent) {
+        guard isEditable else { return super.mouseDown(with: event) }
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .function, .numericPad])
         guard modifiers.isEmpty, let index = checklistBoxIndex(under: event)

@@ -218,13 +218,13 @@ final class HelpBodyView: NSView {
     }
 
     /// Paints the current find match as a storage attribute, which always redraws.
-    func applyFindHighlight(_ range: NSRange, color: NSColor) {
+    func applyFindHighlight(_ range: NSRange, color: NSColor, scroll: Bool) {
         guard let storage = textView.textStorage else { return }
         let full = NSRange(location: 0, length: storage.length)
         storage.removeAttribute(.backgroundColor, range: full)
         guard range.length > 0, NSMaxRange(range) <= storage.length else { return }
         storage.addAttribute(.backgroundColor, value: color, range: range)
-        textView.scrollRangeToVisible(range)
+        if scroll { textView.scrollRangeToVisible(range) }
     }
 
     /// Puts the section's label at the top edge, where the sticky copy takes over.
@@ -298,39 +298,50 @@ struct HelpBody: NSViewRepresentable {
     var jumpToken: Int
 
     func makeNSView(context: Context) -> HelpBodyView {
+        makeView(coordinator: context.coordinator)
+    }
+
+    func makeView(coordinator: Coordinator) -> HelpBodyView {
         let view = HelpBodyView()
         view.setDocument(document, style: style, stickyFill: stickyFill)
         view.setSelectionColor(selectionColor)
-        context.coordinator.lastDocument = document
-        context.coordinator.lastStyle = style
-        context.coordinator.lastFindHighlightToken = findHighlightToken
-        context.coordinator.lastFocusToken = focusToken
-        context.coordinator.lastJumpToken = jumpToken
+        view.applyFindHighlight(findHighlightRange, color: findHighlightColor, scroll: true)
+        coordinator.lastDocument = document
+        coordinator.lastStyle = style
+        coordinator.lastFindHighlightToken = findHighlightToken
+        coordinator.lastFocusToken = focusToken
+        coordinator.lastJumpToken = jumpToken
         // Initial focus is `viewDidMoveToWindow`'s; the token re-focuses after find.
         return view
     }
 
     func updateNSView(_ view: HelpBodyView, context: Context) {
-        if context.coordinator.lastDocument != document || context.coordinator.lastStyle != style {
-            context.coordinator.lastDocument = document
-            context.coordinator.lastStyle = style
+        updateView(view, coordinator: context.coordinator)
+    }
+
+    func updateView(_ view: HelpBodyView, coordinator: Coordinator) {
+        let documentChanged = coordinator.lastDocument != document || coordinator.lastStyle != style
+        if documentChanged {
+            coordinator.lastDocument = document
+            coordinator.lastStyle = style
             view.setDocument(document, style: style, stickyFill: stickyFill)
         }
         view.setSelectionColor(selectionColor)
 
-        if context.coordinator.lastFindHighlightToken != findHighlightToken {
-            context.coordinator.lastFindHighlightToken = findHighlightToken
-            view.applyFindHighlight(findHighlightRange, color: findHighlightColor)
+        if documentChanged || coordinator.lastFindHighlightToken != findHighlightToken {
+            let scroll = coordinator.lastFindHighlightToken != findHighlightToken
+            coordinator.lastFindHighlightToken = findHighlightToken
+            view.applyFindHighlight(findHighlightRange, color: findHighlightColor, scroll: scroll)
         }
-        if context.coordinator.lastFocusToken != focusToken {
-            context.coordinator.lastFocusToken = focusToken
+        if coordinator.lastFocusToken != focusToken {
+            coordinator.lastFocusToken = focusToken
             // Deferred, as the find field's focus is: the view isn't in the responder chain yet.
             DispatchQueue.main.async {
                 view.window?.makeFirstResponder(view.textView)
             }
         }
-        if context.coordinator.lastJumpToken != jumpToken {
-            context.coordinator.lastJumpToken = jumpToken
+        if coordinator.lastJumpToken != jumpToken {
+            coordinator.lastJumpToken = jumpToken
             view.scrollToSection(jumpSection)
         }
     }

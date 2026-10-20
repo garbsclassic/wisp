@@ -19,6 +19,17 @@ struct SmartPasteFormatTests {
                 == "| a   | bb  |\n| --- | --- |\n| ccc | d   |")
     }
 
+    @Test(
+        "Table padding preserves every Unicode code unit",
+        arguments: ["😀😀😀😀", "👩🏽‍💻hello", "e\u{301}e\u{301}e\u{301}e\u{301}"]
+    )
+    func tablePreservesUnicode(cell: String) {
+        let width = max(3, cell.count)
+        let expected = "| \(cell) | x   |\n| \(String(repeating: "-", count: width)) | --- |\n"
+            + "| \(String(repeating: " ", count: width)) | y   |"
+        #expect(SmartPaste.format("\(cell)\tx\n\ty")?.utf16.elementsEqual(expected.utf16) == true)
+    }
+
     @Test("A literal pipe in a cell is escaped")
     func tablePipeEscaped() {
         #expect(

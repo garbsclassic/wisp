@@ -28,7 +28,7 @@ public enum SmartPaste {
             max(3, cells.map { $0[column].count }.max() ?? 0)
         }
         func line(_ row: [String]) -> String {
-            "| " + zip(row, widths).map { $0.padding(toLength: $1, withPad: " ", startingAt: 0) }
+            "| " + zip(row, widths).map { $0 + String(repeating: " ", count: $1 - $0.count) }
                 .joined(separator: " | ") + " |"
         }
         let divider = "| " + widths.map { String(repeating: "-", count: $0) }.joined(separator: " | ") + " |"
