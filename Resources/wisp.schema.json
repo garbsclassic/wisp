@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "wisp.schema.json",
   "title": "Wisp configuration",
-  "description": "Everything Wisp persists, in ~/.config/wisp/wisp.jsonc. Every key is optional: a missing key takes its default, a key of the wrong shape is named in the footer and ignored.",
+  "description": "Everything Wisp persists, in ~/.config/wisp/wisp.json. Every key is optional: a missing key takes its default, a key of the wrong shape is named in the footer and ignored.",
   "type": "object",
   "additionalProperties": false,
   "$defs": {

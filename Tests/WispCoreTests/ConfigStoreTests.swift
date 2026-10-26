@@ -169,7 +169,32 @@ final class ConfigStoreTests {
     @Test("The location honours XDG_CONFIG_HOME")
     func directoryFollowsXDG() {
         #expect(ConfigStore.directory == root.appendingPathComponent("wisp", isDirectory: true))
-        #expect(ConfigStore.fileURL.lastPathComponent == "wisp.jsonc")
+        #expect(ConfigStore.fileURL.lastPathComponent == "wisp.json")
+    }
+
+    @Test("JSON is preferred, with legacy JSONC read and updated in place")
+    func configFilenamePrecedence() throws {
+        let preferred = ConfigStore.directory.appendingPathComponent("wisp.json")
+        let legacy = ConfigStore.directory.appendingPathComponent("wisp.jsonc")
+        #expect(ConfigStore.fileURL == preferred)
+        try FileManager.default.createDirectory(
+            at: ConfigStore.directory, withIntermediateDirectories: true)
+        try "{ // legacy settings\n\"theme\": \"dark\" }".write(
+            to: legacy, atomically: true, encoding: .utf8)
+        #expect(ConfigStore.fileURL == legacy)
+        var config = ConfigStore.loadOrSeed().config
+        #expect(config.theme == .dark)
+        config.theme = .light
+        try ConfigStore.update(["theme"], to: config.theme, in: config)
+        #expect(try String(contentsOf: legacy, encoding: .utf8).contains("// legacy settings"))
+        #expect(!FileManager.default.fileExists(atPath: preferred.path))
+
+        try "{\"theme\": \"dark\"}".write(to: preferred, atomically: true, encoding: .utf8)
+        #expect(ConfigStore.fileURL == preferred)
+        #expect(ConfigStore.loadOrSeed().config.theme == .dark)
+        try "{broken".write(to: preferred, atomically: true, encoding: .utf8)
+        #expect(ConfigStore.loadOrSeed().error != nil)
+        #expect(ConfigStore.fileURL == preferred)
     }
 
     @Test("First run seeds the file")
@@ -213,16 +238,17 @@ final class ConfigStoreTests {
         try FileManager.default.createDirectory(
             at: ConfigStore.directory, withIntermediateDirectories: true)
         try """
-            {
-                // my summon chord
-                "keymap": { "summon": "ctrl+opt+." },
-                "theme": "light"
-            }
-            """.write(to: ConfigStore.fileURL, atomically: true, encoding: .utf8)
+        {
+            // my summon chord
+            "keymap": { "summon": "ctrl+opt+." },
+            "theme": "light"
+        }
+        """.write(to: ConfigStore.fileURL, atomically: true, encoding: .utf8)
 
         var config = ConfigStore.loadOrSeed().config
         config.keymap.setChord("cmd+opt+w", for: .summon)
-        try ConfigStore.update(["keymap", "summon"], to: config.keymap.chord(for: .summon), in: config)
+        try ConfigStore.update(
+            ["keymap", "summon"], to: config.keymap.chord(for: .summon), in: config)
 
         let after = try String(contentsOf: ConfigStore.fileURL, encoding: .utf8)
         #expect(after.contains("// my summon chord"))

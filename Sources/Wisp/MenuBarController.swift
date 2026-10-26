@@ -63,9 +63,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        menu.addItem(makeItem(
-            "Scratchpad Folder…", symbol: "folder", action: #selector(handlePickStorageLocation)
-        ))
+        menu.addItem(
+            makeItem(
+                "Scratchpad Folder…", symbol: "folder", action: #selector(handlePickStorageLocation)
+            ))
         let reset = makeItem(
             "Reset Scratchpad Folder",
             symbol: "arrow.uturn.backward",
@@ -74,9 +75,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         resetItem = reset
         menu.addItem(reset)
 
-        menu.addItem(makeItem(
-            "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
-        ))
+        menu.addItem(
+            makeItem(
+                "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
+            ))
 
         let launch = makeItem(
             "Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin)
@@ -84,7 +86,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         launchItem = launch
         menu.addItem(launch)
 
-        // Opens wisp.jsonc, the only way most settings are changed.
+        // Opens wisp.json, the only way most settings are changed.
         menu.addItem(boundItem(.settings, symbol: "gearshape"))
 
         menu.addItem(.separator())

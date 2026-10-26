@@ -2,7 +2,7 @@ import Foundation
 
 /// Where `scratchpad.md` lives: `~/Documents` unless the config names a folder. A synced folder
 /// carries the note across Macs, but its sync isn't conflict-aware. The folder is always passed
-/// in, since `wisp.jsonc` is its only store.
+/// in, since `wisp.json` is its only store.
 public enum StorageLocation {
     public static let scratchpadFilename = "scratchpad.md"
     public static let backupPrefix = "scratchpad-local-backup-"

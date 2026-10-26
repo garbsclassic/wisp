@@ -1,7 +1,7 @@
 import AppKit
 import WispCore
 
-/// The live view of `wisp.jsonc` and its only writer: each `set…` updates memory and rewrites that
+/// The live view of the selected config and its only writer: each `set…` updates memory and rewrites that
 /// one key.
 @MainActor
 final class Settings: ObservableObject {
@@ -14,10 +14,12 @@ final class Settings: ObservableObject {
     /// Configured summon chords that macOS could not register.
     @Published private(set) var summonWarning: String?
 
-    let configFileURL: URL
+    private let configFileOverride: URL?
+    var configFileURL: URL { configFileOverride ?? ConfigStore.fileURL }
 
-    init(configFileURL: URL = ConfigStore.fileURL) {
-        self.configFileURL = configFileURL
+    init(configFileURL: URL? = nil) {
+        configFileOverride = configFileURL
+        let configFileURL = configFileURL ?? ConfigStore.fileURL
         let load = ConfigStore.loadOrSeed(at: configFileURL)
         config = load.config
         configWarning = load.error
@@ -32,7 +34,7 @@ final class Settings: ObservableObject {
         else { return }
         do {
             try ConfigStore.installSchema(from: source)
-        } catch where configWarning == nil {
+        } catch  where configWarning == nil {
             configWarning = "Couldn't write wisp.schema.json: \(error.localizedDescription)"
         } catch {}
     }
@@ -43,7 +45,8 @@ final class Settings: ObservableObject {
         if let summonWarning { return summonWarning }
         if let watcherWarning { return watcherWarning }
         if !config.summonChordIsValid {
-            return "Unreadable summon chord \"\(config.keymap.chord(for: .summon))\" — using the default"
+            return
+                "Unreadable summon chord \"\(config.keymap.chord(for: .summon))\" — using the default"
         }
         let unbound = config.keymap.unparseableActions.filter { $0 != .summon }
         if !unbound.isEmpty {
@@ -130,7 +133,10 @@ final class Settings: ObservableObject {
     @discardableResult
     func reload(prepare: (WispConfig) throws -> Void = { _ in }) -> Bool {
         let load = ConfigStore.loadOrSeed(at: configFileURL)
-        guard !load.failed else { configWarning = load.error; return false }
+        guard !load.failed else {
+            configWarning = load.error
+            return false
+        }
         do {
             try prepare(load.config)
             config = load.config
@@ -165,7 +171,8 @@ final class Settings: ObservableObject {
             applyTypography()
             return true
         } catch {
-            configWarning = "Couldn't write wisp.jsonc: \(error.localizedDescription)"
+            configWarning =
+                "Couldn't write \(configFileURL.lastPathComponent): \(error.localizedDescription)"
             return false
         }
     }

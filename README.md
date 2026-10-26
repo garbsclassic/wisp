@@ -121,7 +121,9 @@ If Wisp can't read the note, it keeps the editor read-only until a read succeeds
 
 ### Settings
 
-Wisp keeps all its settings in `~/.config/wisp/wisp.jsonc`, or `$XDG_CONFIG_HOME/wisp/wisp.jsonc` if that variable is set. Wisp writes the file with defaults on first launch. To open it, choose **Settings…** in the menu bar menu or press ⌘,.
+Wisp keeps all its settings in `~/.config/wisp/wisp.json`, or `$XDG_CONFIG_HOME/wisp/wisp.json` if that variable is set. Wisp writes the file with defaults on first launch. To open it, choose **Settings…** in the menu bar menu or press ⌘,.
+
+The app prefers `wisp.json` and falls back to an existing `wisp.jsonc`. New installs create `wisp.json`. If both exist, only `wisp.json` is read and updated.
 
 Wisp reads the file as JSON5, so comments and trailing commas are fine. A missing key takes its default. A key with the wrong shape is ignored, and the footer names it. Changes apply as soon as you save. When you change a setting from the app, Wisp rewrites only that key and leaves your comments, key order, and indentation alone.
 
@@ -199,7 +201,7 @@ If macOS rejects a summon chord, the footer names it. Available chords keep work
 
 ### Window placement
 
-Window geometry is local runtime state in macOS preferences, separate from `wisp.jsonc`. Wisp saves one rectangle as the panel moves and resizes. It stays on its display across summons and relaunches, without following the pointer. An unreachable frame is recovered onto a connected display at startup, on show, or when displays change.
+Window geometry is local runtime state in macOS preferences, separate from `wisp.json`. Wisp saves one rectangle as the panel moves and resizes. It stays on its display across summons and relaunches, without following the pointer. An unreachable frame is recovered onto a connected display at startup, on show, or when displays change.
 
 The initial size is 800×640 points, centred on the primary display with its top edge 10% down the usable screen, excluding the menu bar and Dock. **Reset Position** (⌥⌘0) returns it to that default location while preserving its size; the inset shrinks when needed to keep the panel onscreen. **Reset Size** (⇧⌘0) preserves its top-left and sizes it to 40% of its display's usable width and 60% of its usable height. The 540×640-point minimum applies, fitted to the display if smaller. Configure these shortcuts with `keymap.resetPosition` and `keymap.resetSize`; the former `keymap.resetView` is ignored.
 

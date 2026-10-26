@@ -1,6 +1,6 @@
 import Foundation
 
-/// Reads and writes `wisp.jsonc`.
+/// Reads and writes `wisp.json`, falling back to an existing `wisp.jsonc`.
 public enum ConfigStore {
     /// `~/.config/wisp`, or under `XDG_CONFIG_HOME`: beside the user's other tools, where chezmoi
     /// can manage it and reading needs no TCC prompt.
@@ -15,7 +15,12 @@ public enum ConfigStore {
         return base.appendingPathComponent("wisp", isDirectory: true)
     }
 
-    public static var fileURL: URL { directory.appendingPathComponent("wisp.jsonc") }
+    public static var fileURL: URL {
+        let preferred = directory.appendingPathComponent("wisp.json")
+        let legacy = directory.appendingPathComponent("wisp.jsonc")
+        if FileManager.default.fileExists(atPath: preferred.path) { return preferred }
+        return FileManager.default.fileExists(atPath: legacy.path) ? legacy : preferred
+    }
 
     /// Kept beside the config so an editor validates it offline. `installSchema` refreshes it
     /// from the bundle at launch.
@@ -66,7 +71,8 @@ public enum ConfigStore {
         } catch {
             return Load(
                 config: defaults,
-                error: "wisp.jsonc is unreadable, using defaults: \(error.localizedDescription)",
+                error:
+                    "\(fileURL.lastPathComponent) is unreadable, using defaults: \(error.localizedDescription)",
                 failed: true)
         }
     }
