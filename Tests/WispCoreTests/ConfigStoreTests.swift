@@ -465,9 +465,9 @@ struct SchemaSyncTests {
         #expect(schemaKeys == written.union(["$schema"]))
     }
 
-    @Test("keymap's schema keys match KeymapAction's cases")
+    @Test("keymap's schema keys match KeymapAction's cases plus hyperKey")
     func keymapKeysMatchKeymapAction() throws {
         let schemaKeys = try Self.schemaProperties(at: ["properties", "keymap"])
-        #expect(schemaKeys == Set(KeymapAction.allCases.map(\.rawValue)))
+        #expect(schemaKeys == Set(KeymapAction.allCases.map(\.rawValue)).union(["hyperKey"]))
     }
 }

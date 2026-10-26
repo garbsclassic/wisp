@@ -51,7 +51,7 @@ struct KeymapTests {
     func encodesEveryAction() throws {
         let data = try JSONEncoder().encode(Keymap())
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        #expect(object?.count == KeymapAction.allCases.count)
+        #expect(object?.count == KeymapAction.allCases.count + 1)
         // A single chord encodes as a bare string, an alias list as an array.
         #expect(object?["bold"] as? String == "cmd+b")
         #expect(object?["help"] as? [String] == ["f1", "cmd+/"])

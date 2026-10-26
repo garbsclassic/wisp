@@ -62,8 +62,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return "Internal error" }
             let previous = self.hotKey.chords
             guard self.registerSummon([chord]) else {
-                return
-                    "\(chord.displayString) is already used by another app or macOS. Try another combo."
+                let display = chord.displayString(hyperKey: self.settings.config.keymap.hyperKey)
+                return "\(display) is already used by another app or macOS. Try another combo."
             }
             guard self.settings.setSummon(chord) else {
                 self.registerSummon(previous)

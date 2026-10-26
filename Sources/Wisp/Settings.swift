@@ -68,8 +68,12 @@ final class Settings: ObservableObject {
 
     func reportSummonRegistration(requested: [KeyChord], registered: [KeyChord]) {
         let rejected = requested.filter { !registered.contains($0) }
-        summonWarning = rejected.isEmpty ? nil
-            : "Summon shortcut unavailable: \(rejected.map(\.displayString).joined(separator: ", "))"
+        let names = rejected.map { $0.displayString(hyperKey: config.keymap.hyperKey) }
+            .joined(separator: ", ")
+        summonWarning =
+            rejected.isEmpty
+            ? nil
+            : "Summon shortcut unavailable: \(names)"
                 + " — already used by another app or macOS"
     }
 
@@ -105,8 +109,10 @@ final class Settings: ObservableObject {
 
     @discardableResult
     func setSummon(_ summon: KeyChord) -> Bool {
-        guard let chord = KeyChord.string(
-            keyCode: summon.keyCode, carbonModifiers: summon.carbonModifiers)
+        guard
+            let chord = KeyChord.string(
+                keyCode: summon.keyCode, carbonModifiers: summon.carbonModifiers,
+                hyperKey: config.keymap.hyperKey)
         else { return false }
         var next = config
         next.keymap.setChord(chord, for: .summon)

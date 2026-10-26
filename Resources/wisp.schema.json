@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "$defs": {
     "chord": {
-      "description": "Modifiers plus one key, in any order: cmd+shift+d, opt+up, ctrl+opt+. — hyper stands for all four modifiers.",
+      "description": "Modifiers plus one key, in any order: cmd+shift+d, opt+up, ctrl+opt+. — hyper uses keymap.hyperKey.",
       "type": "string",
       "minLength": 1
     },
@@ -101,6 +101,12 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "hyperKey": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Modifiers represented by hyper and ❖, joined with +. Accepts modifier aliases, without a key or hyper itself. Invalid values use the default and report a config warning.",
+          "default": "ctrl+opt+shift+cmd"
+        },
         "summon": { "$ref": "#/$defs/chordSet", "default": "ctrl+opt+." },
         "find": { "$ref": "#/$defs/chordSet", "default": "cmd+f" },
         "settings": { "$ref": "#/$defs/chordSet", "default": "cmd+," },

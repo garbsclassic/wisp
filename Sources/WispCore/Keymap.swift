@@ -160,9 +160,11 @@ public enum KeymapAction: String, CaseIterable, Codable, Sendable {
 /// Action → chords. Decoding overlays the file onto the defaults, so a `keymap` naming one
 /// action still works.
 public struct Keymap: Codable, Equatable, Sendable {
+    public var hyperKey: HyperKey
     private var bindings: [String: ChordSet]
 
-    public init(_ overrides: [KeymapAction: ChordSet] = [:]) {
+    public init(_ overrides: [KeymapAction: ChordSet] = [:], hyperKey: HyperKey = .standard) {
+        self.hyperKey = hyperKey
         var table: [String: ChordSet] = [:]
         for action in KeymapAction.allCases {
             table[action.rawValue] = overrides[action] ?? action.defaultChords
@@ -173,6 +175,9 @@ public struct Keymap: Codable, Equatable, Sendable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: DynamicKey.self)
         let diagnostics = decoder.configDiagnostics
+        hyperKey = container.lenientValue(
+            forKey: DynamicKey(stringValue: "hyperKey")!, default: HyperKey.standard,
+            diagnostics: diagnostics)
         var table: [String: ChordSet] = [:]
         for action in KeymapAction.allCases {
             let key = DynamicKey(stringValue: action.rawValue)!
@@ -185,6 +190,7 @@ public struct Keymap: Codable, Equatable, Sendable {
     /// Writes every binding, so a seeded config documents them all.
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: DynamicKey.self)
+        try container.encode(hyperKey, forKey: DynamicKey(stringValue: "hyperKey")!)
         for action in KeymapAction.allCases {
             try container.encode(
                 chordSet(for: action), forKey: DynamicKey(stringValue: action.rawValue)!)
@@ -207,7 +213,7 @@ public struct Keymap: Codable, Equatable, Sendable {
 
     /// Drops unparseable chords, so one typo doesn't cost the aliases that were fine.
     public func parsedChords(for action: KeymapAction) -> [KeyChord] {
-        chordSet(for: action).chords.compactMap(KeyChord.parse)
+        chordSet(for: action).chords.compactMap { KeyChord.parse($0, hyperKey: hyperKey) }
     }
 
     /// The first parsed chord, for the places that can only show one.
@@ -219,15 +225,16 @@ public struct Keymap: Codable, Equatable, Sendable {
     public func display(_ action: KeymapAction) -> String {
         let parsed = parsedChords(for: action)
         guard !parsed.isEmpty else { return chordSet(for: action).chords.joined(separator: " / ") }
-        return parsed
-            .map(\.displayString)
+        return
+            parsed
+            .map { $0.displayString(hyperKey: hyperKey) }
             .joined(separator: " / ")
     }
 
     /// Just the first chord, for a tooltip with room for one.
     public func primaryDisplay(_ action: KeymapAction) -> String {
         guard let chord = parsed(action) else { return self.chord(for: action) }
-        return chord.displayString
+        return chord.displayString(hyperKey: hyperKey)
     }
 
     /// Actions with no working chord, in `allCases` order, for the footer.

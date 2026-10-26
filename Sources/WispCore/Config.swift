@@ -304,7 +304,7 @@ public struct WispConfig: Codable, Equatable, Sendable {
     public var summonChords: [KeyChord] {
         let chords = keymap.parsedChords(for: .summon)
         return chords.isEmpty
-            ? KeymapAction.summon.defaultChords.chords.compactMap(KeyChord.parse) : chords
+            ? KeymapAction.summon.defaultChords.chords.compactMap { KeyChord.parse($0) } : chords
     }
 
     /// For the footer; other actions report through `Keymap.unparseableActions`.

@@ -14,7 +14,7 @@ public struct KeyChord: Equatable, Sendable {
     }
 
     /// Order and spacing don't matter; the one non-modifier token is the key.
-    public static func parse(_ text: String) -> KeyChord? {
+    public static func parse(_ text: String, hyperKey: HyperKey = .standard) -> KeyChord? {
         let tokens =
             text
             .lowercased()
@@ -28,7 +28,7 @@ public struct KeyChord: Equatable, Sendable {
 
         for token in tokens {
             if hyperSpellings.contains(token) {
-                modifiers |= hyperMask
+                modifiers |= hyperKey.carbonModifiers
             } else if let mask = modifierMasks[token] {
                 modifiers |= mask
             } else {
@@ -45,8 +45,7 @@ public struct KeyChord: Equatable, Sendable {
     /// The glyph is accepted because the help page prints it, as with `⌘`. Follows Clef.
     private static let hyperSpellings: Set<String> = ["hyper", hyperGlyph]
 
-    private static let hyperMask: UInt32 =
-        UInt32(controlKey) | UInt32(optionKey) | UInt32(shiftKey) | UInt32(cmdKey)
+    static func modifierMask(for token: String) -> UInt32? { modifierMasks[token] }
 
     private static let modifierMasks: [String: UInt32] = [
         "cmd": UInt32(cmdKey), "command": UInt32(cmdKey), "⌘": UInt32(cmdKey),
@@ -125,13 +124,17 @@ public struct KeyChord: Equatable, Sendable {
 
     // MARK: Display
 
-    /// All four modifiers, as a remapped Caps Lock sends them: one glyph, not `⌃⌥⇧⌘`.
+    /// The configured hyper modifiers, as one glyph.
     public static let hyperGlyph = "❖"
 
     /// "⌥Space", "⇧⌘P", or "❖.", with modifiers always in ⌃⌥⇧⌘ order.
     public var displayString: String {
+        displayString(hyperKey: .standard)
+    }
+
+    public func displayString(hyperKey: HyperKey) -> String {
         var s = ""
-        if carbonModifiers & Self.hyperMask == Self.hyperMask {
+        if carbonModifiers == hyperKey.carbonModifiers {
             s = Self.hyperGlyph
         } else {
             if carbonModifiers & UInt32(controlKey) != 0 { s += "⌃" }
@@ -182,10 +185,11 @@ public struct KeyChord: Equatable, Sendable {
 
     /// The inverse of `parse`, for the Set Shortcut… capture. Nil for an unmapped key code rather
     /// than a string the parser would reject.
-    public static func string(keyCode: UInt32, carbonModifiers: UInt32) -> String? {
+    public static func string(
+        keyCode: UInt32, carbonModifiers: UInt32, hyperKey: HyperKey = .standard
+    ) -> String? {
         guard let key = keyNames[keyCode] else { return nil }
-        // `hyper+.` rather than the four-word form, which parses but reads badly.
-        if carbonModifiers & hyperMask == hyperMask { return "hyper+\(key)" }
+        if carbonModifiers == hyperKey.carbonModifiers { return "hyper+\(key)" }
         var parts: [String] = []
         if carbonModifiers & UInt32(controlKey) != 0 { parts.append("ctrl") }
         if carbonModifiers & UInt32(optionKey) != 0 { parts.append("opt") }
