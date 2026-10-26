@@ -192,20 +192,37 @@ private struct FramePersistenceCheck {
             "Saved frame was remapped away from the upper display")
         try expectConfigUnchanged(configBefore)
 
-        let reset = PanelPlacement.resetFrame(on: primary.visibleFrame)
         try check(!panel.isVisible, "Test panel unexpectedly became visible")
-        controller?.resetView(of: panel)
-        try check(!panel.isVisible, "Reset showed the hidden panel")
-        try expectFrame(panel.frame, reset, "reset while hidden")
-        if primary.visibleFrame.height < PanelPlacement.minimumSize.height {
+        let beforeUpperSizeReset = panel.frame
+        let resetUpperSize = PanelPlacement.resetSize(
+            of: beforeUpperSizeReset, on: upper.visibleFrame)
+        controller?.resetSize(of: panel)
+        try check(!panel.isVisible, "Size reset showed the hidden panel")
+        try expectFrame(panel.frame, resetUpperSize, "size reset on the upper display")
+        try check(
+            panel.frame.minX == beforeUpperSizeReset.minX
+                && panel.frame.maxY == beforeUpperSizeReset.maxY,
+            "Size reset changed the upper-display top-left corner")
+        if upper.visibleFrame.height < PanelPlacement.minimumSize.height {
             try check(
-                panel.frame.minX >= primary.visibleFrame.minX
-                    && panel.frame.maxX <= primary.visibleFrame.maxX
-                    && panel.frame.minY >= primary.visibleFrame.minY
-                    && panel.frame.maxY <= primary.visibleFrame.maxY,
-                "Reset frame does not fit a primary visible frame shorter than minimum height")
+                panel.frame.minX >= upper.visibleFrame.minX
+                    && panel.frame.maxX <= upper.visibleFrame.maxX
+                    && panel.frame.minY >= upper.visibleFrame.minY
+                    && panel.frame.maxY <= upper.visibleFrame.maxY,
+                "Size reset does not fit an upper visible frame shorter than its minimum")
         }
-        try expectSavedFrame(reset, defaults: defaults, label: "hidden reset")
+        try expectSavedFrame(
+            resetUpperSize, defaults: defaults, label: "saved upper-display size reset")
+        try expectConfigUnchanged(configBefore)
+
+        let beforePositionReset = panel.frame
+        let resetPosition = PanelPlacement.resetPosition(
+            of: beforePositionReset, on: primary.visibleFrame)
+        controller?.resetPosition(of: panel)
+        try check(!panel.isVisible, "Position reset showed the hidden panel")
+        try expectFrame(panel.frame, resetPosition, "position reset while hidden")
+        try check(panel.frame.size == beforePositionReset.size, "Position reset changed the size")
+        try expectSavedFrame(resetPosition, defaults: defaults, label: "hidden position reset")
         try expectConfigUnchanged(configBefore)
 
         let offscreen = CGRect(
@@ -270,8 +287,9 @@ private struct FramePersistenceCheck {
         try check(defaults.string(forKey: frameKey) == nil,
                   "Malformed legacy config unexpectedly created a saved frame before reset")
 
-        let reset = PanelPlacement.resetFrame(on: primary.visibleFrame)
-        resetController?.resetView(of: resetPanel)
+        let reset = PanelPlacement.resetPosition(
+            of: resetPanel.frame, on: primary.visibleFrame)
+        resetController?.resetPosition(of: resetPanel)
         try check(!resetPanel.isVisible, "Reset during migration delay showed the panel")
         try expectFrame(resetPanel.frame, reset, "reset overrides malformed legacy config")
         try expectSavedFrame(reset, defaults: defaults, label: "reset during migration delay")

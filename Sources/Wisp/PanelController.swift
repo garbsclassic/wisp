@@ -155,9 +155,12 @@ final class PanelController {
         model.dismissAllOverlays()
     }
 
-    /// Resets the size relative to the primary display and returns to its default location.
-    func resetView() {
-        frameController.resetView(of: panel)
+    func resetPosition() {
+        frameController.resetPosition(of: panel)
+    }
+
+    func resetSize() {
+        frameController.resetSize(of: panel)
     }
 
     // MARK: Summon

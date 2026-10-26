@@ -15,6 +15,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let onPickStorageLocation: () -> Void
     private let onResetStorageLocation: () -> Void
     private let menu = NSMenu()
+    private var keymap = Keymap()
 
     // Strong is safe: NSMenuItem.target is weak.
     private var launchItem: NSMenuItem?
@@ -55,7 +56,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Actions, then settings, then Quit; wording follows Clef's where they overlap.
         menu.addItem(
-            boundItem(.resetView, symbol: "arrow.up.and.down.and.arrow.left.and.right"))
+            boundItem(.resetPosition, symbol: "arrow.up.and.down.and.arrow.left.and.right"))
+        menu.addItem(boundItem(.resetSize, symbol: "arrow.down.right.and.arrow.up.left"))
         menu.addItem(boundItem(.refresh, symbol: "arrow.clockwise"))
         menu.addItem(boundItem(.reveal, symbol: "doc.text.magnifyingglass"))
 
@@ -118,6 +120,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// Stamps each item with its live chord. These equivalents fire only while the menu is open,
     /// so they can't collide with `KeyBindingMonitor`.
     func apply(_ keymap: Keymap) {
+        self.keymap = keymap
         for (action, item) in boundItems {
             guard let equivalent = keymap.parsed(action)?.menuEquivalent else {
                 // Unparseable or unspellable: better a bare item than a wrong one.
@@ -128,6 +131,26 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             item.keyEquivalent = equivalent.character
             item.keyEquivalentModifierMask = equivalent.modifiers
         }
+    }
+
+    // AppKit's character matching misses ⇧0 because the event contains ")".
+    func menuHasKeyEquivalent(
+        _ menu: NSMenu, for event: NSEvent,
+        target: AutoreleasingUnsafeMutablePointer<AnyObject?>,
+        action: UnsafeMutablePointer<Selector?>
+    ) -> Bool {
+        let key = KeyChord(
+            keyCode: UInt32(event.keyCode),
+            carbonModifiers: KeyChord.carbonModifiers(from: event.modifierFlags))
+        if keymap.parsed(.resetPosition) == key {
+            action.pointee = #selector(handleResetPosition)
+        } else if keymap.parsed(.resetSize) == key {
+            action.pointee = #selector(handleResetSize)
+        } else {
+            return false
+        }
+        target.pointee = self
+        return true
     }
 
     // "Veil", direction 9a from the icon canvas: at 18px only the ring and core survive, with the
@@ -256,4 +279,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         guard let action = sender.representedObject as? KeymapAction else { return }
         perform(action)
     }
+
+    @objc private func handleResetPosition() { perform(.resetPosition) }
+
+    @objc private func handleResetSize() { perform(.resetSize) }
 }

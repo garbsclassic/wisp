@@ -24,7 +24,7 @@ struct InitialFrameTests {
     func noLegacyGeometry() {
         let frame = PanelPlacement.initialFrame(legacy: nil, target: primary, screens: [primary])
 
-        #expect(frame == CGRect(x: 320, y: 215, width: 800, height: 640))
+        #expect(frame == CGRect(x: 320, y: 170, width: 800, height: 640))
     }
 
     @Test("Legacy size is read in points and position remains a top-left corner")
@@ -44,7 +44,7 @@ struct InitialFrameTests {
 
         let frame = PanelPlacement.initialFrame(legacy: legacy, target: primary, screens: [primary])
 
-        #expect(frame == CGRect(x: 420, y: 215, width: 600, height: 640))
+        #expect(frame == CGRect(x: 420, y: 170, width: 600, height: 640))
     }
 
     @Test("An old narrow panel grows only its width to the new minimum")
@@ -167,7 +167,7 @@ struct RecoveredFrameTests {
 
         let recovered = PanelPlacement.recoveredFrame(frame, target: primary, screens: [primary])
 
-        #expect(recovered == CGRect(x: 450, y: 215, width: 540, height: 640))
+        #expect(recovered == CGRect(x: 450, y: 170, width: 540, height: 640))
         #expect(PanelPlacement.isReachable(recovered, on: [primary]))
     }
 
@@ -195,7 +195,7 @@ struct RecoveredFrameTests {
             CGRect(x: 100, y: 100, width: 0, height: 640),
             CGRect(x: 100, y: 100, width: 800, height: -1),
         ]
-        let usableDefault = CGRect(x: 320, y: 215, width: 800, height: 640)
+        let usableDefault = CGRect(x: 320, y: 170, width: 800, height: 640)
 
         for frame in corruptFrames {
             #expect(
@@ -232,49 +232,51 @@ struct RecoveredFrameTests {
     }
 }
 
-@Suite("PanelPlacement.resetFrame")
-struct ResetFrameTests {
-    @Test("Reset scales to forty percent width and sixty percent height")
-    func scalesBothDimensions() {
-        let large = CGRect(x: 0, y: 0, width: 2400, height: 1800)
+@Suite("PanelPlacement.resetPosition")
+struct ResetPositionTests {
+    @Test("Reset centers the current size at the default top inset")
+    func keepsCurrentSize() {
+        let frame = CGRect(x: 50, y: 100, width: 700, height: 500)
 
         #expect(
-            PanelPlacement.resetFrame(on: large)
-                == CGRect(x: 720, y: 630, width: 960, height: 1080))
+            PanelPlacement.resetPosition(of: frame, on: primary)
+                == CGRect(x: 370, y: 310, width: 700, height: 500))
+    }
+}
+
+@Suite("PanelPlacement.resetSize")
+struct ResetSizeTests {
+    @Test(
+        "Reset sizes to forty percent width and sixty percent height within screen limits",
+        arguments: [
+            (CGRect(x: 0, y: 0, width: 2400, height: 1800), CGSize(width: 960, height: 1080)),
+            (primary, CGSize(width: 576, height: 640)),
+            (CGRect(x: -200, y: 30, width: 500, height: 300), CGSize(width: 500, height: 300)),
+            (CGRect(x: -2560, y: 60, width: 2500, height: 1380), CGSize(width: 1000, height: 828)),
+            (
+                CGRect(x: 20.25, y: -5.5, width: 1501.25, height: 1705),
+                CGSize(width: 601, height: 1023)
+            ),
+        ])
+    func usesVisibleSizeLimits(screen: CGRect, expected: CGSize) {
+        let frame = CGRect(x: 70, y: 1000, width: 700, height: 400)
+        let reset = PanelPlacement.resetSize(of: frame, on: screen)
+
+        #expect(reset.size == expected)
+        #expect(reset.minX == frame.minX)
+        #expect(reset.maxY == frame.maxY)
     }
 
-    @Test("Reset applies the minimum independently to each dimension")
-    func minimumSizeOnPrimary() {
-        #expect(
-            PanelPlacement.resetFrame(on: primary)
-                == CGRect(x: 432, y: 215, width: 576, height: 640))
-    }
+    @Test("Fractional top-left coordinates survive a size reset")
+    func preservesFractionalTopLeft() {
+        let screen = CGRect(x: 0, y: 0, width: 2400, height: 1800)
+        let frame = CGRect(x: 20.25, y: 1300.5, width: 700, height: 400)
 
-    @Test("Reset fits the minimum dimensions to a small screen")
-    func fitsSmallScreen() {
-        let small = CGRect(x: -200, y: 30, width: 500, height: 300)
+        let reset = PanelPlacement.resetSize(of: frame, on: screen)
 
-        #expect(
-            PanelPlacement.resetFrame(on: small)
-                == CGRect(x: -200, y: 30, width: 500, height: 300))
-    }
-
-    @Test("Reset keeps the screen's negative origin")
-    func negativeOrigin() {
-        let screen = CGRect(x: -2560, y: 60, width: 2500, height: 1380)
-
-        #expect(
-            PanelPlacement.resetFrame(on: screen)
-                == CGRect(x: -1810, y: 543, width: 1000, height: 828))
-    }
-
-    @Test("Fractional reset size and origin round to whole points")
-    func roundsFractionalSizeAndOrigin() {
-        let screen = CGRect(x: 20.25, y: -5.5, width: 1501.25, height: 1705)
-
-        #expect(
-            PanelPlacement.resetFrame(on: screen)
-                == CGRect(x: 470, y: 591, width: 601, height: 1023))
+        #expect(reset.minX == frame.minX)
+        #expect(reset.maxY == frame.maxY)
+        #expect(reset.size == CGSize(width: 960, height: 1080))
     }
 }
 

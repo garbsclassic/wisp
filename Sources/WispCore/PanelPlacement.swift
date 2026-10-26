@@ -40,7 +40,7 @@ public struct LegacyPanelGeometry: Decodable {
 public enum PanelPlacement {
     public static let minimumSize = CGSize(width: 540, height: 640)
     public static let defaultSize = CGSize(width: 800, height: minimumSize.height)
-    public static let topInset: CGFloat = 0.05
+    public static let topInset: CGFloat = 0.1
     public static let minVisible: CGFloat = 120
 
     public static func initialFrame(
@@ -77,14 +77,18 @@ public enum PanelPlacement {
         return self.frame(topLeft: defaultTopLeft(for: size, on: home), size: size)
     }
 
-    /// Reset uses the usable screen's proportions, preserving the minimum where it fits.
-    public static func resetFrame(on screen: CGRect) -> CGRect {
+    public static func resetPosition(of frame: CGRect, on screen: CGRect) -> CGRect {
+        self.frame(topLeft: defaultTopLeft(for: frame.size, on: screen), size: frame.size)
+    }
+
+    /// Reset uses the usable screen's proportions, preserving the top-left and minimum where it fits.
+    public static func resetSize(of frame: CGRect, on screen: CGRect) -> CGRect {
         let size = fitted(
             CGSize(
                 width: max((screen.width * 0.4).rounded(), minimumSize.width),
                 height: max((screen.height * 0.6).rounded(), minimumSize.height)),
             to: screen)
-        return frame(topLeft: defaultTopLeft(for: size, on: screen), size: size)
+        return CGRect(origin: CGPoint(x: frame.minX, y: frame.maxY - size.height), size: size)
     }
 
     public static func defaultTopLeft(for size: CGSize, on screen: CGRect) -> CGPoint {

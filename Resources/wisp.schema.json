@@ -134,10 +134,15 @@
         "decreaseFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+-" },
         "resetFontScale": { "$ref": "#/$defs/chordSet", "default": "cmd+0" },
         "reveal": { "$ref": "#/$defs/chordSet", "default": "opt+cmd+r" },
-        "resetView": {
-          "description": "Reset View: restore the default location and a size of 40% usable width by 60% usable height, bounded by the minimum and screen.",
+        "resetPosition": {
+          "description": "Reset Position: centre on the primary usable display with the top edge 10% down, preserving size.",
           "$ref": "#/$defs/chordSet",
           "default": "cmd+opt+0"
+        },
+        "resetSize": {
+          "description": "Reset Size: restore 40% usable width by 60% usable height on the panel's display, bounded by the minimum and screen, preserving the top-left.",
+          "$ref": "#/$defs/chordSet",
+          "default": "cmd+shift+0"
         }
       }
     },

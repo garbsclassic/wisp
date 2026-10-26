@@ -57,14 +57,28 @@ struct KeymapTests {
         #expect(object?["help"] as? [String] == ["f1", "cmd+/"])
     }
 
-    @Test("Reset View decodes and encodes its own binding")
-    func resetViewBinding() throws {
-        let config = try decode(#"{ "keymap": { "resetView": "ctrl+shift+0" } }"#)
-        #expect(config.keymap.chord(for: .resetView) == "ctrl+shift+0")
+    @Test("Reset Position and Reset Size decode and encode separate bindings")
+    func resetBindings() throws {
+        let config = try decode(
+            #"{ "keymap": { "resetPosition": "cmd+alt+0", "resetSize": "ctrl+shift+0" } }"#)
+        #expect(config.keymap.chord(for: .resetPosition) == "cmd+alt+0")
+        #expect(config.keymap.chord(for: .resetSize) == "ctrl+shift+0")
         let data = try JSONEncoder().encode(config.keymap)
         let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(object["resetView"] as? String == "ctrl+shift+0")
-        #expect(object["resetPosition"] == nil)
+        #expect(object["resetPosition"] as? String == "cmd+alt+0")
+        #expect(object["resetSize"] as? String == "ctrl+shift+0")
+        #expect(object["resetView"] == nil)
+    }
+
+    @Test("Legacy Reset View binding is ignored")
+    func legacyResetViewIsIgnored() throws {
+        let config = try decode(#"{ "keymap": { "resetView": "cmd+9" } }"#)
+
+        #expect(config.keymap.chord(for: .resetPosition) == "cmd+opt+0")
+        #expect(config.keymap.chord(for: .resetSize) == "cmd+shift+0")
+        let data = try JSONEncoder().encode(config.keymap)
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["resetView"] == nil)
     }
 
     @Test("A round trip through JSON preserves an override")
@@ -111,6 +125,8 @@ struct KeymapTests {
         #expect(KeymapAction.moveLineUp.isPanelScoped)
         #expect(KeymapAction.help.isPanelScoped)
         #expect(KeymapAction.cycleTheme.isPanelScoped)
+        #expect(KeymapAction.resetPosition.isPanelScoped)
+        #expect(KeymapAction.resetSize.isPanelScoped)
     }
 }
 
