@@ -12,29 +12,16 @@ CONFIGURATION="${WISP_CONFIGURATION:-release}"
 # the signing note in README.md.
 SIGN_IDENTITY="${WISP_SIGN_IDENTITY:--}"
 
-# From MacOSX27.0.sdk on, @State is a macro whose plugin (SwiftUIMacros) ships only with Xcode, so
-# a Command Line Tools build fails with "plugin for module 'SwiftUIMacros' not found". Build
-# against the newest CLT SDK older than 27 instead. Set it via $SDKROOT, not `-Xswiftc -sdk`:
-# SwiftPM derives its own `-sdk` for the build plan, and that one takes priority.
-SDK_DIR="$(xcode-select -p)/SDKs"
-if [[ -n "${WISP_SDKROOT:-}" ]]; then
-    export SDKROOT="$WISP_SDKROOT"
-elif [[ -d "$SDK_DIR" ]]; then
-    NEWEST_PRE_27="$(find "$SDK_DIR" -maxdepth 1 -name 'MacOSX[0-9]*.sdk' -exec basename {} \; \
-        | sort -V | awk -F'[X.]' '$2 < 27' | tail -n 1)"
-    if [[ -z "$NEWEST_PRE_27" ]]; then
-        echo "error: no SDK older than MacOSX27 under $SDK_DIR" >&2
-        echo "       install Xcode, or set WISP_SDKROOT to an SDK that builds SwiftUI without it" >&2
-        exit 1
-    fi
-    export SDKROOT="$SDK_DIR/$NEWEST_PRE_27"
-fi
-if [[ -n "${SDKROOT:-}" && ! -d "$SDKROOT" ]]; then
-    echo "error: SDK not found at $SDKROOT" >&2
-    exit 1
-fi
+# SwiftPM derives its own -sdk, so select the compatible SDK through SDKROOT.
+SDKROOT="$(bash "$ROOT_DIR/scripts/lib/sdk.sh")"
+export SDKROOT
 
-swift build -c "$CONFIGURATION" --package-path "$ROOT_DIR"
+# Suppress SwiftPM's nonexistent Xcode search paths when using Command Line Tools.
+swiftpm() {
+    swift "$@" 2> >(grep -Ev "ld: warning: search path '$(xcode-select -p)/Developer/.*' not found" >&2)
+}
+
+swiftpm build -c "$CONFIGURATION" --package-path "$ROOT_DIR"
 BINARY="$(swift build -c "$CONFIGURATION" --package-path "$ROOT_DIR" --show-bin-path)/${APP_NAME}"
 
 rm -rf "$APP_BUNDLE"

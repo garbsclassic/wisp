@@ -15,20 +15,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-DEVELOPER_DIR="$(xcode-select -p)"
-SDK_DIR="$DEVELOPER_DIR/SDKs"
-if [[ -n "${WISP_SDKROOT:-}" ]]; then
-    TEST_SDK="$WISP_SDKROOT"
-else
-    TEST_SDK="$(find "$SDK_DIR" -maxdepth 1 -name 'MacOSX[0-9]*.sdk' -exec basename {} \; \
-        | sort -V | awk -F'[X.]' '$2 < 27' | tail -n 1)"
-    [[ -n "$TEST_SDK" ]] && TEST_SDK="$SDK_DIR/$TEST_SDK"
-fi
-if [[ -z "$TEST_SDK" || ! -d "$TEST_SDK" ]]; then
-    echo "error: set WISP_SDKROOT to an installed macOS SDK" >&2
-    exit 1
-fi
-
+TEST_SDK="$(bash "$ROOT_DIR/scripts/lib/sdk.sh")"
 TEST_TARGET="$(uname -m)-apple-macosx15.0"
 TEST_APP="$TEST_ROOT/FramePersistenceCheck.app"
 TEST_BINARY="$TEST_APP/Contents/MacOS/FramePersistenceCheck"

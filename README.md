@@ -214,7 +214,7 @@ On the first launch without a saved frame, Wisp imports the former `panel` size 
 open dist/Wisp.app
 ```
 
-`build.sh` assembles `dist/Wisp.app` by hand, because SwiftPM builds only a bare executable. From `MacOSX27.0.sdk` on, SwiftUI needs a compiler plugin that ships only with Xcode, so `build.sh` builds against the newest Command Line Tools SDK older than 27. To use a specific SDK, set `WISP_SDKROOT` to its path.
+`build.sh` assembles `dist/Wisp.app` by hand, because SwiftPM builds only a bare executable. From `MacOSX27.0.sdk` on, SwiftUI needs a compiler plugin that ships only with Xcode, so `build.sh` builds against the newest installed Command Line Tools SDK from 15 through 26.
 
 To run the tests:
 

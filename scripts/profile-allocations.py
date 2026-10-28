@@ -40,18 +40,8 @@ def run(command, *, output=None, timeout=300, env=None):
 
 
 def select_sdk():
-    override = os.environ.get("WISP_SDKROOT")
-    if override:
-        return Path(override)
-    developer = Path(subprocess.check_output(["xcode-select", "-p"], text=True).strip())
-    candidates = []
-    for path in (developer / "SDKs").glob("MacOSX*.sdk"):
-        match = re.fullmatch(r"MacOSX(\d+)(?:\.(\d+))?\.sdk", path.name)
-        if match and int(match[1]) < 27:
-            candidates.append(((int(match[1]), int(match[2] or 0)), path))
-    if not candidates:
-        raise RuntimeError("Set WISP_SDKROOT to an SDK supported by the project")
-    return max(candidates)[1]
+    helper = Path(__file__).resolve().parent / "lib/sdk.sh"
+    return Path(subprocess.check_output(["bash", str(helper)], text=True).strip())
 
 
 def build(source, driver, destination, sdk):
