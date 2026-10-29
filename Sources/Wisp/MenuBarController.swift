@@ -46,17 +46,17 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.delegate = self
 
-        // Actions, then settings, then Quit; wording follows Clef's where they overlap.
         menu.addItem(
             makeItem("Toggle Panel", symbol: "macwindow", action: #selector(handleTogglePanel)))
+        menu.addItem(.separator())
+
         menu.addItem(
             boundItem(.resetPosition, symbol: "arrow.up.and.down.and.arrow.left.and.right"))
         menu.addItem(boundItem(.resetSize, symbol: "arrow.down.right.and.arrow.up.left"))
-        menu.addItem(boundItem(.refresh, symbol: "arrow.clockwise"))
-        menu.addItem(boundItem(.reveal, symbol: "doc.text.magnifyingglass"))
 
         menu.addItem(.separator())
 
+        menu.addItem(boundItem(.reveal, symbol: "doc.text.magnifyingglass"))
         menu.addItem(
             makeItem(
                 "Scratchpad Folder…", symbol: "folder", action: #selector(handlePickStorageLocation)
@@ -69,14 +69,16 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         resetItem = reset
         menu.addItem(reset)
 
+        menu.addItem(.separator())
+
+        // Opens wisp.json, the only way most settings are changed.
+        menu.addItem(boundItem(.settings, symbol: "gearshape"))
+        menu.addItem(boundItem(.refresh, symbol: "arrow.clockwise"))
         let launch = makeItem(
             "Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin)
         )
         launchItem = launch
         menu.addItem(launch)
-
-        // Opens wisp.json, the only way most settings are changed.
-        menu.addItem(boundItem(.settings, symbol: "gearshape"))
 
         menu.addItem(.separator())
 
