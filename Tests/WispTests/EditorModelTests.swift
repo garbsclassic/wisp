@@ -298,7 +298,7 @@ struct EditorModelTests {
         model.findQuery = "⌘F"
         #expect(model.findMatchCount == 1)
         var config = settings.config
-        config.keymap.setChord("ctrl+f", for: .find)
+        config.keymap = Keymap([.find: "ctrl+f"])
         try ConfigStore.write(config, at: settings.configFileURL)
         #expect(model.reloadSettings())
         #expect(model.findMatchCount == 0)

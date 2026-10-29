@@ -83,8 +83,7 @@ struct KeymapTests {
 
     @Test("A round trip through JSON preserves an override")
     func roundTrip() throws {
-        var keymap = Keymap()
-        keymap.setChord("ctrl+opt+k", for: .highlight)
+        let keymap = Keymap([.highlight: "ctrl+opt+k"])
         let decoded = try JSONDecoder().decode(Keymap.self, from: JSONEncoder().encode(keymap))
         #expect(decoded == keymap)
         #expect(decoded.chord(for: .highlight) == "ctrl+opt+k")
@@ -105,14 +104,6 @@ struct KeymapTests {
         let config = try decode(#"{ "keymap": { "help": { "key": "f1" } } }"#, diagnostics: diagnostics)
         #expect(config.keymap.chordSet(for: .help) == KeymapAction.help.defaultChords)
         #expect(diagnostics.malformedKeys == ["keymap.help"])
-    }
-
-    @Test("Setting a chord from the capture overlay collapses an alias list")
-    func setCollapses() {
-        var keymap = Keymap()
-        #expect(keymap.chordSet(for: .help).chords.count == 2)
-        keymap.setChord("cmd+k", for: .help)
-        #expect(keymap.chordSet(for: .help) == ChordSet(["cmd+k"]))
     }
 
     @Test("Only the actions that open the panel are unscoped")

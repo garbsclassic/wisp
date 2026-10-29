@@ -111,18 +111,6 @@ final class Settings: ObservableObject {
     }
 
     @discardableResult
-    func setSummon(_ summon: KeyChord) -> Bool {
-        guard
-            let chord = KeyChord.string(
-                keyCode: summon.keyCode, carbonModifiers: summon.carbonModifiers,
-                hyperKey: config.keymap.hyperKey)
-        else { return false }
-        var next = config
-        next.keymap.setChord(chord, for: .summon)
-        return write(["keymap", KeymapAction.summon.rawValue], chord, next: next)
-    }
-
-    @discardableResult
     func setScratchpadFolder(_ path: String) -> Bool {
         var next = config
         next.scratchpadFolder = path

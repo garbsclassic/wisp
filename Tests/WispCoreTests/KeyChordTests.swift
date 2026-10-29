@@ -44,44 +44,8 @@ struct KeyChordParseTests {
         #expect(KeyChord.parse("hyper+cmd+.")?.carbonModifiers == spelled.carbonModifiers)
     }
 
-    @Test("All four modifiers spell themselves back as hyper")
-    func hyperRoundTrip() {
-        let all = UInt32(controlKey | optionKey | shiftKey | cmdKey)
-        #expect(KeyChord.string(keyCode: UInt32(kVK_ANSI_Period), carbonModifiers: all) == "hyper+.")
-    }
-
     @Test("A bare key with no modifiers is still a chord")
     func bareKey() throws {
         #expect(try #require(KeyChord.parse("f5")).carbonModifiers == 0)
-    }
-}
-
-@Suite("KeyChord rendering")
-struct KeyChordRenderTests {
-    @Test(
-        "A captured chord round-trips through the config's own string form",
-        arguments: ["ctrl+opt+.", "cmd+shift+p", "opt+space", "f5", "cmd+opt+left"]
-    )
-    func roundTrip(text: String) throws {
-        let parsed = try #require(KeyChord.parse(text))
-        let rendered = try #require(
-            KeyChord.string(keyCode: parsed.keyCode, carbonModifiers: parsed.carbonModifiers)
-        )
-        let reparsed = try #require(KeyChord.parse(rendered))
-        #expect(reparsed.keyCode == parsed.keyCode)
-        #expect(reparsed.carbonModifiers == parsed.carbonModifiers)
-    }
-
-    @Test("Rendering picks the canonical spelling, not an alias")
-    func canonicalSpelling() {
-        #expect(
-            KeyChord.string(keyCode: UInt32(kVK_ANSI_Period), carbonModifiers: 0) == "."
-        )
-        #expect(KeyChord.string(keyCode: UInt32(kVK_Escape), carbonModifiers: 0) == "escape")
-    }
-
-    @Test("An unmapped key code has no spelling and fails rather than lying")
-    func unmappedKeyCode() {
-        #expect(KeyChord.string(keyCode: 9999, carbonModifiers: UInt32(cmdKey)) == nil)
     }
 }

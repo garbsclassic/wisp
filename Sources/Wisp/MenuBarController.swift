@@ -7,7 +7,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     /// Runs keymap items through the same dispatch as their chords.
     private let perform: (KeymapAction) -> Void
-    private let onSetHotKey: () -> Void
     private let currentLaunchAtLogin: () -> Bool
     private let onToggleLaunchAtLogin: () -> Void
     private let isStorageCustom: () -> Bool
@@ -24,7 +23,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     init(
         perform: @escaping (KeymapAction) -> Void,
-        onSetHotKey: @escaping () -> Void,
         currentLaunchAtLogin: @escaping () -> Bool,
         onToggleLaunchAtLogin: @escaping () -> Void,
         isStorageCustom: @escaping () -> Bool,
@@ -32,7 +30,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         onResetStorageLocation: @escaping () -> Void
     ) {
         self.perform = perform
-        self.onSetHotKey = onSetHotKey
         self.currentLaunchAtLogin = currentLaunchAtLogin
         self.onToggleLaunchAtLogin = onToggleLaunchAtLogin
         self.isStorageCustom = isStorageCustom
@@ -71,11 +68,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         )
         resetItem = reset
         menu.addItem(reset)
-
-        menu.addItem(
-            makeItem(
-                "Set Shortcut…", symbol: "keyboard", action: #selector(handleSetHotKey)
-            ))
 
         let launch = makeItem(
             "Launch at Login", symbol: "power", action: #selector(handleToggleLaunchAtLogin)
@@ -241,10 +233,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         launchItem?.state = currentLaunchAtLogin() ? .on : .off
         resetItem?.isHidden = !isStorageCustom()
-    }
-
-    @objc private func handleSetHotKey() {
-        onSetHotKey()
     }
 
     @objc private func handleToggleLaunchAtLogin() {

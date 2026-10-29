@@ -14,8 +14,8 @@ struct HyperKeyTests {
         return try decoder.decode(WispConfig.self, from: Data(json.utf8))
     }
 
-    @Test("The default and custom modifier sets expand, display, and capture consistently")
-    func expansionAndCaptureRoundTrip() throws {
+    @Test("The default and custom modifier sets expand and display consistently")
+    func expansionAndDisplay() throws {
         let defaults = Keymap()
         let defaultHyper = try #require(KeyChord.parse("hyper+.", hyperKey: defaults.hyperKey))
         #expect(defaultHyper.carbonModifiers == UInt32(controlKey | optionKey | shiftKey | cmdKey))
@@ -30,21 +30,10 @@ struct HyperKeyTests {
         #expect(config.keymap.primaryDisplay(.summon) == "❖.")
         #expect(parsed.displayString(hyperKey: defaults.hyperKey) == "⌃⌥.")
 
-        let captured = try #require(
-            KeyChord.string(
-                keyCode: parsed.keyCode, carbonModifiers: parsed.carbonModifiers, hyperKey: hyperKey
-            ))
-        #expect(captured == "hyper+.")
-        #expect(KeyChord.parse(captured, hyperKey: hyperKey) == parsed)
         #expect(KeyChord.parse("ctrl+opt+.", hyperKey: hyperKey) == parsed)
 
         let allFour = try #require(KeyChord.parse("ctrl+opt+shift+cmd+.", hyperKey: hyperKey))
-        let allFourCapture = try #require(
-            KeyChord.string(
-                keyCode: allFour.keyCode, carbonModifiers: allFour.carbonModifiers,
-                hyperKey: hyperKey))
-        #expect(allFourCapture == "ctrl+opt+shift+cmd+.")
-        #expect(KeyChord.parse(allFourCapture, hyperKey: hyperKey) == allFour)
+        #expect(allFour.carbonModifiers == UInt32(controlKey | optionKey | shiftKey | cmdKey))
     }
 
     @Test("The keymap defaults and round-trips its hyper key as a string")

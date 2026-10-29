@@ -181,35 +181,6 @@ public struct KeyChord: Equatable, Sendable {
         kVK_ANSI_Grave: "`",
     ]
 
-    // MARK: Config spelling
-
-    /// The inverse of `parse`, for the Set Shortcut… capture. Nil for an unmapped key code rather
-    /// than a string the parser would reject.
-    public static func string(
-        keyCode: UInt32, carbonModifiers: UInt32, hyperKey: HyperKey = .standard
-    ) -> String? {
-        guard let key = keyNames[keyCode] else { return nil }
-        if carbonModifiers == hyperKey.carbonModifiers { return "hyper+\(key)" }
-        var parts: [String] = []
-        if carbonModifiers & UInt32(controlKey) != 0 { parts.append("ctrl") }
-        if carbonModifiers & UInt32(optionKey) != 0 { parts.append("opt") }
-        if carbonModifiers & UInt32(shiftKey) != 0 { parts.append("shift") }
-        if carbonModifiers & UInt32(cmdKey) != 0 { parts.append("cmd") }
-        parts.append(key)
-        return parts.joined(separator: "+")
-    }
-
-    /// One canonical token per key code, preferring `preferredKeyTokens`: `.` over "period",
-    /// "escape" over "esc".
-    private static let keyNames: [UInt32: String] = {
-        var names: [UInt32: String] = [:]
-        for token in preferredKeyTokens {
-            if let code = keyCodes[token], names[code] == nil { names[code] = token }
-        }
-        for (token, code) in keyCodes where names[code] == nil { names[code] = token }
-        return names
-    }()
-
     /// What an `NSMenuItem` wants: AppKit matches the character, not the key code, and arrows use
     /// its function-key scalars. Shift stays in the mask; an uppercase character draws a second ⇧.
     public var menuEquivalent: (character: String, modifiers: NSEvent.ModifierFlags)? {

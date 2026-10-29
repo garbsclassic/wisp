@@ -53,6 +53,54 @@ struct HotKeyMonitorTests {
         #expect(!addedProbe.register([added], onPress: { _ in }, onRelease: {}))
     }
 
+    @Test("Config reload replaces summon aliases and preserves unrelated settings")
+    func configReloadReplacesSummonAliases() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wisp-summon-reload-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configURL = directory.appendingPathComponent("wisp.jsonc")
+
+        let originalSummon: [String] = ["hyper+f5", "hyper+f6"]
+        let updatedSummon: [String] = ["hyper+f7", "hyper+f8"]
+        let original = WispConfig(
+            theme: .light,
+            scratchpadFolder: "/tmp/wisp-test-scratchpad",
+            keymap: Keymap([
+                .summon: ChordSet(originalSummon), .bold: "cmd+b",
+            ]))
+        try ConfigStore.write(original, at: configURL)
+
+        let settings = Settings(configFileURL: configURL)
+        let monitor = HotKeyMonitor()
+        defer { monitor.unregister() }
+        #expect(monitor.register(settings.config.summonChords, onPress: { _ in }, onRelease: {}))
+        let originalChords = monitor.chords
+        #expect(originalChords.count == 2)
+
+        var edited = settings.config
+        edited.keymap = Keymap([
+            .summon: ChordSet(updatedSummon), .bold: "cmd+b",
+        ])
+        try ConfigStore.update(["keymap"], to: edited.keymap, in: edited, at: configURL)
+
+        #expect(settings.reload())
+        #expect(
+            monitor.register(settings.config.summonChords, onPress: { _ in }, onRelease: {}))
+        let updatedChords = try updatedSummon.map { try #require(KeyChord.parse($0)) }
+        #expect(monitor.chords == updatedChords)
+        #expect(settings.config.theme == .light)
+        #expect(settings.config.scratchpadFolder == "/tmp/wisp-test-scratchpad")
+        #expect(settings.config.keymap.chord(for: .bold) == "cmd+b")
+
+        let oldProbe = HotKeyMonitor()
+        defer { oldProbe.unregister() }
+        try #require(oldProbe.register(originalChords, onPress: { _ in }, onRelease: {}))
+
+        let activeProbe = HotKeyMonitor()
+        defer { activeProbe.unregister() }
+        #expect(!activeProbe.register(monitor.chords, onPress: { _ in }, onRelease: {}))
+    }
+
     @Test("Partial conflict keeps independently registered requested chords")
     func partialConflictKeepsAvailableChord() throws {
         let available = try #require(KeyChord.parse("hyper+f7"))
@@ -89,34 +137,6 @@ struct HotKeyMonitorTests {
         let previousProbe = HotKeyMonitor()
         defer { previousProbe.unregister() }
         #expect(!previousProbe.register([previous], onPress: { _ in }, onRelease: {}))
-    }
-
-    @Test("Capture replacement can restore aliases after a failed save")
-    func captureReplacementRestoresSavedAliases() throws {
-        let first = try #require(KeyChord.parse("hyper+f1"))
-        let second = try #require(KeyChord.parse("hyper+f12"))
-        let captured = try #require(KeyChord.parse("hyper+f3"))
-        let monitor = HotKeyMonitor()
-        defer { monitor.unregister() }
-
-        try #require(monitor.register([first, second], onPress: { _ in }, onRelease: {}))
-        let savedChords = monitor.chords
-        try #require(monitor.register([captured], onPress: { _ in }, onRelease: {}))
-        #expect(monitor.chords == [captured])
-        try #require(monitor.register(savedChords, onPress: { _ in }, onRelease: {}))
-        #expect(monitor.chords == savedChords)
-
-        let firstProbe = HotKeyMonitor()
-        defer { firstProbe.unregister() }
-        #expect(!firstProbe.register([first], onPress: { _ in }, onRelease: {}))
-
-        let secondProbe = HotKeyMonitor()
-        defer { secondProbe.unregister() }
-        #expect(!secondProbe.register([second], onPress: { _ in }, onRelease: {}))
-
-        let capturedProbe = HotKeyMonitor()
-        defer { capturedProbe.unregister() }
-        try #require(capturedProbe.register([captured], onPress: { _ in }, onRelease: {}))
     }
 
     @Test("An empty chord list unregisters all aliases")

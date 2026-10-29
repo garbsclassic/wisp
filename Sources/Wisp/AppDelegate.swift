@@ -22,10 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController = panel
         menuBarController = MenuBarController(
             perform: { [weak self] action in self?.perform(action) },
-            onSetHotKey: { [weak self, weak panel] in
-                panel?.openIfNeeded()
-                self?.model.showHotKeyCapture = true
-            },
             currentLaunchAtLogin: { LaunchAtLogin.isEnabled },
             onToggleLaunchAtLogin: {
                 LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
@@ -57,22 +53,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings.reportWatcherFailure(failures.joined(separator: " "))
         }
 
-        // For the capture overlay.
-        model.tryUpdateHotKey = { [weak self] chord in
-            guard let self else { return "Internal error" }
-            let previous = self.hotKey.chords
-            guard self.registerSummon([chord]) else {
-                let display = chord.displayString(hyperKey: self.settings.config.keymap.hyperKey)
-                return "\(display) is already used by another app or macOS. Try another combo."
-            }
-            guard self.settings.setSummon(chord) else {
-                self.registerSummon(previous)
-                return self.settings.configWarning ?? "Couldn't save summon chord"
-            }
-            self.settings.reportSummonRegistration(requested: [chord], registered: self.hotKey.chords)
-            return nil
-        }
-
         // Nothing shows at launch: a login-item launch can't be told from a user's, so only the
         // hotkey, the menu, and a re-launch open the panel.
     }
@@ -95,8 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.reportSummonRegistration(requested: config.summonChords, registered: hotKey.chords)
     }
 
-    @discardableResult
-    private func registerSummon(_ chords: [KeyChord]) -> Bool {
+    private func registerSummon(_ chords: [KeyChord]) {
         hotKey.register(
             chords,
             onPress: { [weak self] chord in

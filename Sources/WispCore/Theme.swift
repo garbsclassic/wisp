@@ -183,9 +183,6 @@ public enum Metrics {
     public static let labelSize: CGFloat = 14
     /// Overlay rows and the find field: chrome meant to be read.
     public static let rowSize: CGFloat = 15
-    /// The single large string in the hotkey-capture overlay.
-    public static let titleSize: CGFloat = 21
-
     /// The save dot, small enough to read as a status light.
     public static let saveIndicatorSize: CGFloat = 6
 

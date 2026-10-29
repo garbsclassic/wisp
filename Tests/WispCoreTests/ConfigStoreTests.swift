@@ -246,7 +246,7 @@ final class ConfigStoreTests {
         """.write(to: ConfigStore.fileURL, atomically: true, encoding: .utf8)
 
         var config = ConfigStore.loadOrSeed().config
-        config.keymap.setChord("cmd+opt+w", for: .summon)
+        config.keymap = Keymap([.summon: "cmd+opt+w"], hyperKey: config.keymap.hyperKey)
         try ConfigStore.update(
             ["keymap", "summon"], to: config.keymap.chord(for: .summon), in: config)
 
@@ -279,7 +279,7 @@ final class ConfigStoreTests {
         let before = "{\n  // keep my notes\n  \"theme\": \"light\"\n}\n"
         try before.write(to: fileURL, atomically: true, encoding: .utf8)
         var config = WispConfig()
-        config.keymap.setChord("cmd+opt+w", for: .summon)
+        config.keymap = Keymap([.summon: "cmd+opt+w"], hyperKey: config.keymap.hyperKey)
 
         try ConfigStore.update(
             ["keymap", "summon"], to: config.keymap.chord(for: .summon), in: config,

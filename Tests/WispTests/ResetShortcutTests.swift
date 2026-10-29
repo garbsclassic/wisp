@@ -14,7 +14,6 @@ struct ResetShortcutTests {
         var actions: [KeymapAction] = []
         let controller = MenuBarController(
             perform: { actions.append($0) },
-            onSetHotKey: {},
             currentLaunchAtLogin: { false },
             onToggleLaunchAtLogin: {},
             isStorageCustom: { false },
@@ -36,6 +35,9 @@ struct ResetShortcutTests {
         let statusItem = try #require(children["statusItem"] as? NSStatusItem)
         #expect(statusItem.menu === menu)
         menu.autoenablesItems = false
+
+        #expect(!menu.items.contains(where: { $0.title == "Set Shortcut…" }))
+        #expect(menu.items.contains(where: { $0.title == "Toggle Panel" }))
 
         let positionItem = menu.items.first(where: { $0.title == "Reset Position" })
         let sizeItem = menu.items.first(where: { $0.title == "Reset Size" })

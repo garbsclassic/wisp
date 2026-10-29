@@ -43,7 +43,6 @@ final class EditorModel: ObservableObject {
     private var saveFlashTask: Task<Void, Never>?
     private(set) var scrollTarget: Int = 0
     @Published private(set) var placeholder: String = ""
-    @Published var showHotKeyCapture: Bool = false
     /// The raw text in the code face. Not persisted: it's a glance at the file, not a preference.
     @Published var isSourceView: Bool = false
 
@@ -80,9 +79,6 @@ final class EditorModel: ObservableObject {
     private(set) var findHighlightRange = NSRange(location: 0, length: 0)
     private var findMatches: [NSRange] = []
     private var findIndex = 0
-    /// Set by the app delegate: nil on success, or a message when the chord is taken.
-    var tryUpdateHotKey: @MainActor (KeyChord) -> String? = { _ in nil }
-
     private static let placeholders = [
         "What's on your mind?",
         "Type your first thought…",
@@ -371,10 +367,6 @@ final class EditorModel: ObservableObject {
             dismissFind()
             return true
         }
-        if showHotKeyCapture {
-            showHotKeyCapture = false
-            return true
-        }
         if showHelp {
             showHelp = false
             return true
@@ -551,22 +543,6 @@ struct EditorView: View {
                     onClose: {
                         withAnimation(.easeInOut(duration: 0.18)) {
                             model.showHelp = false
-                        }
-                    }
-                )
-                .transition(.opacity)
-            }
-            if model.showHotKeyCapture {
-                HotKeyCaptureOverlay(
-                    onTryRegister: { hk in model.tryUpdateHotKey(hk) },
-                    onSuccess: {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            model.showHotKeyCapture = false
-                        }
-                    },
-                    onCancel: {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            model.showHotKeyCapture = false
                         }
                     }
                 )

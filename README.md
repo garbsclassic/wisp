@@ -55,7 +55,7 @@ Press ⌘/ or F1, or click `?` in the footer, for the full shortcut list inside 
 - Drag the panel by any part that isn't text. It opens in the same place next time. **Reset Position** (⌥⌘0) returns it to its default spot; **Reset Size** (⇧⌘0) restores its size relative to its display.
 - Click the menu bar icon for the menu, then choose **Toggle Panel** to pin or dismiss the panel.
 
-To change the ⌃⌥. chord, choose **Set Shortcut…** in the menu bar menu, or edit `keymap.summon` in the config.
+To change the ⌃⌥. chord, edit `keymap.summon` in the config.
 
 ### Write
 
@@ -157,9 +157,9 @@ Wisp bundles no fonts. It looks up a named family by name, and if the family isn
 
 ### Shortcuts
 
-Wisp writes every binding under `keymap` on first launch. A chord is modifiers plus one key, in any order: `cmd+shift+d`, `opt+up`, `ctrl+opt+.`. `hyper` (or `❖`) expands to `keymap.hyperKey`, which defaults to `"ctrl+opt+shift+cmd"`. Set it to a modifier combination such as `"ctrl+opt+cmd"` to match your keyboard remapping; it takes no ordinary key or `hyper` token. Invalid values use the default and report a config warning. Changes apply on save to chords using `hyper`/`❖`; explicitly named modifiers keep their meaning. **Set Shortcut…** uses the same definition when saving a captured chord.
+Wisp writes every binding under `keymap` on first launch. A chord is modifiers plus one key, in any order: `cmd+shift+d`, `opt+up`, `ctrl+opt+.`. `hyper` (or `❖`) expands to `keymap.hyperKey`, which defaults to `"ctrl+opt+shift+cmd"`. Set it to a modifier combination such as `"ctrl+opt+cmd"` to match your keyboard remapping; it takes no ordinary key or `hyper` token. Invalid values use the default and report a config warning. Changes apply on save to chords using `hyper`/`❖`; explicitly named modifiers keep their meaning.
 
-An action can take a list of chords instead of one, and every chord in the list works. For example, `"help": ["f1", "cmd+/"]` or `"summon": ["ctrl+opt+.", "hyper+w"]`. Every summon alias works globally for tap-to-pin and hold-to-peek. **Set Shortcut…** replaces the summon list with the single captured chord.
+An action can take a list of chords instead of one, and every chord in the list works. For example, `"help": ["f1", "cmd+/"]` or `"summon": ["ctrl+opt+.", "hyper+w"]`. Every summon alias works globally for tap-to-pin and hold-to-peek.
 
 `summon` is the only global shortcut. `find`, `settings`, and `refresh` also work while Wisp is active with the panel closed, and they open the panel. The rest work only while the panel is focused. The menu bar menu shows each item's current chord; those chords also work while the menu is open.
 

@@ -204,14 +204,9 @@ public struct Keymap: Codable, Equatable, Sendable {
         bindings[action.rawValue] ?? action.defaultChords
     }
 
-    /// The first chord: what Set Shortcut… rewrites.
+    /// The first chord, used where only one can be shown.
     public func chord(for action: KeymapAction) -> String {
         chordSet(for: action).chords.first ?? ""
-    }
-
-    /// Replaces every chord, collapsing an alias list: the capture overlay binds one key.
-    public mutating func setChord(_ chord: String, for action: KeymapAction) {
-        bindings[action.rawValue] = ChordSet([chord])
     }
 
     /// Drops unparseable chords, so one typo doesn't cost the aliases that were fine.
