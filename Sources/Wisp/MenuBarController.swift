@@ -226,6 +226,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if let base = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
             let config = NSImage.SymbolConfiguration(textStyle: .body, scale: .small)
             item.image = base.withSymbolConfiguration(config)
+            // macOS 27's .visible preference, accessed dynamically while building with the 26 SDK.
+            if item.responds(to: NSSelectorFromString("setPreferredImageVisibility:")) {
+                item.setValue(1, forKey: "preferredImageVisibility")
+            }
         }
         return item
     }
