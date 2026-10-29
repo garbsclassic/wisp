@@ -1,8 +1,7 @@
 import AppKit
 import WispCore
 
-/// The status item: left click pins or dismisses, right click opens the menu, whose dynamic items
-/// refresh in `menuNeedsUpdate`.
+/// The status item's native menu refreshes its dynamic items in `menuNeedsUpdate`.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
@@ -46,15 +45,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             let image = Self.makeStatusIcon()
             image.accessibilityDescription = "Wisp"
             button.image = image
-            button.target = self
-            button.action = #selector(handleClick)
-            // Left on the up, as a toggle; right on the down, as a context menu opens. As in Clef.
-            button.sendAction(on: [.leftMouseUp, .rightMouseDown])
         }
 
         menu.delegate = self
 
         // Actions, then settings, then Quit; wording follows Clef's where they overlap.
+        menu.addItem(
+            makeItem("Toggle Panel", symbol: "macwindow", action: #selector(handleTogglePanel)))
         menu.addItem(
             boundItem(.resetPosition, symbol: "arrow.up.and.down.and.arrow.left.and.right"))
         menu.addItem(boundItem(.resetSize, symbol: "arrow.down.right.and.arrow.up.left"))
@@ -99,25 +96,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         quit.target = nil
         quit.keyEquivalent = "q"
         menu.addItem(quit)
-    }
-
-    /// Control-click counts as right. The menu is assigned only while opening, or AppKit opens it
-    /// on every click.
-    @objc private func handleClick() {
-        let event = NSApp.currentEvent
-        let isSecondary =
-            event?.type == .rightMouseDown || event?.modifierFlags.contains(.control) == true
-        guard isSecondary else {
-            perform(.summon)
-            return
-        }
         statusItem.menu = menu
-        statusItem.button?.performClick(nil)
     }
 
-    func menuDidClose(_ menu: NSMenu) {
-        statusItem.menu = nil
-    }
+    @objc private func handleTogglePanel() { perform(.summon) }
 
     /// Stamps each item with its live chord. These equivalents fire only while the menu is open,
     /// so they can't collide with `KeyBindingMonitor`.

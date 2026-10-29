@@ -33,6 +33,8 @@ struct ResetShortcutTests {
             }
         }
         let menu = try #require(children["menu"] as? NSMenu)
+        let statusItem = try #require(children["statusItem"] as? NSStatusItem)
+        #expect(statusItem.menu === menu)
         menu.autoenablesItems = false
 
         let positionItem = menu.items.first(where: { $0.title == "Reset Position" })
@@ -89,6 +91,10 @@ struct ResetShortcutTests {
                     .resetPosition, .resetSize, .refresh, .resetPosition, .resetSize,
                     .resetPosition, .resetSize, .refresh,
                 ])
+        let toggleIndex = menu.indexOfItem(withTitle: "Toggle Panel")
+        #expect(toggleIndex >= 0)
+        if toggleIndex >= 0 { menu.performActionForItem(at: toggleIndex) }
+        #expect(actions.last == .summon)
     }
 
     private func keyEvent(

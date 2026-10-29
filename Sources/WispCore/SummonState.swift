@@ -16,7 +16,7 @@ public enum SummonState: Equatable, Sendable {
         case holdElapsed
         /// A peek's modifiers lifted after its key already had.
         case modifiersReleased
-        /// The status item's click, or anything else that opens the panel without a chord.
+        /// A menu action or anything else that opens the panel without a chord.
         case togglePin
         case dismiss
     }
