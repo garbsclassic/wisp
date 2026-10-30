@@ -53,7 +53,7 @@ struct HelpOverlay: View {
             .overlay(alignment: .top) { hairline }
         }
         // Near-opaque, so the note shows faintly behind a modal page.
-        .background(Color(palette.panel).opacity(0.97))
+        .background(Color(nsColor: palette.panel).opacity(0.97))
     }
 
     /// On the app's own insets, so the bar doesn't shift as the page crossfades in.
@@ -72,7 +72,7 @@ struct HelpOverlay: View {
 
     private var hairline: some View {
         Rectangle()
-            .fill(Color(palette.border))
+            .fill(Color(nsColor: palette.border))
             .frame(height: 1)
     }
 

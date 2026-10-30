@@ -20,7 +20,7 @@ struct FindBar: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(Typography.ui(Metrics.labelSize))
-                .foregroundStyle(Color(palette.muted))
+                .foregroundStyle(Color(nsColor: palette.muted))
                 .accessibilityHidden(true)
 
             TextField("Find", text: $query)
@@ -31,7 +31,7 @@ struct FindBar: View {
 
             Text(countLabel)
                 .font(Typography.ui(Metrics.chromeSize, tabularDigits: true))
-                .foregroundStyle(Color(palette.muted))
+                .foregroundStyle(Color(nsColor: palette.muted))
                 .frame(minWidth: 58, alignment: .trailing)
 
             Divider().frame(height: 16)
@@ -68,11 +68,11 @@ struct FindBar: View {
     }
 
     private var barFill: Color {
-        Color(palette.surface)
+        Color(nsColor: palette.surface)
     }
 
     private var borderColor: Color {
-        Color(palette.border)
+        Color(nsColor: palette.border)
     }
 
     @ViewBuilder
@@ -88,7 +88,7 @@ struct FindBar: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Color(palette.muted))
+        .foregroundStyle(Color(nsColor: palette.muted))
         .pointerCursor()
         .help(help)
     }

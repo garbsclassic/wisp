@@ -8,15 +8,7 @@ The implemented revision handoff, caret lookup, find painting, and conservative 
 - [ ] Separate Wisp's work from rendering-server work before changing blur or animations.
 - [ ] Extend the overlay soak beyond the short scripted workload to distinguish bounded framework caches from continuing observer/dispatch allocation growth. Keep scanner-reported framework cycles separate from retained Wisp model/editor objects.
 
-## Heading navigation memory
-
-[`HeaderBar`](../Sources/Wisp/HeaderBar.swift) eagerly constructs every heading button in an `HStack`; clipping the horizontal scroll view does not limit that view tree. Address this before making the whole editor lazy.
-
-- [ ] Evaluate a lazy heading row while preserving horizontal scrolling, jumps, and the overflow ellipsis. Its content-width measurement must remain correct when most headings are not instantiated.
-- [ ] If lazy layout cannot preserve those behaviors, consider a bounded row with overflow navigation as an explicit interaction change.
-- [ ] Compare identical notes with the normal heading bar and the profiling control that omits it. Require memory to follow the visible row rather than the total number of headings, and retain navigation through every heading in the model.
-
-### Allocation profiling workflow
+## Allocation profiling workflow
 
 Use `heap` and `malloc_history` first; Instruments is an optional graphical alternative, not a prerequisite. Enable allocation history at process launch with `MallocStackLogging=full MallocStackLoggingNoCompact=1` and an existing writable `MallocStackLoggingDirectory`. Check the host's `man malloc` for logging modes: the value `1` can select lite mode, which cannot provide historical peaks. [Apple's malloc debugging documentation](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/ManagingMemory/Articles/MallocDebug.html) describes the environment-variable mechanism. Keep these variables local to the profiling process.
 

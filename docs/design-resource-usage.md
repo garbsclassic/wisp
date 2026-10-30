@@ -8,6 +8,14 @@ Editor synchronization compares revision identity first. The caret footer caches
 
 An external replacement with different text clears the note's undo history: its saved ranges refer to the previous contents and cannot safely apply to the replacement. Local edit handoffs, unchanged reloads, and style changes retain history. A failed note read leaves the editor read-only until a successful reload, so edits cannot create a dirty buffer that blocks recovery from the read error.
 
+## View observation boundaries
+
+`EditorModel` and `Settings` use property-level Observation. Separate header, editor, footer, save-feedback, help, and find views read their own inputs; caret movement and save flashes do not invalidate the panel root or heading row. Settings reads are tracked directly instead of forwarding a broad change publisher.
+
+Word-count and caret-position caches are excluded from observation. Their getters still read the document and caret inputs before returning a cached result, so a warm cache retains the dependencies needed to refresh the readout. Navigation entries are compared before publishing a new value, preserving the heading view when an edit changes only body text after the headings.
+
+Resolved typography is observable separately from the editor model. Views that resolve a font follow changes to its configured face and scale without subscribing to unrelated editor state.
+
 ## Local rendering with a full fallback
 
 The text view keeps the last styled revision and the pending character edit until styling finishes. A single edit wholly within an unindented plain line can restyle that line when both revisions establish unchanged block context. Setext heading content is excluded. The local pass uses the same inline renderer as the full pass and preserves AppKit attributes outside the renderer's own keys.
@@ -32,4 +40,6 @@ These measurements describe synchronous AppKit/model work and process counters. 
 
 The allocation driver builds optimized production sources with a separate entry point, omitting AppDelegate services. It exercises scripted edits, undo, rendered note/help find navigation, and non-key panel visibility, then releases the window and model. It does not reproduce native typing cadence, selection dragging, paste, or normal key-panel input. Treat those as separate interactive workloads.
 
-Heading navigation is a separate retention boundary: the header's eager row instantiates all H1/H2 buttons even when the scroll view clips most of them. Evaluate heading-row virtualization before deferring construction of the entire editor; deferring the editor shifts its cold-start cost until summon without reducing the mounted row's cost.
+Heading navigation uses a native lazy horizontal stack. The document retains every navigation target, while the header constructs views around the visible viewport. Native scroll geometry supplies the overflow predicate, including after scrolling, resizing, and document changes; measuring every heading view is unnecessary. The header keeps its intrinsic height as font scale changes.
+
+The allocation profiler's `--omit-heading-bar` control removes the actual heading row from its disposable source snapshot. Compare it with an otherwise identical normal run to separate row overhead from the document and navigation data retained by the model.

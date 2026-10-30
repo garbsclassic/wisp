@@ -1,18 +1,20 @@
 import AppKit
+import Observation
 import WispCore
 
 /// The live view of the selected config and its only writer: each `set…` updates memory and rewrites that
 /// one key.
+@Observable
 @MainActor
-final class Settings: ObservableObject {
-    @Published private(set) var config: WispConfig
+final class Settings {
+    private(set) var config: WispConfig
     /// An unreadable file, malformed keys, or a failed write, for the footer.
-    @Published private(set) var configWarning: String?
+    private(set) var configWarning: String?
     /// A directory whose watcher didn't start, so edits there need ⌘R. Lasts until relaunch.
-    @Published private(set) var watcherWarning: String?
+    private(set) var watcherWarning: String?
 
     /// Configured summon chords that macOS could not register.
-    @Published private(set) var summonWarning: String?
+    private(set) var summonWarning: String?
 
     private let configFileOverride: URL?
     var configFileURL: URL { configFileOverride ?? ConfigStore.fileURL }

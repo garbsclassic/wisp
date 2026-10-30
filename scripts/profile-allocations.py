@@ -243,11 +243,12 @@ def main():
         if arguments.omit_heading_bar:
             editor = snapshot / "Sources/Wisp/EditorView.swift"
             text = editor.read_text()
-            original = ("private var barHeadings: [Heading] "
-                        "{ model.headings.filter { $0.level <= 2 } }")
+            original = "HeaderBar(items: model.navigationHeadings, title: \\.title)"
+            replacement = ("HeaderBar(items: Array(model.navigationHeadings.prefix(0)), "
+                           "title: \\.title)")
             if text.count(original) != 1:
                 raise RuntimeError("Cannot isolate the heading bar in this source revision")
-            editor.write_text(text.replace(original, "private var barHeadings: [Heading] { [] }"))
+            editor.write_text(text.replace(original, replacement))
         manifest["sources"][label] = {
             str(path.relative_to(snapshot)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in sorted((snapshot / "Sources").rglob("*.swift"))

@@ -2,8 +2,8 @@ import Foundation
 import WispCore
 
 /// UI identity belongs to the navigation session, not a heading's changing text offsets.
-struct HeadingNavigation {
-    struct Item: Identifiable {
+struct HeadingNavigation: Equatable {
+    struct Item: Identifiable, Equatable {
         let id: UUID
         let heading: Heading
         var title: String { heading.name }

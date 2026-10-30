@@ -8,7 +8,7 @@ struct SaveIndicator: View {
 
     var body: some View {
         Circle()
-            .fill(Color(palette.indicator))
+            .fill(Color(nsColor: palette.indicator))
             .frame(width: Metrics.saveIndicatorSize, height: Metrics.saveIndicatorSize)
             .opacity(isVisible ? 1 : 0)
             // Out more slowly than in, so it settles rather than blinks.

@@ -51,7 +51,7 @@ struct FooterBar: View {
             }
             if let warning {
                 Text(warning)
-                    .foregroundStyle(Color(palette.danger))
+                    .foregroundStyle(Color(nsColor: palette.danger))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .help(warning)
@@ -181,7 +181,7 @@ struct HoverTextButton<Label: View>: View {
             if isEnabled {
                 Button(action: action) { label().contentShape(Rectangle()) }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color(isHovered ? palette.text : palette.muted))
+                    .foregroundStyle(Color(nsColor: isHovered ? palette.text : palette.muted))
                     .animation(.easeInOut(duration: 0.15), value: isHovered)
                     .onHover { isHovered = $0 }
                     .pointerCursor()

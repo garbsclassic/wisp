@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import SwiftUI
 
 /// The three configured faces. A family that isn't installed falls back to the system face and
@@ -7,15 +8,17 @@ import SwiftUI
 public enum Typography {
     /// Nil wherever the system face draws. Resolved once, since `NSFont(name:)` doesn't cache a
     /// miss and `ui(_:)` runs ~40 times per overlay render; a new font needs a relaunch.
-    public private(set) static var notesFamily: String?
-    public private(set) static var uiFamily: String?
-    public private(set) static var codeFamily: String?
+    public static var notesFamily: String? { resolved.notesFamily }
+    public static var uiFamily: String? { resolved.uiFamily }
+    public static var codeFamily: String? { resolved.codeFamily }
 
     /// Configured families that didn't resolve, for the footer.
-    public private(set) static var missingFamilies: [String] = []
+    public static var missingFamilies: [String] { resolved.missingFamilies }
 
     /// Multiplies type sizes only; rules, padding, and the panel's proportions stay put.
-    public private(set) static var scale: CGFloat = 1
+    public static var scale: CGFloat { resolved.scale }
+
+    private static let resolved = ResolvedFonts()
 
     /// The one place the scale is applied; call sites pass design sizes.
     static func scaled(_ size: CGFloat) -> CGFloat { size * scale }
@@ -30,11 +33,11 @@ public enum Typography {
             }
             return family
         }
-        notesFamily = resolve(fonts.notes)
-        uiFamily = resolve(fonts.ui)
-        codeFamily = resolve(fonts.code)
-        missingFamilies = missing
-        self.scale = CGFloat(scale)
+        resolved.notesFamily = resolve(fonts.notes)
+        resolved.uiFamily = resolve(fonts.ui)
+        resolved.codeFamily = resolve(fonts.code)
+        resolved.missingFamilies = missing
+        resolved.scale = CGFloat(scale)
     }
 
     // MARK: AppKit
@@ -91,4 +94,15 @@ public enum Typography {
         }
         return Font(resolved).weight(weight)
     }
+}
+
+// Font reads in SwiftUI track the configured faces and scale without a broad model subscription.
+@Observable
+@MainActor
+private final class ResolvedFonts {
+    var notesFamily: String?
+    var uiFamily: String?
+    var codeFamily: String?
+    var missingFamilies: [String] = []
+    var scale: CGFloat = 1
 }

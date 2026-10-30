@@ -1,11 +1,12 @@
-import Combine
+import Observation
 import SwiftUI
 import WispCore
 
+@Observable
 @MainActor
-final class EditorModel: ObservableObject {
-    @Published var isPanelVisible = false
-    @Published private(set) var document = DocumentAnalysis("")
+final class EditorModel {
+    var isPanelVisible = false
+    private(set) var document = DocumentAnalysis("")
     var text: String {
         get { document.text }
         set {
@@ -20,7 +21,9 @@ final class EditorModel: ObservableObject {
     /// The editor hands over its final post-renumber revision, including its derived structure.
     func acceptEdit(_ revision: DocumentAnalysis) {
         guard isEditable, !document.matches(revision.text) else { return }
-        headingNavigation.update(from: document, to: revision)
+        var navigation = headingNavigation
+        navigation.update(from: document, to: revision)
+        headingNavigation = navigation
         document = revision
         cachedWordCount = nil
         cachedPosition = nil
@@ -29,33 +32,35 @@ final class EditorModel: ObservableObject {
         scheduleSave()
     }
 
-    private var cachedPosition: (offset: Int, value: CaretPosition)?
+    @ObservationIgnored private var cachedPosition: (offset: Int, value: CaretPosition)?
     var caretPosition: CaretPosition {
-        if let cachedPosition, cachedPosition.offset == caretOffset { return cachedPosition.value }
-        let value = document.caretPosition(at: caretOffset)
-        cachedPosition = (caretOffset, value)
+        let revision = document
+        let offset = caretOffset
+        if let cachedPosition, cachedPosition.offset == offset { return cachedPosition.value }
+        let value = revision.caretPosition(at: offset)
+        cachedPosition = (offset, value)
         return value
     }
-    private var cachedWordCount: Int?
+    @ObservationIgnored private var cachedWordCount: Int?
     /// The caret's UTF-16 offset, as the text view last reported it.
-    @Published var caretOffset = 0
-    @Published var focusToken: Int = 0
-    @Published var scrollToken: Int = 0
+    var caretOffset = 0
+    var focusToken: Int = 0
+    var scrollToken: Int = 0
     /// Flashed briefly on each save; nothing schedules it when `saveIndicator` is off.
-    @Published private(set) var isShowingSaveFlash = false
-    private var saveFlashTask: Task<Void, Never>?
+    private(set) var isShowingSaveFlash = false
+    @ObservationIgnored private var saveFlashTask: Task<Void, Never>?
     private(set) var scrollTarget: Int = 0
-    @Published private(set) var placeholder: String = ""
+    private(set) var placeholder: String = ""
     /// The raw text in the code face. Not persisted: it's a glance at the file, not a preference.
-    @Published var isSourceView: Bool = false
+    var isSourceView: Bool = false
 
     // MARK: Help
 
     /// Held rather than computed, since it's find's source while the page is up.
-    @Published private(set) var helpDocument: HelpDocument
+    private(set) var helpDocument: HelpDocument
     /// Bumped to give the help page first responder, so ⌘A and ⌘C don't reach the note.
-    @Published private(set) var helpFocusToken: Int = 0
-    @Published var showHelp: Bool = false {
+    private(set) var helpFocusToken: Int = 0
+    var showHelp: Bool = false {
         didSet {
             guard didLoad, showHelp != oldValue else { return }
             requestFocus()
@@ -65,8 +70,8 @@ final class EditorModel: ObservableObject {
     }
 
     // MARK: Find
-    @Published var showFind: Bool = false
-    @Published var findQuery: String = "" {
+    var showFind: Bool = false
+    var findQuery: String = "" {
         didSet {
             // Tearing the bar down writes the field's value back, which would re-highlight a
             // cleared match.
@@ -74,14 +79,14 @@ final class EditorModel: ObservableObject {
             recomputeMatches(resetIndex: true)
         }
     }
-    @Published private(set) var findMatchCount: Int = 0
+    private(set) var findMatchCount: Int = 0
     /// 1-based, or 0 with no matches.
-    @Published private(set) var findCurrentDisplayIndex: Int = 0
+    private(set) var findCurrentDisplayIndex: Int = 0
     /// A zero-length range clears the highlight.
-    @Published var findHighlightToken: Int = 0
+    var findHighlightToken: Int = 0
     private(set) var findHighlightRange = NSRange(location: 0, length: 0)
-    private var findMatches: [NSRange] = []
-    private var findIndex = 0
+    @ObservationIgnored private var findMatches: [NSRange] = []
+    @ObservationIgnored private var findIndex = 0
     private static let placeholders = [
         "What's on your mind?",
         "Type your first thought…",
@@ -89,40 +94,39 @@ final class EditorModel: ObservableObject {
         "Capture it before you forget.",
         "Anything to remember?",
     ]
-    // Read from the config; `Settings`' changes are forwarded as this model's.
+    // Observation follows these reads into Settings.
     var fontScale: Double { settings.config.clampedFontScale }
     var spellcheck: Bool { settings.config.spellcheck }
     var footerStatus: FooterStatus { settings.config.footerStatus }
     var themeSetting: ThemeSetting { settings.config.theme }
 
     /// The resolved theme: `themeSetting`, or the system appearance under `.system`.
-    @Published private(set) var theme: Theme = .dark {
+    private(set) var theme: Theme = .dark {
         didSet {
             onThemeChange?(theme)
         }
     }
 
     /// Lets the panel controller apply chrome changes; SwiftUI re-renders on its own.
-    var onThemeChange: (@MainActor (Theme) -> Void)?
+    @ObservationIgnored var onThemeChange: (@MainActor (Theme) -> Void)?
 
     /// The footer's close button; the panel owns its visibility.
-    var onDismissRequest: (@MainActor () -> Void)?
+    @ObservationIgnored var onDismissRequest: (@MainActor () -> Void)?
 
     /// Re-resolves the theme when the system appearance changes under `.system`.
-    private var appearanceObservation: NSKeyValueObservation?
-    private var settingsObservation: AnyCancellable?
+    @ObservationIgnored private var appearanceObservation: NSKeyValueObservation?
 
-    private var didLoad = false
-    private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var didLoad = false
+    @ObservationIgnored private var saveTask: Task<Void, Never>?
     /// Set while a disk reload rewrites `text`, so it isn't saved straight back.
-    private var isReloading = false
+    @ObservationIgnored private var isReloading = false
     /// The mtime at our last load or write, so only someone else's write reloads. Also the
     /// footer's last-modified readout; nil until there is a file.
-    @Published private(set) var lastLoadedMTime: Date?
+    private(set) var lastLoadedMTime: Date?
     /// Between a keystroke and its save, when a watcher event for our earlier write would read
     /// stale text back over newer.
     private(set) var hasPendingSave = false
-    @Published private(set) var persistenceWarning: String?
+    private(set) var persistenceWarning: String?
     private var loadError: Error?
     var isEditable: Bool { loadError == nil }
     private(set) var scratchpadURL: URL
@@ -139,9 +143,6 @@ final class EditorModel: ObservableObject {
             options: [.new]
         ) { [weak self] _, _ in
             Task { @MainActor in self?.systemAppearanceMaybeChanged() }
-        }
-        settingsObservation = settings.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
         }
         let url = scratchpadURL
         do {
@@ -392,10 +393,11 @@ final class EditorModel: ObservableObject {
 
     /// Counted on first read after an edit, not on every render.
     var wordCount: Int {
+        let source = text
         if let cachedWordCount { return cachedWordCount }
         var count = 0
-        text.enumerateSubstrings(
-            in: text.startIndex..., options: [.byWords, .substringNotRequired]
+        source.enumerateSubstrings(
+            in: source.startIndex..., options: [.byWords, .substringNotRequired]
         ) { _, _, _, _ in count += 1 }
         cachedWordCount = count
         return count
@@ -460,126 +462,162 @@ final class EditorModel: ObservableObject {
 }
 
 struct EditorView: View {
-    @ObservedObject var model: EditorModel
+    let model: EditorModel
 
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
-                HeaderBar(items: model.navigationHeadings, title: \.title) { item in
-                    model.jumpTo(item.heading)
-                }
-                ZStack(alignment: .topLeading) {
-                    Editor(
-                        document: model.document,
-                        onEdit: model.acceptEdit,
-                        isEditable: model.isEditable,
-                        caretOffset: $model.caretOffset,
-                        focusToken: model.focusToken,
-                        scrollToken: model.scrollToken,
-                        scrollTarget: model.scrollTarget,
-                        findHighlightToken: model.findHighlightToken,
-                        // Cleared under the help page, which the query is searching.
-                        findHighlightRange: model.showHelp
-                            ? NSRange(location: 0, length: 0) : model.findHighlightRange,
-                        style: .init(
-                            theme: model.theme, fontScale: model.fontScale,
-                            fonts: model.settings.config.fonts,
-                            indent: model.settings.config.indent,
-                            isSourceView: model.isSourceView, rule: model.settings.config.rule),
-                        smartPaste: model.settings.config.smartPaste,
-                        caret: model.settings.config.caret,
-                        spellcheck: model.spellcheck,
-                        onToggleSpellcheck: { model.toggleSpellcheck() }
-                    )
-                    .padding(.horizontal, Metrics.chromeInsetX)
-                    .padding(.top, barHeadings.isEmpty ? 24 : 4)
-                    .padding(.bottom, 4)
-                    if model.text.isEmpty {
-                        Text(model.placeholder)
-                            // The body's face, which in source view is the code one.
-                            .font(Font(Editor.baseFont(isSourceView: model.isSourceView)))
-                            .foregroundStyle(Color(palette.muted))
-                            .allowsHitTesting(false)
-                            .padding(.horizontal, Metrics.chromeInsetX)
-                            .padding(.top, barHeadings.isEmpty ? 26 : 2)
-                    }
-                }
-                FooterBar(
-                    // Only compute the readout currently on screen.
-                    readout: model.footerStatus == .position
-                        ? .position(
-                            model.caretPosition,
-                            words: model.wordCount)
-                        : .modified(model.lastLoadedMTime),
-                    isPanelVisible: model.isPanelVisible,
-                    onToggleReadout: { model.toggleFooterStatus() },
-                    fontScale: model.fontScale,
-                    isDefaultFontScale:
-                        model.fontScale == model.settings.config.clampedDefaultFontScale,
-                    onDecreaseFontScale: { model.stepFontScale(by: -1) },
-                    onIncreaseFontScale: { model.stepFontScale(by: 1) },
-                    onResetFontScale: { model.resetFontScale() },
-                    themeSetting: model.themeSetting,
-                    isSourceView: model.isSourceView,
-                    isSpellcheckOn: model.spellcheck,
-                    keymap: model.settings.config.keymap,
-                    onCycleTheme: { model.cycleTheme() },
-                    onToggleSourceView: { model.toggleSourceView() },
-                    onToggleSpellcheck: { model.toggleSpellcheck() },
-                    onHelpClick: { model.toggleHelp() },
-                    warning: model.persistenceWarning ?? model.settings.warning,
-                    onDismiss: { model.onDismissRequest?() }
-                )
+                EditorHeader(model: model)
+                EditorContent(model: model)
+                EditorFooter(model: model)
             }
             .disabled(model.showHelp)
             .accessibilityHidden(model.showHelp)
-            // Above the editor, under every overlay.
-            if model.settings.config.saveIndicator, !model.showFind {
-                SaveIndicator(isVisible: model.isShowingSaveFlash)
-            }
+            EditorSaveFeedback(model: model)
             if model.showHelp {
-                HelpOverlay(
-                    document: model.helpDocument,
-                    findHighlightToken: model.findHighlightToken,
-                    findHighlightRange: model.findHighlightRange,
-                    focusToken: model.helpFocusToken,
-                    onClose: {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            model.showHelp = false
-                        }
-                    }
-                )
-                .transition(.opacity)
+                EditorHelp(model: model)
+                    .transition(.opacity)
             }
             if model.showFind {
-                FindBar(
-                    query: $model.findQuery,
-                    matchCount: model.findMatchCount,
-                    currentIndex: model.findCurrentDisplayIndex,
-                    onNext: { model.findNext() },
-                    onPrev: { model.findPrevious() },
-                    onDismiss: {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            model.dismissFind()
-                        }
-                    }
-                )
-                .padding(.top, 12)
-                .padding(.trailing, 14)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                EditorFind(model: model)
+                    .padding(.top, 12)
+                    .padding(.trailing, 14)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .overlay {
             RoundedRectangle(cornerRadius: panelCornerRadius)
-                .strokeBorder(Color(palette.border), lineWidth: 1)
+                .strokeBorder(Color(nsColor: palette.border), lineWidth: 1)
                 .allowsHitTesting(false)
         }
         .environment(\.palette, palette)
     }
 
     private var palette: Palette { Palette.for(model.theme) }
+}
 
-    /// `#` and `##` only; `###` down are scrolled to rather than jumped to.
-    private var barHeadings: [HeadingNavigation.Item] { model.navigationHeadings }
+private struct EditorHeader: View {
+    let model: EditorModel
+
+    var body: some View {
+        HeaderBar(items: model.navigationHeadings, title: \.title) { item in
+            model.jumpTo(item.heading)
+        }
+    }
+}
+
+private struct EditorContent: View {
+    @Bindable var model: EditorModel
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Editor(
+                document: model.document,
+                onEdit: model.acceptEdit,
+                isEditable: model.isEditable,
+                caretOffset: $model.caretOffset,
+                focusToken: model.focusToken,
+                scrollToken: model.scrollToken,
+                scrollTarget: model.scrollTarget,
+                findHighlightToken: model.findHighlightToken,
+                findHighlightRange: model.showHelp
+                    ? NSRange(location: 0, length: 0) : model.findHighlightRange,
+                style: .init(
+                    theme: model.theme, fontScale: model.fontScale,
+                    fonts: model.settings.config.fonts,
+                    indent: model.settings.config.indent,
+                    isSourceView: model.isSourceView, rule: model.settings.config.rule),
+                smartPaste: model.settings.config.smartPaste,
+                caret: model.settings.config.caret,
+                spellcheck: model.spellcheck,
+                onToggleSpellcheck: { model.toggleSpellcheck() }
+            )
+            .padding(.horizontal, Metrics.chromeInsetX)
+            .padding(.top, model.navigationHeadings.isEmpty ? 24 : 4)
+            .padding(.bottom, 4)
+            if model.text.isEmpty {
+                Text(model.placeholder)
+                    .font(Font(Editor.baseFont(isSourceView: model.isSourceView)))
+                    .foregroundStyle(Color(nsColor: palette.muted))
+                    .allowsHitTesting(false)
+                    .padding(.horizontal, Metrics.chromeInsetX)
+                    .padding(.top, model.navigationHeadings.isEmpty ? 26 : 2)
+            }
+        }
+    }
+}
+
+private struct EditorFooter: View {
+    let model: EditorModel
+
+    var body: some View {
+        FooterBar(
+            readout: model.footerStatus == .position
+                ? .position(model.caretPosition, words: model.wordCount)
+                : .modified(model.lastLoadedMTime),
+            isPanelVisible: model.isPanelVisible,
+            onToggleReadout: { model.toggleFooterStatus() },
+            fontScale: model.fontScale,
+            isDefaultFontScale:
+                model.fontScale == model.settings.config.clampedDefaultFontScale,
+            onDecreaseFontScale: { model.stepFontScale(by: -1) },
+            onIncreaseFontScale: { model.stepFontScale(by: 1) },
+            onResetFontScale: { model.resetFontScale() },
+            themeSetting: model.themeSetting,
+            isSourceView: model.isSourceView,
+            isSpellcheckOn: model.spellcheck,
+            keymap: model.settings.config.keymap,
+            onCycleTheme: { model.cycleTheme() },
+            onToggleSourceView: { model.toggleSourceView() },
+            onToggleSpellcheck: { model.toggleSpellcheck() },
+            onHelpClick: { model.toggleHelp() },
+            warning: model.persistenceWarning ?? model.settings.warning,
+            onDismiss: { model.onDismissRequest?() }
+        )
+    }
+}
+
+private struct EditorSaveFeedback: View {
+    let model: EditorModel
+
+    var body: some View {
+        if model.settings.config.saveIndicator, !model.showFind {
+            SaveIndicator(isVisible: model.isShowingSaveFlash)
+        }
+    }
+}
+
+private struct EditorHelp: View {
+    let model: EditorModel
+
+    var body: some View {
+        HelpOverlay(
+            document: model.helpDocument,
+            findHighlightToken: model.findHighlightToken,
+            findHighlightRange: model.findHighlightRange,
+            focusToken: model.helpFocusToken,
+            onClose: {
+                withAnimation(.easeInOut(duration: 0.18)) { model.showHelp = false }
+            }
+        )
+    }
+}
+
+private struct EditorFind: View {
+    @Bindable var model: EditorModel
+
+    var body: some View {
+        FindBar(
+            query: $model.findQuery,
+            matchCount: model.findMatchCount,
+            currentIndex: model.findCurrentDisplayIndex,
+            onNext: { model.findNext() },
+            onPrev: { model.findPrevious() },
+            onDismiss: {
+                withAnimation(.easeInOut(duration: 0.15)) { model.dismissFind() }
+            }
+        )
+    }
 }

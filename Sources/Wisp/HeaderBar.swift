@@ -11,28 +11,29 @@ struct HeaderBar<Item: Identifiable>: View {
     var trailingInset: CGFloat = Metrics.headerTrailingInset
     @Environment(\.palette) private var palette
 
-    /// Content wider than the slot puts up the ellipsis.
-    @State private var contentWidth: CGFloat = 0
-    @State private var slotWidth: CGFloat = 0
-
-    private var isTruncated: Bool { contentWidth > slotWidth + 0.5 }
+    @State private var isTruncated = false
 
     var body: some View {
         if items.isEmpty {
             EmptyView()
         } else {
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 headingRow
-                    .measuringWidth(ContentWidthKey.self, into: $contentWidth)
                     .padding(.vertical, Metrics.chromeInsetY)
             }
-            .measuringWidth(SlotWidthKey.self, into: $slotWidth)
+            .scrollIndicators(.hidden)
+            .fixedSize(horizontal: false, vertical: true)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentSize.width > geometry.containerSize.width + 0.5
+            } action: { _, overflows in
+                isTruncated = overflows
+            }
             .overlay(alignment: .trailing) {
                 if isTruncated {
                     // Opaque, to mask the half-drawn heading under it.
                     Text("…")
                         .padding(.leading, 6)
-                        .background(Color(palette.chrome))
+                        .background(Color(nsColor: palette.chrome))
                 }
             }
             .padding(.leading, Metrics.chromeInsetX)
@@ -42,19 +43,19 @@ struct HeaderBar<Item: Identifiable>: View {
     }
 
     private var headingRow: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+        LazyHStack(spacing: 0) {
+            ForEach(items) { item in
                 HStack(spacing: 0) {
-                    if index > 0 {
+                    if item.id != items.first?.id {
                         Text("·")
-                            .foregroundStyle(Color(palette.rule))
+                            .foregroundStyle(Color(nsColor: palette.rule))
                             .padding(.horizontal, 10)
                             .accessibilityHidden(true)
                     }
                     Button(action: { onJump(item) }) {
                         // Accent on headings, so the inherited `…` isn't a link.
                         Text(item[keyPath: title])
-                            .foregroundStyle(Color(palette.accent))
+                            .foregroundStyle(Color(nsColor: palette.accent))
                             .lineLimit(1)
                     }
                     .buttonStyle(.plain)
@@ -77,35 +78,7 @@ private struct ChromeBar: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(Typography.ui(Metrics.chromeSize))
-            .foregroundStyle(Color(palette.muted))
-            .background(Color(palette.chrome))
-    }
-}
-
-protocol WidthPreference: PreferenceKey where Value == CGFloat {}
-
-extension WidthPreference {
-    static var defaultValue: CGFloat { 0 }
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
-/// Two keys, since preferences propagate up: one key read at both levels makes the slot report
-/// the content's width, and the ellipsis never shows.
-private struct ContentWidthKey: WidthPreference {}
-private struct SlotWidthKey: WidthPreference {}
-
-extension View {
-    /// In a `.background`, since a bare `GeometryReader` would stretch the bar to fill the panel.
-    fileprivate func measuringWidth<K: WidthPreference>(
-        _ key: K.Type, into width: Binding<CGFloat>
-    ) -> some View {
-        background(
-            GeometryReader { proxy in
-                Color.clear.preference(key: key, value: proxy.size.width)
-            }
-        )
-        .onPreferenceChange(key) { width.wrappedValue = $0 }
+            .foregroundStyle(Color(nsColor: palette.muted))
+            .background(Color(nsColor: palette.chrome))
     }
 }
