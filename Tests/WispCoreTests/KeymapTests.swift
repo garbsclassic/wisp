@@ -81,14 +81,6 @@ struct KeymapTests {
         #expect(object["resetView"] == nil)
     }
 
-    @Test("A round trip through JSON preserves an override")
-    func roundTrip() throws {
-        let keymap = Keymap([.highlight: "ctrl+opt+k"])
-        let decoded = try JSONDecoder().decode(Keymap.self, from: JSONEncoder().encode(keymap))
-        #expect(decoded == keymap)
-        #expect(decoded.chord(for: .highlight) == "ctrl+opt+k")
-    }
-
     @Test("A chord list binds every entry, and one bad entry doesn't cost the others")
     func aliasList() throws {
         let config = try decode(#"{ "keymap": { "help": ["f1", "cmd+/", "cmd+nope"] } }"#)

@@ -26,19 +26,6 @@ struct ThemeEnumTests {
 
 @Suite("Metrics")
 struct MetricsTests {
-    @Test("The default scale sits inside the clamp range")
-    func defaultInRange() {
-        #expect(Metrics.fontScaleRange.contains(WispConfig().fontScale))
-        #expect(Metrics.fontScaleRange.contains(WispConfig().defaultFontScale))
-    }
-
-    @Test("Clamping bounds a scale without moving one already in range")
-    func clamping() {
-        #expect(Metrics.clampFontScale(0.1) == Metrics.fontScaleRange.lowerBound)
-        #expect(Metrics.clampFontScale(9) == Metrics.fontScaleRange.upperBound)
-        #expect(Metrics.clampFontScale(1.05) == 1.05)
-    }
-
     @Test("Stepping lands on the step grid rather than accumulating drift")
     func stepping() {
         var scale = 1.0

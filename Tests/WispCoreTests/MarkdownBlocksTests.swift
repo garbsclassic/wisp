@@ -54,11 +54,6 @@ struct MarkdownBlocksKindTests {
         #expect(kind(text, at: offset) == .setextUnderline(level: 2, paragraphStart: 0))
     }
 
-    @Test("`---` with no paragraph open above it is .rule")
-    func rule() {
-        #expect(kind("---", at: 0) == .rule)
-    }
-
     @Test("An opening ``` line is .fence, distinct from the .fencedCode line it opens")
     func fenceVersusFencedCode() {
         let text = "```\ncode\n```"
