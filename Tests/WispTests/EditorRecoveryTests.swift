@@ -137,6 +137,37 @@ struct EditorRecoveryTests {
         #expect(model.text == original)
     }
 
+    @Test("Opening help disables the covered editor without discarding undo")
+    func helpDisablesCoveredEditor() throws {
+        let root = try recoveryTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let original = "# Help boundary\nDisposable note text"
+        let (model, _) = try recoveryModel(in: root, initialText: original)
+        let mounted = try mountEditor(model)
+        defer { mounted.window.close() }
+        let textView = mounted.textView
+        let undo = try #require(textView.undoManager)
+        let range = (textView.string as NSString).range(of: "Disposable")
+        #expect(textView.replaceText(in: range, with: "Changed"))
+        #expect(textView.string == "# Help boundary\nChanged note text")
+        #expect(undo.canUndo)
+
+        model.showHelp = true
+
+        #expect(hostedUpdate(mounted.host) { !textView.isEditable && !textView.isSelectable })
+        #expect(textView.string == "# Help boundary\nChanged note text")
+        #expect(model.text == textView.string)
+        #expect(!textView.replaceText(in: NSRange(location: 0, length: 0), with: "lost"))
+        #expect(undo.canUndo)
+
+        model.showHelp = false
+
+        #expect(hostedUpdate(mounted.host) { textView.isEditable && textView.isSelectable })
+        undo.undo()
+        #expect(textView.string == original)
+        #expect(model.text == original)
+    }
+
     @Test("A shorter external replacement removes undo actions from the old text")
     func shorterExternalReplacementClearsUndo() throws {
         let root = try recoveryTemporaryDirectory()

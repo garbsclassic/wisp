@@ -21,6 +21,7 @@ struct FindBar: View {
             Image(systemName: "magnifyingglass")
                 .font(Typography.ui(Metrics.labelSize))
                 .foregroundStyle(Color(palette.muted))
+                .accessibilityHidden(true)
 
             TextField("Find", text: $query)
                 .textFieldStyle(.plain)
@@ -35,11 +36,11 @@ struct FindBar: View {
 
             Divider().frame(height: 16)
 
-            iconButton("chevron.up", help: "Previous (⇧↵)", action: onPrev)
+            iconButton("chevron.up", label: "Previous match", help: "Previous (⇧↵)", action: onPrev)
                 .disabled(matchCount == 0)
-            iconButton("chevron.down", help: "Next (↵)", action: onNext)
+            iconButton("chevron.down", label: "Next match", help: "Next (↵)", action: onNext)
                 .disabled(matchCount == 0)
-            iconButton("xmark", help: "Dismiss (Esc)", action: onDismiss)
+            iconButton("xmark", label: "Dismiss find", help: "Dismiss (Esc)", action: onDismiss)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -75,11 +76,15 @@ struct FindBar: View {
     }
 
     @ViewBuilder
-    private func iconButton(_ name: String, help: String, action: @escaping () -> Void) -> some View {
+    private func iconButton(
+        _ name: String, label: String, help: String, action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            Image(systemName: name)
+            Label(label, systemImage: name)
+                .labelStyle(.iconOnly)
                 .font(Typography.ui(Metrics.chromeSize, weight: .medium))
-                .frame(width: 22, height: 18)
+                .frame(minWidth: 22, minHeight: 18)
+                .fixedSize()
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

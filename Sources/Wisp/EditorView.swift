@@ -14,10 +14,13 @@ final class EditorModel: ObservableObject {
         }
     }
     var headings: [Heading] { document.headings }
+    private var headingNavigation = HeadingNavigation()
+    var navigationHeadings: [HeadingNavigation.Item] { headingNavigation.items }
 
     /// The editor hands over its final post-renumber revision, including its derived structure.
     func acceptEdit(_ revision: DocumentAnalysis) {
         guard isEditable, !document.matches(revision.text) else { return }
+        headingNavigation.update(from: document, to: revision)
         document = revision
         cachedWordCount = nil
         cachedPosition = nil
@@ -462,10 +465,8 @@ struct EditorView: View {
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
-                // One read, so a click jumps to the heading it was drawn from.
-                let headings = barHeadings
-                HeaderBar(labels: headings.map(\.name)) { index in
-                    model.jumpTo(headings[index])
+                HeaderBar(items: model.navigationHeadings, title: \.title) { item in
+                    model.jumpTo(item.heading)
                 }
                 ZStack(alignment: .topLeading) {
                     Editor(
@@ -530,6 +531,8 @@ struct EditorView: View {
                     onDismiss: { model.onDismissRequest?() }
                 )
             }
+            .disabled(model.showHelp)
+            .accessibilityHidden(model.showHelp)
             // Above the editor, under every overlay.
             if model.settings.config.saveIndicator, !model.showFind {
                 SaveIndicator(isVisible: model.isShowingSaveFlash)
@@ -578,5 +581,5 @@ struct EditorView: View {
     private var palette: Palette { Palette.for(model.theme) }
 
     /// `#` and `##` only; `###` down are scrolled to rather than jumped to.
-    private var barHeadings: [Heading] { model.headings.filter { $0.level <= 2 } }
+    private var barHeadings: [HeadingNavigation.Item] { model.navigationHeadings }
 }

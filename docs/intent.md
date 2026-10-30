@@ -55,3 +55,7 @@ line indent both include the doubling, so wrapped and continuation lines land on
 ## The fourth ↵ removes the rule instead of adding a line
 
 A third ↵ after prose inserts `---` set off by blank lines; the fourth replaces the `---` with nothing, so the caret doesn't move. The result is what four plain ↵ would have produced, which is the point: the rule was the shortcut, and pressing on means you wanted space.
+
+## Heading links own identity separately from parsed offsets
+
+A parsed `Heading` belongs to one document revision, so its offset is not a navigation link's identity. The model keeps UUIDs for the links across ordinary edits and unambiguous renames. A replacement with no clear correspondence, or a change to the number of identical headings, resets the affected identities: the text alone cannot establish which duplicate survived, and retaining a guessed identity could move keyboard or accessibility focus to a different heading.

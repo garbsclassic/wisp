@@ -3,10 +3,10 @@ import WispCore
 
 /// Links to the note's headings or the help page's sections, with an ellipsis on overflow. The
 /// scroll view does the clipping, since clipping by hand grows the panel to the row's width.
-struct HeaderBar: View {
-    let labels: [String]
-    /// Takes the clicked label's index into `labels`.
-    let onJump: (Int) -> Void
+struct HeaderBar<Item: Identifiable>: View {
+    let items: [Item]
+    let title: KeyPath<Item, String>
+    let onJump: (Item) -> Void
     /// Clear at the trailing edge for the save dot; the help page has none.
     var trailingInset: CGFloat = Metrics.headerTrailingInset
     @Environment(\.palette) private var palette
@@ -18,7 +18,7 @@ struct HeaderBar: View {
     private var isTruncated: Bool { contentWidth > slotWidth + 0.5 }
 
     var body: some View {
-        if labels.isEmpty {
+        if items.isEmpty {
             EmptyView()
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -43,21 +43,24 @@ struct HeaderBar: View {
 
     private var headingRow: some View {
         HStack(spacing: 0) {
-            ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
-                if index > 0 {
-                    Text("·")
-                        .foregroundStyle(Color(palette.rule))
-                        .padding(.horizontal, 10)
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                HStack(spacing: 0) {
+                    if index > 0 {
+                        Text("·")
+                            .foregroundStyle(Color(palette.rule))
+                            .padding(.horizontal, 10)
+                            .accessibilityHidden(true)
+                    }
+                    Button(action: { onJump(item) }) {
+                        // Accent on headings, so the inherited `…` isn't a link.
+                        Text(item[keyPath: title])
+                            .foregroundStyle(Color(palette.accent))
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .pointerCursor()
+                    .help("Jump to “\(item[keyPath: title])”")
                 }
-                Button(action: { onJump(index) }) {
-                    // Accent on the headings, not the row, so the inherited `…` isn't a link.
-                    Text(label)
-                        .foregroundStyle(Color(palette.accent))
-                        .lineLimit(1)
-                }
-                .buttonStyle(.plain)
-                .pointerCursor()
-                .help("Jump to “\(label)”")
             }
         }
     }

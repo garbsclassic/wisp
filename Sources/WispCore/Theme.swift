@@ -203,7 +203,7 @@ public enum Metrics {
         chromeInsetX + saveIndicatorSize + chromeSize + 2
     }
 
-    /// A fixed box, so the footer's spacing doesn't rag as icons change.
+    /// Minimum icon boxes; larger fonts can grow without overlapping adjacent controls.
     public static let footerButtonWidth: CGFloat = 24
     public static let footerButtonHeight: CGFloat = 20
 

@@ -43,7 +43,8 @@ struct HelpBodyTests {
         var body = makeBody()
         let coordinator = body.makeCoordinator()
         let view = body.makeView(coordinator: coordinator)
-        body.document = HelpDocument(sections: [.init("Replaced", [.init("key", "detail")])])
+        body.document = HelpDocument(
+            sections: [.init(id: "replaced", "Replaced", [.init("key", "detail")])])
         body.updateView(view, coordinator: coordinator)
         #expect(highlight(in: view, at: body.findHighlightRange.location) == .yellow)
     }

@@ -19,8 +19,11 @@ struct HelpOverlay: View {
     var body: some View {
         VStack(spacing: 0) {
             HeaderBar(
-                labels: document.sections.map(\.title),
-                onJump: { index in
+                items: document.sections,
+                title: \.title,
+                onJump: { section in
+                    guard let index = document.sections.firstIndex(where: { $0.id == section.id })
+                    else { return }
                     jumpSection = index
                     jumpToken &+= 1
                 },
@@ -45,7 +48,7 @@ struct HelpOverlay: View {
             chrome {
                 Text("scroll with ↑ · ↓ · mouse wheel")
                 Spacer()
-                GlyphButton(symbol: "xmark", help: "Close   ⎋", action: onClose)
+                GlyphButton(symbol: "xmark", label: "Close help", help: "Close   ⎋", action: onClose)
             }
             .overlay(alignment: .top) { hairline }
         }

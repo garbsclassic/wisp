@@ -14,11 +14,13 @@ public struct HelpDocument: Equatable, Sendable {
         }
     }
 
-    public struct Section: Equatable, Sendable {
+    public struct Section: Identifiable, Equatable, Sendable {
+        public let id: String
         public let title: String
         public let rows: [Row]
 
-        public init(_ title: String, _ rows: [Row]) {
+        public init(id: String, _ title: String, _ rows: [Row]) {
+            self.id = id
             self.title = title
             self.rows = rows
         }
@@ -38,7 +40,7 @@ public struct HelpDocument: Equatable, Sendable {
         }
 
         return HelpDocument(sections: [
-            Section("Wisp", [
+            Section(id: "wisp", "Wisp", [
                 Row(chord(.summon), "tap to pin · hold to peek · tap again to dismiss"),
                 Row(chord(.resetPosition), "reset panel position"),
                 Row(chord(.resetSize), "reset panel size"),
@@ -50,7 +52,7 @@ public struct HelpDocument: Equatable, Sendable {
                     "larger · smaller · reset font"),
                 Row(chord(.settings), "settings"),
             ]),
-            Section("Edit", [
+            Section(id: "edit", "Edit", [
                 Row(chord(.find), "find… — ↵ · ⇧↵ to step"),
                 Row("↵ · ⇧↵", "find next · previous"),
                 Row(chord(.duplicateLine), "duplicate line or selection"),
@@ -60,7 +62,7 @@ public struct HelpDocument: Equatable, Sendable {
                 Row(group(.previousHeading, .nextHeading), "previous · next heading"),
                 Row(chord(.spellcheck), "check spelling as you type"),
             ]),
-            Section("Format", [
+            Section(id: "format", "Format", [
                 Row(chord(.bulletedList), "toggle bulleted list"),
                 Row(chord(.checklist), "toggle checklist · check it off"),
                 Row(group(.moveLineUp, .moveLineDown), "move line or selection"),
@@ -74,7 +76,7 @@ public struct HelpDocument: Equatable, Sendable {
                 Row("` · _ · ' · \" · ** · == · ~~", "wrap selection"),
                 Row(chord(.sourceView), "source view — raw text"),
             ]),
-            Section("Insert", [
+            Section(id: "insert", "Insert", [
                 Row("- · * · +", "bulleted list"),
                 Row("1. · 1) · A. · a.", "numbered list"),
                 Row("- [ ]", "checklist — click the box to check it"),

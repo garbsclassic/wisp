@@ -34,38 +34,9 @@ struct FooterBar: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // One leading label, which the spacing and the warning's truncation key off.
-            HoverTextButton(help: readoutHelp, action: onToggleReadout) {
-                readoutLabel
-            }
-            if let warning {
-                // One line; the full text is a hover away.
-                Text(warning)
-                    .foregroundStyle(Color(palette.danger))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .help(warning)
-            }
-            Spacer()
-            zoom
-            // Underlined when on, the squiggle it turns on.
-            glyphButton(
-                isSpellcheckOn ? "textformat.abc.dottedunderline" : "textformat.abc",
-                help: hint(
-                    isSpellcheckOn ? "Stop checking spelling" : "Check spelling",
-                    .spellcheck),
-                action: onToggleSpellcheck)
-            // Filled when on, like the theme button's glyph.
-            glyphButton(
-                isSourceView ? "doc.plaintext.fill" : "doc.plaintext",
-                help: hint(isSourceView ? "Rich text view" : "Source view", .sourceView),
-                action: onToggleSourceView)
-            glyphButton(
-                themeIconName, help: hint(themeButtonHelp, .cycleTheme), action: onCycleTheme)
-            glyphButton(
-                "questionmark", help: hint("Help", .help),
-                action: onHelpClick)
-            glyphButton("xmark", help: "Close   ⎋", action: onDismiss)
+            status
+            Spacer(minLength: 0)
+            controls
         }
         .padding(.horizontal, Metrics.chromeInsetX)
         .padding(.vertical, Metrics.chromeInsetY)
@@ -73,11 +44,53 @@ struct FooterBar: View {
         .chromeBar()
     }
 
+    private var status: some View {
+        HStack(spacing: 16) {
+            HoverTextButton(help: readoutHelp, action: onToggleReadout) {
+                readoutLabel.lineLimit(1).truncationMode(.tail)
+            }
+            if let warning {
+                Text(warning)
+                    .foregroundStyle(Color(palette.danger))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(warning)
+            }
+        }
+    }
+
+    private var controls: some View {
+        HStack(spacing: 16) {
+            zoom
+            actions
+        }
+        .fixedSize()
+    }
+
+    private var actions: some View {
+        HStack(spacing: 16) {
+            glyphButton(
+                isSpellcheckOn ? "textformat.abc.dottedunderline" : "textformat.abc",
+                label: isSpellcheckOn ? "Stop checking spelling" : "Check spelling",
+                shortcut: .spellcheck, action: onToggleSpellcheck)
+            glyphButton(
+                isSourceView ? "doc.plaintext.fill" : "doc.plaintext",
+                label: isSourceView ? "Rich text view" : "Source view",
+                shortcut: .sourceView, action: onToggleSourceView)
+            glyphButton(
+                themeIconName, label: themeButtonHelp,
+                shortcut: .cycleTheme, action: onCycleTheme)
+            glyphButton("questionmark", label: "Help", shortcut: .help, action: onHelpClick)
+            GlyphButton(symbol: "xmark", label: "Close", help: "Close   ⎋", action: onDismiss)
+        }
+        .fixedSize()
+    }
+
     /// `−  100%  +` as one control; the percentage resets.
     private var zoom: some View {
         HStack(spacing: 0) {
             glyphButton(
-                "minus", help: hint("Smaller font", .decreaseFontScale),
+                "minus", label: "Smaller font", shortcut: .decreaseFontScale,
                 action: onDecreaseFontScale)
             HoverTextButton(
                 help: hint("Reset font size", .resetFontScale), isEnabled: !isDefaultFontScale,
@@ -89,9 +102,11 @@ struct FooterBar: View {
                     Text("\(Int((fontScale * 100).rounded()))%")
                 }
                 .font(Typography.ui(Metrics.chromeSize, tabularDigits: true))
+                .lineLimit(1)
+                .fixedSize()
             }
             glyphButton(
-                "plus", help: hint("Larger font", .increaseFontScale),
+                "plus", label: "Larger font", shortcut: .increaseFontScale,
                 action: onIncreaseFontScale)
         }
     }
@@ -130,9 +145,9 @@ struct FooterBar: View {
     }
 
     private func glyphButton(
-        _ symbol: String, help: String, action: @escaping () -> Void
+        _ symbol: String, label: String, shortcut: KeymapAction, action: @escaping () -> Void
     ) -> some View {
-        GlyphButton(symbol: symbol, help: help, action: action)
+        GlyphButton(symbol: symbol, label: label, help: hint(label, shortcut), action: action)
     }
 
     private var themeIconName: String {
@@ -183,17 +198,20 @@ struct HoverTextButton<Label: View>: View {
     }
 }
 
-/// An SF Symbol in a fixed box, so the footer's spacing doesn't rag.
+/// An icon with an action label and enough room for the configured font size.
 struct GlyphButton: View {
     let symbol: String
+    let label: String
     let help: String
     let action: () -> Void
 
     var body: some View {
         HoverTextButton(help: help, action: action) {
-            Image(systemName: symbol)
+            Label(label, systemImage: symbol)
+                .labelStyle(.iconOnly)
                 .font(Typography.ui(Metrics.chromeSize))
-                .frame(width: Metrics.footerButtonWidth, height: Metrics.footerButtonHeight)
+                .frame(minWidth: Metrics.footerButtonWidth, minHeight: Metrics.footerButtonHeight)
+                .fixedSize()
         }
     }
 }

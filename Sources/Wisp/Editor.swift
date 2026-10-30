@@ -65,7 +65,8 @@ struct Editor: NSViewRepresentable {
         textView.font = Self.baseFont(isSourceView: style.isSourceView)
         textView.defaultParagraphStyle = Self.makeParagraphStyle()
         textView.allowsUndo = true
-        textView.isEditable = isEditable
+        textView.isEditable = isEditable && context.environment.isEnabled
+        textView.isSelectable = context.environment.isEnabled
         textView.isRichText = false
         textView.importsGraphics = false
         textView.usesFindBar = false
@@ -91,7 +92,8 @@ struct Editor: NSViewRepresentable {
         // Against the last hand-over rather than `textView.string`, which costs a full scan of the
         // bridged storage.
         coordinator.onEdit = onEdit
-        textView.isEditable = isEditable
+        textView.isEditable = isEditable && context.environment.isEnabled
+        textView.isSelectable = context.environment.isEnabled
         if document !== coordinator.syncedDocument {
             let changed = coordinator.syncedDocument?.matches(text) != true
             if changed {
