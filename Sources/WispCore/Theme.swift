@@ -168,7 +168,7 @@ extension EnvironmentValues {
 public enum Metrics {
     // MARK: Notes body
 
-    public static let bodySize: CGFloat = 15
+    public static let bodySize: CGFloat = 16
     /// Heading size off the body, indexed by `level - 1`. The ramp is shallow because
     /// `Palette.headings` carries the tier.
     public static let headingRatios: [CGFloat] = [1.08, 1.06, 1.04, 1.02, 1, 0.98]
@@ -178,9 +178,9 @@ public enum Metrics {
     // MARK: Chrome
 
     /// Header, footer, and the incidental hint lines in the overlays.
-    public static let chromeSize: CGFloat = 13
+    public static let chromeSize: CGFloat = 14
     /// Secondary overlay labels, such as chord names.
-    public static let labelSize: CGFloat = 14
+    public static let labelSize: CGFloat = 15
     /// Overlay rows and the find field: chrome meant to be read.
     public static let rowSize: CGFloat = 15
     /// The save dot, small enough to read as a status light.
