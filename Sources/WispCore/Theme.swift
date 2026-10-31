@@ -179,10 +179,8 @@ public enum Metrics {
 
     /// Header, footer, and the incidental hint lines in the overlays.
     public static let chromeSize: CGFloat = 14
-    /// Secondary overlay labels, such as chord names.
-    public static let labelSize: CGFloat = 15
-    /// Overlay rows and the find field: chrome meant to be read.
-    public static let rowSize: CGFloat = 15
+    /// Find field text and search icon.
+    public static let findSize: CGFloat = 15
     /// The save dot, small enough to read as a status light.
     public static let saveIndicatorSize: CGFloat = 6
 

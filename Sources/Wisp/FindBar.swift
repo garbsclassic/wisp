@@ -19,13 +19,23 @@ struct FindBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(Typography.ui(Metrics.labelSize))
+                .font(Typography.ui(Metrics.findSize))
                 .foregroundStyle(Color(nsColor: palette.muted))
                 .accessibilityHidden(true)
 
-            TextField("Find", text: $query)
+            TextField("", text: $query)
                 .textFieldStyle(.plain)
-                .font(Typography.ui(Metrics.rowSize))
+                .font(Typography.ui(Metrics.findSize))
+                .foregroundStyle(Color(nsColor: palette.text))
+                .overlay(alignment: .leading) {
+                    if query.isEmpty {
+                        Text("Find")
+                            .foregroundStyle(Color(nsColor: palette.muted))
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .accessibilityLabel("Find")
                 .focused($focused)
                 .frame(width: 160)
 
